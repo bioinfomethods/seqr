@@ -1,7 +1,7 @@
 
 seqr
 ====
-![Unit Tests](https://github.com/broadinstitute/seqr/workflows/Unit%20Tests/badge.svg?branch=master) | ![Local Install Tests](https://github.com/broadinstitute/seqr/workflows/local%20install%20tests/badge.svg?branch=master)
+[![Build Status](https://travis-ci.com/ssadedin/seqr.svg?branch=master)](https://travis-ci.com/ssadedin/seqr)
 
 seqr is a web-based tool for rare disease genomics.
 This repository contains code that underlies the [Broad seqr instance](http://seqr.broadinstitute.org) and other seqr deployments. To check for any active incidents occuring on the Broad seqr instance, check [here](/INCIDENTS.md)
@@ -18,14 +18,14 @@ seqr consists of the following components:
 
 ## Install
 
-The seqr production instance runs on Google Kubernetes Engine (GKE) and data is loaded using Google Dataproc Spark clusters. 
+The seqr production instance runs on Google Kubernetes Engine (GKE) and data is loaded using Google Dataproc Spark clusters.
 
 On-prem installs can be created using docker-compose:
-**[Local installs using docker-compose](deploy/LOCAL_INSTALL.md)**  
+**[Local installs using docker-compose](deploy/LOCAL_INSTALL.md)**
 
 
-## Updating / Migrating an older seqr Instance	
+## Updating / Migrating an older seqr Instance
 
-For notes on how to update an older instance, see  	
+For notes on how to update an older instance, see
 
 [Update/Migration Instructions](deploy/MIGRATE.md)

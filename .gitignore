@@ -17,3 +17,11 @@ pedigree_images/*
 seqr_settings
 
 django_key
+
+data
+docker-compose.*.env
+!docker-compose.sample.env
+.coverage
+generated_files
+seqr.*.env
+!seqr.sample.env
