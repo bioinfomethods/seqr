@@ -2,34 +2,33 @@
  * @GrabConfig (systemClassLoader =true)
  */
 
-
 import groovy.json.JsonSlurper
 import groovy.transform.Field
 import groovyx.net.http.FromServer
+import org.slf4j.LoggerFactory
 import picocli.CommandLine
 
+import static ch.qos.logback.classic.Level.INFO
 import static groovyx.net.http.ContentTypes.JSON
+import static groovyx.net.http.HttpBuilder.configure
+import static org.slf4j.Logger.ROOT_LOGGER_NAME
+
+@Grab('ch.qos.logback:logback-classic')
 @Grab('info.picocli:picocli-groovy')
 @Grab('io.github.http-builder-ng:http-builder-ng-core')
 @picocli.groovy.PicocliScript
-@picocli.CommandLine.Command(name = "reconcile_es_indices",
+@picocli.CommandLine.Command(name = "compare_es_index",
         mixinStandardHelpOptions = true,  // add --help and --version options
         version = "0.0.1",
         description = """
-This script compares two instances of Seqr Elasticsearch and ensures all their indices have the same document counts.
-It also compares the first 1000 documents and ensure all contents (hits) are identical.
-Requires access to Seqr DB, Seqr source ES and the other Seqr ES service to compare with.
-
-To run this script locally, create SSH tunnel as follows:
-seqrDb: ssh -L 0.0.0.0:15432:localhost:5432 seqr@seqr-test-gcp
-sourceEsUrl: ssh -L 0.0.0.0:19200:\$(gcloud compute addresses list --filter='name=seqr-prod-b-es' --format='value(address)'):30100 seqr@seqrprodb
-targetEsUrl: ssh -L 0.0.0.0:29200:\$(gcloud compute addresses list --filter='name=seqr-prod-a-es' --format='value(address)'):30100 seqr@seqrproda
+This script compares two instances of Seqr Elasticsearch and ensures the source and target index match in the following criteria:
+* Variant counts match
+* First and last 1000 documents (sorted by variantId) match
+* If list of sample IDs are provided, for each sample ID, variant counts by each sample are also compared.
 
 then run script as follows:
-groovy reconcile_es_indices.groovy "jdbc:postgresql://localhost:15432/seqrdb?user=postgres&password=\$DB_PASSWORD" http://localhost:9200 elastic \$PASSWORD http://localhost:19200 elastic \$PASSWORD
+groovy compare_es_index.groovy source_index_name http://localhost:9200 username password target_index_name http://localhost:9200 username password sampleIds...
 """)
-import static groovyx.net.http.ContentTypes.JSON
-import static groovyx.net.http.HttpBuilder.configure
 
 @CommandLine.Parameters(index = '0', arity = '1', paramLabel = 'sourceIndex', description = 'Source index name')
 @Field String sourceIndex
@@ -51,11 +50,19 @@ import static groovyx.net.http.HttpBuilder.configure
 @CommandLine.Option(arity = '1', names = ['-n', '--docCount'], defaultValue = '1000', description = 'number of documents to compare')
 @Field Integer docCount
 
+@CommandLine.Parameters(index = '8..*', paramLabel = "SAMPLES", description = "one or more sample IDs")
+@Field List<String> sampleIds = Collections.emptyList()
+
+def printerr = System.err.&println
+
 def projectIndices = [("${sourceIndex}".toString()): "${targetIndex}"]
+
+def ROOT_LOG = LoggerFactory.getLogger(ROOT_LOGGER_NAME)
+ROOT_LOG.level = INFO
 
 ['asc', 'desc'].each { String indexSortOrder ->
     def ES_QUERY = """
-    {    
+    {
         "_source": {
             "exclude": ["_index", "_type"]
         },
@@ -72,7 +79,7 @@ def projectIndices = [("${sourceIndex}".toString()): "${targetIndex}"]
     """
 
     projectIndices.each { source, target ->
-        println "Comparing first $docCount documents in $indexSortOrder order, sourceIndex=$source to targetIndex=$target"
+        println "Comparing $docCount documents in $indexSortOrder order, sourceIndex=$source to targetIndex=$target"
 
         def body = new JsonSlurper().parseText(ES_QUERY)
 
@@ -84,7 +91,7 @@ def projectIndices = [("${sourceIndex}".toString()): "${targetIndex}"]
             request.uri.path = "/$source/_search"
             request.body = body
             response.failure { FromServer fs, def respBody ->
-                println "Not found in sourceIndex, skipping... sourceIndex=$source, statusCode=${fs.statusCode}, message=${fs.message}"
+                printerr "Not found in sourceIndex, skipping... sourceIndex=$source, statusCode=${fs.statusCode}, message=${fs.message}"
             }
         }
 
@@ -100,7 +107,7 @@ def projectIndices = [("${sourceIndex}".toString()): "${targetIndex}"]
                 request.uri.path = "/$target/_search"
                 request.body = body
                 response.failure { FromServer fs, def respBody ->
-                    println "ERROR: Elasticsearch targetIndex=$target found in source but not in target."
+                    printerr "ERROR: Elasticsearch targetIndex=$target found in source but not in target."
                 }
             }
 
@@ -142,9 +149,87 @@ def projectIndices = [("${sourceIndex}".toString()): "${targetIndex}"]
                             }
                         }
                     } else {
-                        println "Found more than one target docs for variant=${docId}"
+                        printerr "Found more than one target docs for variant=${docId}"
                     }
                 }
+            }
+        }
+    }
+}
+
+projectIndices.each { source, target ->
+    sampleIds.each { String sampleId ->
+        def bySampleEsQuery = """
+  {
+    "query": {
+      "bool": {
+        "filter": [
+          {
+            "bool": {
+              "must": [
+                {
+                  "bool": {
+                    "should": [
+                      {
+                        "terms": {
+                          "samples_num_alt_1": [
+                            "$sampleId"
+                          ]
+                        }
+                      },
+                      {
+                        "terms": {
+                          "samples_num_alt_2": [
+                            "$sampleId"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "track_total_hits": true
+  }
+  """
+
+        def body = new JsonSlurper().parseText(bySampleEsQuery)
+
+        def sourceResult = configure {
+            request.auth.basic sourceEsUsername, sourceEsPassword
+            request.uri = sourceEsUrl
+            request.contentType = JSON[0]
+        }.get {
+            request.uri.path = "/$source/_search"
+            request.body = body
+            response.failure { FromServer fs, def respBody ->
+                printerr "Not found in sourceIndex, skipping... sourceIndex=$source, statusCode=${fs.statusCode}, message=${fs.message}"
+            }
+        }
+
+        if (sourceResult) {
+            Long sourceDocCount = sourceResult.hits.total.value
+
+            def targetResult = configure {
+                request.auth.basic targetEsUsername, targetEsPassword
+                request.uri = targetEsUrl
+                request.contentType = JSON[0]
+            }.get {
+                request.uri.path = "/$target/_search"
+                request.body = body
+                response.failure { FromServer fs, def respBody ->
+                    printerr "ERROR: Elasticsearch targetIndex=$target found in source but not in target."
+                }
+            }
+
+            if (targetResult) {
+                Long targetDocCount = targetResult.hits.total.value
+                assert sourceDocCount == targetDocCount
+                println "Variant counts match: sourceIndex=$source, targetIndex=$target, sampleId=$sampleId, sourceCount=$sourceDocCount, targetCount=$targetDocCount"
             }
         }
     }

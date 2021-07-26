@@ -31,9 +31,9 @@ def errors = []
 
 new File(variantCountPath).splitEachLine(/\t/) { def lineItems ->
   String sampleId = lineItems[0].trim()
-  Integer expVariantCount = lineItems[1].trim() as Integer
+  Integer vcfVariantCount = lineItems[1].trim() as Integer
 
-  // println "Reconciling sampleId=$sampleId, expVariantCount=$expVariantCount"
+  // println "Reconciling sampleId=$sampleId, expVariantCount=vcfVariantCount"
 
   def esQuery = """
 {
@@ -84,13 +84,13 @@ new File(variantCountPath).splitEachLine(/\t/) { def lineItems ->
 
   Integer indexVariantCount = result.hits.total.value
 
-  if (indexVariantCount != expVariantCount) {
-    errors << "Variant count mismatch, index=$index, sampleId=$sampleId, expVariantCount=$expVariantCount, indexVariantCount=$indexVariantCount, diff=${indexVariantCount - expVariantCount}"
+  if (indexVariantCount < vcfVariantCount || indexVariantCount > vcfVariantCount * 1.1) {
+    errors << "Elasticsearch index variant counts not within range of expected VCF variant counts, index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=${indexVariantCount - vcfVariantCount}"
   }
 }
 
 if (errors.empty) {
-  println "All samples in index $index reconcile with expected variant count."
+  println "All samples in index $index reconcile within range of expected variant counts."
   System.exit(0)
 }
 else {

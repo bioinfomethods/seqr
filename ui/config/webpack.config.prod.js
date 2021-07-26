@@ -175,6 +175,7 @@ module.exports = {
                     removeAll: true,
 
                   },
+                  zindex: false,
                 },
               },
               {
@@ -196,6 +197,7 @@ module.exports = {
                     }),
                     cssnano({
                       discardComments: {removeAll: true},
+                      zindex: false,
                     }),
                   ],
                 },
