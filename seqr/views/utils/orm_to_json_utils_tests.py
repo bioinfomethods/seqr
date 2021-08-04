@@ -1,16 +1,17 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
-from reference_data.models import GeneInfo
+import mock
+
 from seqr.models import Project, Family, Individual, Sample, IgvSample, SavedVariant, VariantTag, VariantFunctionalData, \
     VariantNote, LocusList, VariantSearch
 from seqr.views.utils.orm_to_json_utils import _get_json_for_user, _get_json_for_project, _get_json_for_family, \
     _get_json_for_individual, get_json_for_sample, get_json_for_saved_variant, get_json_for_variant_tags, \
-    get_json_for_variant_functional_data_tags, get_json_for_variant_note, get_json_for_locus_list, get_json_for_gene, \
-    get_json_for_saved_search, get_json_for_saved_variants_with_tags
+    get_json_for_variant_functional_data_tags, get_json_for_variant_note, get_json_for_locus_list, \
+ get_json_for_saved_search, get_json_for_saved_variants_with_tags
 from seqr.views.utils.test_utils import USER_FIELDS, PROJECT_FIELDS, FAMILY_FIELDS, INTERNAL_FAMILY_FIELDS, \
     INDIVIDUAL_FIELDS, INTERNAL_INDIVIDUAL_FIELDS, INDIVIDUAL_FIELDS_NO_FEATURES, SAMPLE_FIELDS, SAVED_VARIANT_FIELDS,  \
-    FUNCTIONAL_FIELDS, SAVED_SEARCH_FIELDS, LOCUS_LIST_DETAIL_FIELDS, GENE_FIELDS, GENE_DETAIL_FIELDS, IGV_SAMPLE_FIELDS, \
-    TAG_FIELDS, VARIANT_NOTE_FIELDS, CASE_REVIEW_FAMILY_FIELDS
+    FUNCTIONAL_FIELDS, SAVED_SEARCH_FIELDS, LOCUS_LIST_DETAIL_FIELDS, IGV_SAMPLE_FIELDS, CASE_REVIEW_FAMILY_FIELDS, \
+    TAG_FIELDS, VARIANT_NOTE_FIELDS
 
 class JSONUtilsTest(TestCase):
     databases = '__all__'
@@ -30,12 +31,19 @@ class JSONUtilsTest(TestCase):
 
         self.assertSetEqual(set(json.keys()), PROJECT_FIELDS)
 
-    def test_json_for_family(self):
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
+    def test_json_for_family(self, mock_analyst_group):
         family = Family.objects.filter(project__has_case_review=False).first()
         json = _get_json_for_family(family)
         self.assertSetEqual(set(json.keys()), FAMILY_FIELDS)
 
         user = User.objects.get(username='test_user')
+        json = _get_json_for_family(family, user)
+        self.assertSetEqual(set(json.keys()), FAMILY_FIELDS)
+
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
         json = _get_json_for_family(family, user, add_individual_guids_field=True)
         self.assertSetEqual(set(json.keys()), INTERNAL_FAMILY_FIELDS)
 
@@ -49,7 +57,9 @@ class JSONUtilsTest(TestCase):
         json = _get_json_for_family(case_review_family, user, add_individual_guids_field=True)
         self.assertSetEqual(set(json.keys()), fields)
 
-    def test_json_for_individual(self):
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
+    def test_json_for_individual(self, mock_analyst_group):
         individual = Individual.objects.first()
         json = _get_json_for_individual(individual)
         self.assertSetEqual(set(json.keys()), INDIVIDUAL_FIELDS_NO_FEATURES)
@@ -58,6 +68,11 @@ class JSONUtilsTest(TestCase):
         self.assertSetEqual(set(json.keys()), INDIVIDUAL_FIELDS)
 
         user = User.objects.get(username='test_user')
+        json = _get_json_for_individual(individual, user, add_hpo_details=True)
+        self.assertSetEqual(set(json.keys()), INDIVIDUAL_FIELDS)
+
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
         json = _get_json_for_individual(individual, user, add_hpo_details=True)
         self.assertSetEqual(set(json.keys()), INTERNAL_INDIVIDUAL_FIELDS)
 
@@ -150,6 +165,8 @@ class JSONUtilsTest(TestCase):
         json = get_json_for_variant_note(tag)
         self.assertSetEqual(set(json.keys()), VARIANT_NOTE_FIELDS)
 
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP', 'analysts')
     def test_json_for_saved_search(self):
         search = VariantSearch.objects.first()
         user = User.objects.get(username='test_user')
@@ -168,16 +185,3 @@ class JSONUtilsTest(TestCase):
         user = User.objects.filter().first()
         json = get_json_for_locus_list(locus_list, user)
         self.assertSetEqual(set(json.keys()), LOCUS_LIST_DETAIL_FIELDS)
-
-    def test_json_for_gene(self):
-        gene = GeneInfo.objects.get(id=1)
-        json = get_json_for_gene(gene)
-        self.assertSetEqual(set(json.keys()), GENE_FIELDS)
-
-        user = User.objects.filter().first()
-        json = get_json_for_gene(
-            gene, user=user, add_dbnsfp=True, add_omim=True, add_constraints=True, add_notes=True, add_primate_ai=True)
-        fields = {'primateAi'}
-        fields.update(GENE_DETAIL_FIELDS)
-        fields.remove('mgiMarkerId')
-        self.assertSetEqual(set(json.keys()), fields)

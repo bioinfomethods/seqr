@@ -204,11 +204,18 @@ EXPECTED_SAMPLE_METADATA_ROW = {
 
 
 class ReportAPITest(AuthenticationTestCase):
-    fixtures = ['users', '1kg_project', 'reference_data']
+    fixtures = ['users', '1kg_project', 'reference_data', 'report_variants']
 
-    def test_seqr_stats(self):
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
+    def test_seqr_stats(self, mock_analyst_group):
         url = reverse(seqr_stats)
         self.check_analyst_login(url)
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -218,9 +225,16 @@ class ReportAPITest(AuthenticationTestCase):
         self.assertEqual(response_json['familyCount'], 14)
         self.assertDictEqual(response_json['sampleCountByType'], {'WES': 8})
 
-    def test_get_cmg_projects(self):
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
+    def test_get_cmg_projects(self, mock_analyst_group):
         url = reverse(get_cmg_projects)
         self.check_analyst_login(url)
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -228,10 +242,17 @@ class ReportAPITest(AuthenticationTestCase):
         self.assertListEqual(list(response_json.keys()), ['projectGuids'])
         self.assertSetEqual(set(response_json['projectGuids']), {PROJECT_GUID, COMPOUND_HET_PROJECT_GUID})
 
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
     @mock.patch('seqr.views.apis.report_api.timezone')
-    def test_discovery_sheet(self, mock_timezone):
+    def test_discovery_sheet(self, mock_timezone, mock_analyst_group):
         non_project_url = reverse(discovery_sheet, args=[NON_PROJECT_GUID])
         self.check_analyst_login(non_project_url)
+
+        response = self.client.get(non_project_url)
+        self.assertEqual(response.status_code, 403)
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
 
         mock_timezone.now.return_value = pytz.timezone("US/Eastern").localize(parse_datetime("2020-04-27 20:16:01"), is_dst=None)
         response = self.client.get(non_project_url)
@@ -272,15 +293,33 @@ class ReportAPITest(AuthenticationTestCase):
         self.assertEqual(len(response_json['rows']), 2)
         self.assertIn(EXPECTED_DISCOVERY_SHEET_COMPOUND_HET_ROW, response_json['rows'])
 
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
     @mock.patch('seqr.views.utils.export_utils.zipfile.ZipFile')
+    @mock.patch('seqr.views.apis.report_api.is_google_authenticated')
     @responses.activate
-    def test_anvil_export(self, mock_zip):
+    def test_anvil_export(self, mock_google_authenticated,  mock_zip, mock_analyst_group):
+        mock_google_authenticated.return_value = False
         url = reverse(anvil_export, args=[PROJECT_GUID])
         self.check_analyst_login(url)
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['error'], 'User has insufficient permission')
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
 
         unauthorized_project_url = reverse(anvil_export, args=[NO_ANALYST_PROJECT_GUID])
         response = self.client.get(unauthorized_project_url)
         self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'test_user does not have sufficient permissions for Non-Analyst Project')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'Error: To access airtable user must login with Google authentication.')
+        mock_google_authenticated.return_value = True
 
         responses.add(responses.GET, '{}/Samples'.format(AIRTABLE_URL), json=AIRTABLE_SAMPLE_RECORDS, status=200)
         response = self.client.get(url)
@@ -302,13 +341,13 @@ class ReportAPITest(AuthenticationTestCase):
         subject_file = mock_write_zip.call_args_list[0][0][1].split('\n')
         self.assertEqual(subject_file[0], '\t'.join([
             'entity:subject_id', '01-subject_id', '02-prior_testing', '03-project_id', '04-pmid_id',
-            '05-dbgap_submission', '06-dbgap_study_id', '07-dbgap_subject_id', '08-multiple_datasets',
-            '09-family_id', '10-paternal_id', '11-maternal_id', '12-twin_id', '13-proband_relationship', '14-sex',
-            '15-ancestry', '16-ancestry_detail', '17-age_at_last_observation', '18-phenotype_group', '19-disease_id',
-            '20-disease_description', '21-affected_status', '22-congenital_status', '23-age_of_onset', '24-hpo_present',
-            '25-hpo_absent', '26-phenotype_description', '27-solve_state']))
+            '05-dbgap_study_id', '06-dbgap_subject_id', '07-multiple_datasets',
+            '08-family_id', '09-paternal_id', '10-maternal_id', '11-twin_id', '12-proband_relationship', '13-sex',
+            '14-ancestry', '15-ancestry_detail', '16-age_at_last_observation', '17-phenotype_group', '18-disease_id',
+            '19-disease_description', '20-affected_status', '21-congenital_status', '22-age_of_onset', '23-hpo_present',
+            '24-hpo_absent', '25-phenotype_description', '26-solve_state']))
         self.assertIn(u'\t'.join([
-            'NA19675_1', 'NA19675_1', '-', u'1kg project nme with unide', '-', 'Yes', 'dbgap_stady_id_1',
+            'NA19675_1', 'NA19675_1', '-', u'1kg project nme with unide', '-', 'dbgap_stady_id_1',
             'dbgap_subject_id_1', 'No', '1', 'NA19678', 'NA19679', '-', 'Self', 'Male', '-', '-', '-', '-',
             'OMIM:615120;OMIM:615123', 'Myasthenic syndrome; congenital; 8; with pre- and postsynaptic defects;',
             'Affected', 'Adult onset', '-', 'HP:0001631|HP:0002011|HP:0001636', 'HP:0011675|HP:0001674|HP:0001508', '-',
@@ -332,28 +371,64 @@ class ReportAPITest(AuthenticationTestCase):
         ]), family_file)
 
         discovery_file = mock_write_zip.call_args_list[3][0][1].split('\n')
+        self.assertEqual(len(discovery_file), 6)
         self.assertEqual(discovery_file[0], '\t'.join([
             'entity:discovery_id', '01-subject_id', '02-sample_id', '03-Gene', '04-Gene_Class',
             '05-inheritance_description', '06-Zygosity', '07-variant_genome_build', '08-Chrom', '09-Pos',
             '10-Ref', '11-Alt', '12-hgvsc', '13-hgvsp', '14-Transcript', '15-sv_name', '16-sv_type',
-            '17-significance']))
+            '17-significance', '18-discovery_notes']))
         self.assertIn('\t'.join([
             'HG00731', 'HG00731', 'HG00731', 'RP11-206L10.5', 'Known', 'Autosomal recessive (homozygous)',
             'Homozygous', 'GRCh37', '1', '248367227', 'TC', 'T', 'c.375_377delTCT', 'p.Leu126del', 'ENST00000258436',
-            '-', '-', '-']), discovery_file)
+            '-', '-', '-', '-']), discovery_file)
         self.assertIn('\t'.join([
             'NA19675_1', 'NA19675_1', 'NA19675', 'RP11-206L10.5', 'Tier 1 - Candidate', 'de novo',
             'Heterozygous', 'GRCh37', '21', '3343353', 'GAGA', 'G', 'c.375_377delTCT', 'p.Leu126del', 'ENST00000258436',
-            '-', '-', '-']), discovery_file)
+            '-', '-', '-', '-']), discovery_file)
+        self.assertIn('\t'.join([
+            'HG00733', 'HG00733', 'HG00733', 'OR4G11P', 'Known', 'Unknown / Other', 'Heterozygous', 'GRCh38.p12', '19',
+            '1912633', 'G', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
+            'The following variants are part of the multinucleotide variant 19-1912632-GC-TT (c.586_587delinsTT, p.Ala196Leu): 19-1912634-C-T, 19-1912633-G-T']),
+            discovery_file)
+        self.assertIn('\t'.join([
+            'HG00733', 'HG00733', 'HG00733', 'OR4G11P', 'Known', 'Unknown / Other', 'Heterozygous', 'GRCh38.p12', '19',
+            '1912634', 'C', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
+            'The following variants are part of the multinucleotide variant 19-1912632-GC-TT (c.586_587delinsTT, p.Ala196Leu): 19-1912634-C-T, 19-1912633-G-T']),
+            discovery_file)
 
+        # Test non-broad analysts do not have access
+        self.login_pm_user()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'Error: To access airtable user must login with Google authentication.')
+
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
+    @mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP')
+    @mock.patch('seqr.views.apis.report_api.is_google_authenticated')
     @responses.activate
-    def test_sample_metadata_export(self):
+    def test_sample_metadata_export(self, mock_google_authenticated, mock_analyst_group):
+        mock_google_authenticated.return_value = False
         url = reverse(sample_metadata_export, args=[COMPOUND_HET_PROJECT_GUID])
         self.check_analyst_login(url)
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['error'], 'User has insufficient permission')
+        mock_analyst_group.__bool__.return_value = True
+        mock_analyst_group.resolve_expression.return_value = 'analysts'
 
         unauthorized_project_url = reverse(sample_metadata_export, args=[NO_ANALYST_PROJECT_GUID])
         response = self.client.get(unauthorized_project_url)
         self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'test_user does not have sufficient permissions for Non-Analyst Project')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'Error: To access airtable user must login with Google authentication.')
+        mock_google_authenticated.return_value = True
 
         # Test invalid airtable responses
         responses.add(responses.GET, '{}/Samples'.format(AIRTABLE_URL), status=402)
@@ -391,3 +466,10 @@ class ReportAPITest(AuthenticationTestCase):
         response_json = response.json()
         self.assertListEqual(list(response_json.keys()), ['rows'])
         self.assertIn(EXPECTED_SAMPLE_METADATA_ROW, response_json['rows'])
+
+        # Test non-broad analysts do not have access
+        self.login_pm_user()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json()['error'], 'Error: To access airtable user must login with Google authentication.')

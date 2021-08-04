@@ -3,8 +3,6 @@ APIs for updating project metadata, as well as creating or deleting projects
 """
 
 import json
-import logging
-from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.utils import timezone
 
@@ -19,11 +17,9 @@ from seqr.views.utils.orm_to_json_utils import _get_json_for_project, get_json_f
     get_json_for_variant_functional_data_tag_types, get_json_for_locus_lists, \
     get_json_for_project_collaborator_list, _get_json_for_models, get_json_for_matchmaker_submissions
 from seqr.views.utils.permissions_utils import get_project_and_check_permissions, check_project_permissions, \
-    check_user_created_object_permissions, pm_required
-from settings import API_LOGIN_REQUIRED_URL, ANALYST_PROJECT_CATEGORY
-
-
-logger = logging.getLogger(__name__)
+    check_user_created_object_permissions, pm_required, user_is_analyst, has_case_review_permissions, \
+    login_and_policies_required
+from settings import ANALYST_PROJECT_CATEGORY
 
 
 @pm_required
@@ -55,7 +51,8 @@ def create_project_handler(request):
     }
 
     project = create_model_from_json(Project, project_args, user=request.user)
-    ProjectCategory.objects.get(name=ANALYST_PROJECT_CATEGORY).projects.add(project)
+    if ANALYST_PROJECT_CATEGORY:
+        ProjectCategory.objects.get(name=ANALYST_PROJECT_CATEGORY).projects.add(project)
 
     return create_json_response({
         'projectsByGuid': {
@@ -64,7 +61,7 @@ def create_project_handler(request):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def update_project_handler(request, project_guid):
     """Update project metadata - including one or more of these fields: name, description
 
@@ -103,7 +100,7 @@ def update_project_handler(request, project_guid):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def delete_project_handler(request, project_guid):
     """Delete project - request handler.
 
@@ -120,7 +117,7 @@ def delete_project_handler(request, project_guid):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def project_page_data(request, project_guid):
     """Returns a JSON object containing information used by the project page:
     ::
@@ -138,9 +135,10 @@ def project_page_data(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user)
     update_project_from_json(project, {'last_accessed_date': timezone.now()}, request.user)
 
-    response = _get_project_child_entities(project, request.user)
+    is_analyst = user_is_analyst(request.user)
+    response = _get_project_child_entities(project, request.user, is_analyst)
 
-    project_json = _get_json_for_project(project, request.user)
+    project_json = _get_json_for_project(project, request.user, is_analyst=is_analyst)
     project_json['collaborators'] = get_json_for_project_collaborator_list(request.user, project)
     project_json['locusListGuids'] = list(response['locusListsByGuid'].keys())
     project_json['detailsLoaded'] = True
@@ -156,12 +154,15 @@ def project_page_data(request, project_guid):
         'projectsByGuid': {project_guid: project_json},
         'genesById': get_genes(gene_ids),
     })
+
     return create_json_response(response)
 
 
-def _get_project_child_entities(project, user):
-    families_by_guid = _retrieve_families(project.guid, user)
-    individuals_by_guid, individual_models = _retrieve_individuals(project.guid, user)
+def _get_project_child_entities(project, user, is_analyst):
+    has_case_review_perm = has_case_review_permissions(project, user)
+
+    families_by_guid = _retrieve_families(project.guid, is_analyst, has_case_review_perm)
+    individuals_by_guid, individual_models = _retrieve_individuals(project.guid, is_analyst, has_case_review_perm)
     for individual_guid, individual in individuals_by_guid.items():
         families_by_guid[individual['familyGuid']]['individualGuids'].add(individual_guid)
     samples_by_guid = _retrieve_samples(
@@ -171,7 +172,7 @@ def _get_project_child_entities(project, user):
         sample_guid_key='igvSampleGuids')
     mme_submissions_by_guid = _retrieve_mme_submissions(individuals_by_guid, individual_models)
     analysis_groups_by_guid = _retrieve_analysis_groups(project)
-    locus_lists = get_json_for_locus_lists(LocusList.objects.filter(projects__id=project.id), user)
+    locus_lists = get_json_for_locus_lists(LocusList.objects.filter(projects__id=project.id), user, is_analyst=is_analyst)
     locus_lists_by_guid = {locus_list['locusListGuid']: locus_list for locus_list in locus_lists}
     return {
         'familiesByGuid': families_by_guid,
@@ -184,7 +185,7 @@ def _get_project_child_entities(project, user):
     }
 
 
-def _retrieve_families(project_guid, user):
+def _retrieve_families(project_guid, is_analyst, has_case_review_perm):
     """Retrieves family-level metadata for the given project.
 
     Args:
@@ -195,7 +196,8 @@ def _retrieve_families(project_guid, user):
     """
     family_models = Family.objects.filter(project__guid=project_guid)
 
-    families = _get_json_for_families(family_models, user, project_guid=project_guid)
+    families = _get_json_for_families(
+        family_models, project_guid=project_guid, is_analyst=is_analyst, has_case_review_perm=has_case_review_perm)
 
     families_by_guid = {}
     for family in families:
@@ -206,7 +208,7 @@ def _retrieve_families(project_guid, user):
     return families_by_guid
 
 
-def _retrieve_individuals(project_guid, user):
+def _retrieve_individuals(project_guid, is_analyst, has_case_review_perm):
     """Retrieves individual-level metadata for the given project.
 
     Args:
@@ -218,7 +220,8 @@ def _retrieve_individuals(project_guid, user):
     individual_models = Individual.objects.filter(family__project__guid=project_guid)
 
     individuals = _get_json_for_individuals(
-        individual_models, user=user, project_guid=project_guid, add_hpo_details=True)
+        individual_models, project_guid=project_guid, add_hpo_details=True, is_analyst=is_analyst,
+        has_case_review_perm=has_case_review_perm)
 
     individuals_by_guid = {}
     for i in individuals:
@@ -315,18 +318,8 @@ def _get_json_for_variant_tag_types(project):
         family__project=project, varianttag__variant_tag_type__guid__in=discovery_tag_type_guids,
     ), add_details=True)
 
-    project_functional_tags = []
-    for category, tags in VariantFunctionalData.FUNCTIONAL_DATA_CHOICES:
-        project_functional_tags += [{
-            'category': category,
-            'name': name,
-            'metadataTitle': json.loads(tag_json).get('metadata_title'),
-            'color': json.loads(tag_json)['color'],
-            'description': json.loads(tag_json).get('description'),
-        } for name, tag_json in tags]
-
     return {
-        'variantTagTypes': sorted(project_variant_tags, key=lambda variant_tag_type: variant_tag_type['order'] or 0),
+        'variantTagTypes': project_variant_tags,
         'variantFunctionalTagTypes': get_json_for_variant_functional_data_tag_types(),
         'discoveryTags': discovery_tags,
     }

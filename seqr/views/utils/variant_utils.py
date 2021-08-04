@@ -3,7 +3,7 @@ import redis
 
 from seqr.models import SavedVariant, VariantSearchResults
 from seqr.utils.elasticsearch.utils import get_es_variants_for_variant_ids
-from seqr.utils.gene_utils import get_genes
+from seqr.utils.gene_utils import get_genes_for_variants
 from seqr.views.utils.json_to_orm_utils import update_model_from_json
 from settings import REDIS_SERVICE_HOSTNAME
 
@@ -26,7 +26,7 @@ def update_project_saved_variant_json(project, family_id=None, user=None):
         variant_ids.add(v.variant_id)
         saved_variants_map[(v.variant_id, v.family.guid)] = v
 
-    variants_json = get_es_variants_for_variant_ids(sorted(families, key=lambda f: f.guid), sorted(variant_ids))
+    variants_json = get_es_variants_for_variant_ids(sorted(families, key=lambda f: f.guid), sorted(variant_ids), user=user)
 
     updated_saved_variant_guids = []
     for var in variants_json:
@@ -72,7 +72,7 @@ def saved_variant_genes(variants):
                 gene_ids.update(list(compound_het.get('transcripts', {}).keys()))
         else:
             gene_ids.update(list(variant.get('transcripts', {}).keys()))
-    genes = get_genes(gene_ids, add_dbnsfp=True, add_omim=True, add_constraints=True, add_primate_ai=True)
+    genes = get_genes_for_variants(gene_ids)
     for gene in genes.values():
         if gene:
             gene['locusListGuids'] = []

@@ -3,19 +3,7 @@ import orderBy from 'lodash/orderBy'
 import uniqBy from 'lodash/uniqBy'
 
 import { compareObjects } from 'shared/utils/sortUtils'
-import { toSnakecase } from 'shared/utils/stringUtils'
-import {
-  NOTE_TAG_NAME,
-  EXCLUDED_TAG_NAME,
-  REVIEW_TAG_NAME,
-  KNOWN_GENE_FOR_PHENOTYPE_TAG_NAME,
-  DISCOVERY_CATEGORY_NAME,
-  SORT_BY_FAMILY_GUID,
-  VARIANT_SORT_LOOKUP,
-  SHOW_ALL,
-  VARIANT_EXPORT_DATA,
-  familyVariantSamples,
-} from 'shared/utils/constants'
+import { NOTE_TAG_NAME, familyVariantSamples } from 'shared/utils/constants'
 
 export const getProjectsIsLoading = state => state.projectsLoading.isLoading
 export const getProjectsByGuid = state => state.projectsByGuid
@@ -44,7 +32,6 @@ export const getUserOptionsIsLoading = state => state.userOptionsLoading.isLoadi
 export const getVersion = state => state.meta.version
 export const getGoogleLoginEnabled = state => state.meta.googleLoginEnabled
 export const getHijakEnabled = state => state.meta.hijakEnabled
-export const getProjectGuid = state => state.currentProjectGuid
 export const getSavedVariantsIsLoading = state => state.savedVariantsLoading.isLoading
 export const getSavedVariantsLoadingError = state => state.savedVariantsLoading.errorMessage
 export const getSearchesByHash = state => state.searchesByHash
@@ -55,7 +42,6 @@ export const getSearchGeneBreakdown = state => state.searchGeneBreakdown
 export const getSearchGeneBreakdownLoading = state => state.searchGeneBreakdownLoading.isLoading
 export const getSearchGeneBreakdownErrorMessage = state => state.searchGeneBreakdownLoading.errorMessage
 export const getVariantSearchDisplay = state => state.variantSearchDisplay
-export const getIgvReadsVisibility = state => state.igvReadsVisibility
 
 export const getAnnotationSecondary = (state) => {
   try {
@@ -65,10 +51,6 @@ export const getAnnotationSecondary = (state) => {
     return false
   }
 }
-
-export const getCurrentProject = createSelector(
-  getProjectsByGuid, getProjectGuid, (projectsByGuid, currentProjectGuid) => projectsByGuid[currentProjectGuid],
-)
 
 const groupEntitiesByProjectGuid = entities => Object.entries(entities).reduce((acc, [entityGuid, entity]) => {
   if (!(entity.projectGuid in acc)) {
@@ -140,156 +122,28 @@ export const getHasActiveVariantSampleByFamily = createSelector(
   },
 )
 
-export const getIGVSamplesByFamily = createSelector(
+export const getIGVSamplesByFamilySampleIndividual = createSelector(
   getSortedIndividualsByFamily,
   getIgvSamplesByGuid,
   (individualsByFamily, igvSamplesByGuid) => {
     return Object.entries(individualsByFamily).reduce((acc, [familyGuid, individuals]) => ({
       ...acc,
-      [familyGuid]: individuals.reduce((acc2, individual) => [...acc2, ...(individual.igvSampleGuids || [])], []).map(
-        sampleGuid => igvSamplesByGuid[sampleGuid]),
+      [familyGuid]: individuals.reduce((familyAcc, { individualGuid, igvSampleGuids }) => {
+        (igvSampleGuids || []).forEach((sampleGuid) => {
+          const sample = igvSamplesByGuid[sampleGuid]
+          const type = sample.sampleType
+          if (!familyAcc[type]) {
+            familyAcc[type] = {}
+          }
+          familyAcc[type][individualGuid] = sample
+        })
+        return familyAcc
+      }, {}),
     }), {})
   },
 )
 
 // Saved variant selectors
-export const getSavedVariantTableState = state => (
-  state.currentProjectGuid ? state.savedVariantTableState : state.allProjectSavedVariantTableState
-)
-
-export const getPairedSelectedSavedVariants = createSelector(
-  getSavedVariantsByGuid,
-  (state, props) => props.match.params,
-  getFamiliesByGuid,
-  getAnalysisGroupsByGuid,
-  getProjectGuid,
-  getVariantTagsByGuid,
-  getVariantNotesByGuid,
-  (savedVariants, { tag, gene, familyGuid, analysisGroupGuid, variantGuid }, familiesByGuid, analysisGroupsByGuid, projectGuid, tagsByGuid, notesByGuid) => {
-    let variants = Object.values(savedVariants)
-    if (variantGuid) {
-      variants = variants.filter(o => variantGuid.split(',').includes(o.variantGuid))
-      return variants.length > 1 ? [variants] : variants
-    }
-
-    if (analysisGroupGuid && analysisGroupsByGuid[analysisGroupGuid]) {
-      const analysisGroupFamilyGuids = analysisGroupsByGuid[analysisGroupGuid].familyGuids
-      variants = variants.filter(o => o.familyGuids.some(fg => analysisGroupFamilyGuids.includes(fg)))
-    }
-    else if (familyGuid) {
-      variants = variants.filter(o => o.familyGuids.includes(familyGuid))
-    }
-    else if (projectGuid) {
-      variants = variants.filter(o => o.familyGuids.some(fg => familiesByGuid[fg].projectGuid === projectGuid))
-    }
-
-    const selectedVariantsByGuid = variants.reduce(
-      (acc, variant) => ({ ...acc, [variant.variantGuid]: variant }), {})
-    const seenCompoundHets = []
-    let pairedVariants = variants.reduce((acc, variant) => {
-      const variantCompoundHetGuids = [...[
-        ...variant.tagGuids.map(t => tagsByGuid[t].variantGuids),
-        ...variant.noteGuids.map(n => notesByGuid[n].variantGuids),
-      ].filter(variantGuids => variantGuids.length > 1).reduce((guidAcc, variantGuids) =>
-        new Set([...guidAcc, ...variantGuids.filter(varGuid => varGuid !== variant.variantGuid)]),
-      new Set())].filter(varGuid => selectedVariantsByGuid[varGuid])
-
-      if (variantCompoundHetGuids.length) {
-        seenCompoundHets.push(variant.variantGuid)
-        return acc.concat(variantCompoundHetGuids.filter(varGuid => !seenCompoundHets.includes(varGuid)).map(
-          varGuid => ([variant, selectedVariantsByGuid[varGuid]])))
-      }
-
-      acc.push(variant)
-      return acc
-    }, [])
-
-    if (tag) {
-      if (tag === NOTE_TAG_NAME) {
-        pairedVariants = pairedVariants.filter(o => (Array.isArray(o) ? o : [o]).some(({ noteGuids }) => noteGuids.length))
-      } else if (tag !== SHOW_ALL) {
-        pairedVariants = pairedVariants.filter(o => (Array.isArray(o) ? o : [o]).some(({ tagGuids }) => tagGuids.some(tagGuid => tagsByGuid[tagGuid].name === tag)))
-      }
-    }
-
-    if (gene) {
-      pairedVariants = pairedVariants.filter(o => (Array.isArray(o) ? o : [o]).some(
-        ({ transcripts }) => gene in (transcripts || {})))
-    }
-
-    return pairedVariants
-  },
-)
-
-export const getPairedFilteredSavedVariants = createSelector(
-  getPairedSelectedSavedVariants,
-  getSavedVariantTableState,
-  getVariantTagsByGuid,
-  (state, props) => props.match.params,
-  (savedVariants, { categoryFilter = SHOW_ALL, hideExcluded, hideReviewOnly, hideKnownGeneForPhenotype, taggedAfter }, tagsByGuid, { tag, variantGuid }) => {
-    if (variantGuid) {
-      return savedVariants
-    }
-    let variantsToShow = savedVariants.map(variant => (Array.isArray(variant) ? variant : [variant]))
-    if (hideExcluded) {
-      variantsToShow = variantsToShow.filter(variants =>
-        variants.every(variant => variant.tagGuids.every(t => tagsByGuid[t].name !== EXCLUDED_TAG_NAME)))
-    }
-    if (hideReviewOnly) {
-      variantsToShow = variantsToShow.filter(variants => variants.every(variant =>
-        variant.tagGuids.length !== 1 || tagsByGuid[variant.tagGuids[0]].name !== REVIEW_TAG_NAME,
-      ))
-    }
-    if (!tag) {
-      if (hideKnownGeneForPhenotype && categoryFilter === DISCOVERY_CATEGORY_NAME) {
-        variantsToShow = variantsToShow.filter(variants => variants.every(variant =>
-          variant.tagGuids.every(t => tagsByGuid[t].name !== KNOWN_GENE_FOR_PHENOTYPE_TAG_NAME)))
-      }
-
-      if (categoryFilter && categoryFilter !== SHOW_ALL) {
-        variantsToShow = variantsToShow.filter(variants => variants.some(
-          variant => variant.tagGuids.some(t => tagsByGuid[t].category === categoryFilter)))
-      }
-    } else if (taggedAfter) {
-      const taggedAfterDate = new Date(taggedAfter)
-      variantsToShow = variantsToShow.filter(variants => variants.some(variant =>
-        variant.tagGuids.find(
-          t => tagsByGuid[t].name === tag && new Date(tagsByGuid[t].lastModifiedDate) > taggedAfterDate)))
-    }
-    return variantsToShow.map(variants => (variants.length === 1 ? variants[0] : variants))
-  },
-)
-
-export const getSavedVariantVisibleIndices = createSelector(
-  getSavedVariantTableState,
-  ({ page = 1, recordsPerPage = 25 }) => {
-    return [(page - 1) * recordsPerPage, page * recordsPerPage]
-  },
-)
-
-export const getVisibleSortedSavedVariants = createSelector(
-  getPairedFilteredSavedVariants,
-  getSavedVariantTableState,
-  getSavedVariantVisibleIndices,
-  getGenesById,
-  getUser,
-  (pairedFilteredSavedVariants, { sort = SORT_BY_FAMILY_GUID }, visibleIndices, genesById, user) => {
-    // Always secondary sort on xpos
-    pairedFilteredSavedVariants.sort((a, b) => {
-      return VARIANT_SORT_LOOKUP[sort](Array.isArray(a) ? a[0] : a, Array.isArray(b) ? b[0] : b, genesById, user) ||
-        (Array.isArray(a) ? a[0] : a).xpos - (Array.isArray(b) ? b[0] : b).xpos
-    })
-    return pairedFilteredSavedVariants.slice(...visibleIndices)
-  },
-)
-
-export const getSavedVariantTotalPages = createSelector(
-  getPairedFilteredSavedVariants, getSavedVariantTableState,
-  (filteredSavedVariants, { recordsPerPage = 25 }) => {
-    return Math.max(1, Math.ceil(filteredSavedVariants.length / recordsPerPage))
-  },
-)
-
 const groupByVariantGuids = allObjects =>
   Object.values(allObjects).reduce((acc, o) => {
     const variantGuids = o.variantGuids.sort().join(',')
@@ -300,12 +154,12 @@ const groupByVariantGuids = allObjects =>
     return acc
   }, {})
 
-const getTagsByVariantGuids = createSelector(
+export const getTagsByVariantGuids = createSelector(
   getVariantTagsByGuid,
   groupByVariantGuids,
 )
 
-const getNotesByVariantGuids = createSelector(
+export const getNotesByVariantGuids = createSelector(
   getVariantNotesByGuid,
   groupByVariantGuids,
 )
@@ -361,51 +215,6 @@ export const getVariantTagNotesByFamilyVariants = createSelector(
       })
       return acc
     }, {})
-  },
-)
-
-export const getSavedVariantExportConfig = createSelector(
-  getPairedFilteredSavedVariants,
-  getFamiliesByGuid,
-  getAnalysisGroupsByGuid,
-  getTagsByVariantGuids,
-  getNotesByVariantGuids,
-  getCurrentProject,
-  getSavedVariantTableState,
-  (state, props) => props.match.params,
-  (pairedVariants, familiesByGuid, analysisGroupsByGuid, tagsByGuid, notesByGuid, project, tableState, params) => {
-    const familyVariants = pairedVariants.reduce(
-      (acc, variant) => (Array.isArray(variant) ? acc.concat(variant) : [...acc, variant]), [],
-    ).map(({ genotypes, ...variant }) => ({
-      ...variant,
-      genotypes: Object.keys(genotypes).filter(
-        indGuid => variant.familyGuids.some(familyGuid => familiesByGuid[familyGuid].individualGuids.includes(indGuid)),
-      ).reduce((acc, indGuid) => ({ ...acc, [indGuid]: genotypes[indGuid] }), {}),
-    }))
-    const maxGenotypes = Math.max(...familyVariants.map(variant => Object.keys(variant.genotypes).length), 0)
-
-    const familyId = params.familyGuid && params.familyGuid.split(/_(.+)/)[1]
-    const analysisGroupName = (analysisGroupsByGuid[params.analysisGroupGuid] || {}).name
-    const tagName = params.tag || tableState.categoryFilter || 'All'
-
-    return [{
-      name: `${tagName} Variants${familyId ? ` in Family ${familyId}` : ''}${analysisGroupName ? ` in Analysis Group ${analysisGroupName}` : ''}`,
-      data: {
-        filename: toSnakecase(`saved_${tagName}_variants_${(project || {}).name}${familyId ? `_family_${familyId}` : ''}${analysisGroupName ? `_analysis_group_${analysisGroupName}` : ''}`),
-        rawData: familyVariants,
-        headers: [
-          ...VARIANT_EXPORT_DATA.map(config => config.header),
-          ...[...Array(maxGenotypes).keys()].map(i => `sample_${i + 1}:num_alt_alleles:gq:ab`),
-        ],
-        processRow: variant => ([
-          ...VARIANT_EXPORT_DATA.map(config => (
-            config.getVal ? config.getVal(variant, tagsByGuid, notesByGuid) : variant[config.header]),
-          ),
-          ...Object.values(variant.genotypes).map(
-            ({ sampleId, numAlt, gq, ab }) => `${sampleId}:${numAlt}:${gq}:${ab}`),
-        ]),
-      },
-    }]
   },
 )
 

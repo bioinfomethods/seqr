@@ -22,6 +22,10 @@ import TagFieldView from '../components/panel/view-fields/TagFieldView'
 import { stripMarkdown } from './stringUtils'
 import { ColoredIcon } from '../components/StyledComponents'
 
+export const ANVIL_URL = 'https://anvil.terra.bio'
+export const GOOGLE_LOGIN_URL = '/login/google-oauth2'
+export const LOCAL_LOGIN_URL = '/login'
+
 export const GENOME_VERSION_37 = '37'
 export const GENOME_VERSION_38 = '38'
 export const GENOME_VERSION_OPTIONS = [
@@ -41,14 +45,29 @@ export const GENOME_VERSION_DISPLAY_LOOKUP = {
 
 // PROJECT FIELDS
 
+export const FILE_FIELD_NAME = 'uploadedFile'
+
+export const PROJECT_DESC_FIELD = { name: 'description', label: 'Project Description', placeholder: 'Description' }
+
 export const EDITABLE_PROJECT_FIELDS = [
   { name: 'name', label: 'Project Name', placeholder: 'Name', validate: validators.required, autoFocus: true },
-  { name: 'description', label: 'Project Description', placeholder: 'Description' },
+  PROJECT_DESC_FIELD,
 ]
 
 export const PROJECT_FIELDS = [
   ...EDITABLE_PROJECT_FIELDS,
   GENOME_VERSION_FIELD,
+]
+
+export const FILE_FORMATS = [
+  { title: 'Excel', ext: 'xls' },
+  {
+    title: 'Text',
+    ext: 'tsv',
+    formatLinks: [
+      { href: 'https://en.wikipedia.org/wiki/Tab-separated_values', linkExt: 'tsv' },
+      { href: 'https://en.wikipedia.org/wiki/Comma-separated_values', linkExt: 'csv' },
+    ] },
 ]
 
 const MAILTO_CONTACT_URL_REGEX = /^mailto:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}(,\s*[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{1,4})*$/i
@@ -59,7 +78,6 @@ export const MATCHMAKER_CONTACT_URL_FIELD = {
   format: val => (val || '').replace('mailto:', ''),
   validate: val => (MAILTO_CONTACT_URL_REGEX.test(val) ? undefined : 'Invalid contact url'),
 }
-
 
 // SAMPLES
 
@@ -89,6 +107,7 @@ export const FAMILY_STATUS_SOLVED = 'S'
 export const FAMILY_STATUS_SOLVED_KNOWN_GENE_KNOWN_PHENOTYPE = 'S_kgfp'
 export const FAMILY_STATUS_SOLVED_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'S_kgdp'
 export const FAMILY_STATUS_SOLVED_NOVEL_GENE = 'S_ng'
+export const FAMILY_STATUS_EXTERNAL_SOLVE = 'ES'
 export const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_KNOWN_PHENOTYPE = 'Sc_kgfp'
 export const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'Sc_kgdp'
 export const FAMILY_STATUS_STRONG_CANDIDATE_NOVEL_GENE = 'Sc_ng'
@@ -103,6 +122,7 @@ export const FAMILY_ANALYSIS_STATUS_OPTIONS = [
   { value: FAMILY_STATUS_SOLVED_KNOWN_GENE_KNOWN_PHENOTYPE, color: '#4CAF50', name: 'Solved - known gene for phenotype' },
   { value: FAMILY_STATUS_SOLVED_KNOWN_GENE_DIFFERENT_PHENOTYPE, color: '#4CAF50', name: 'Solved - gene linked to different phenotype' },
   { value: FAMILY_STATUS_SOLVED_NOVEL_GENE, color: '#4CAF50', name: 'Solved - novel gene' },
+  { value: FAMILY_STATUS_EXTERNAL_SOLVE, color: '#146917', name: 'External Solve' },
   { value: FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_KNOWN_PHENOTYPE, color: '#CDDC39', name: 'Strong candidate - known gene for phenotype' },
   { value: FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_DIFFERENT_PHENOTYPE, color: '#CDDC39', name: 'Strong candidate - gene linked to different phenotype' },
   { value: FAMILY_STATUS_STRONG_CANDIDATE_NOVEL_GENE, color: '#CDDC39', name: 'Strong candidate - novel gene' },
@@ -168,17 +188,19 @@ export const FAMILY_FIELD_PEDIGREE = 'pedigreeImage'
 export const FAMILY_FIELD_CREATED_DATE = 'createdDate'
 
 export const FAMILY_FIELD_RENDER_LOOKUP = {
-  [FAMILY_FIELD_DESCRIPTION]: { name: 'Family Description' },
-  [FAMILY_FIELD_ANALYSIS_STATUS]: { name: 'Analysis Status', component: OptionFieldView },
+  [FAMILY_FIELD_DESCRIPTION]: { name: 'Family Description', canEdit: true },
+  [FAMILY_FIELD_ANALYSIS_STATUS]: { name: 'Analysis Status', component: OptionFieldView, canEdit: true },
   [FAMILY_FIELD_ASSIGNED_ANALYST]: {
     name: 'Assigned Analyst',
     component: BaseFieldView,
     submitArgs: { familyField: 'assigned_analyst' },
+    canEdit: true,
   },
   [FAMILY_FIELD_ANALYSED_BY]: {
     name: 'Analysed By',
     component: BaseFieldView,
     submitArgs: { familyField: 'analysed_by' },
+    canEdit: true,
   },
   [FAMILY_FIELD_SUCCESS_STORY_TYPE]: {
     name: 'Success Story Type',
@@ -187,12 +209,12 @@ export const FAMILY_FIELD_RENDER_LOOKUP = {
   },
   [FAMILY_FIELD_SUCCESS_STORY]: { name: 'Success Story', internal: true },
   [FAMILY_FIELD_FIRST_SAMPLE]: { name: 'Data Loaded?', component: BaseFieldView },
-  [FAMILY_FIELD_ANALYSIS_NOTES]: { name: 'Notes' },
-  [FAMILY_FIELD_ANALYSIS_SUMMARY]: { name: 'Analysis Summary' },
-  [FAMILY_FIELD_MME_NOTES]: { name: 'Matchmaker Notes' },
-  [FAMILY_FIELD_CODED_PHENOTYPE]: { name: 'Coded Phenotype', component: SingleFieldView },
-  [FAMILY_FIELD_OMIM_NUMBER]: { name: 'Post-discovery OMIM #', component: SingleFieldView },
-  [FAMILY_FIELD_PMIDS]: { name: 'Publications on this discovery', component: ListFieldView },
+  [FAMILY_FIELD_ANALYSIS_NOTES]: { name: 'Notes', canEdit: true },
+  [FAMILY_FIELD_ANALYSIS_SUMMARY]: { name: 'Analysis Summary', canEdit: true },
+  [FAMILY_FIELD_MME_NOTES]: { name: 'Matchmaker Notes', canEdit: true },
+  [FAMILY_FIELD_CODED_PHENOTYPE]: { name: 'Coded Phenotype', component: SingleFieldView, canEdit: true },
+  [FAMILY_FIELD_OMIM_NUMBER]: { name: 'Post-discovery OMIM #', component: SingleFieldView, canEdit: true },
+  [FAMILY_FIELD_PMIDS]: { name: 'Publications on this discovery', component: ListFieldView, internal: true },
   [FAMILY_FIELD_INTERNAL_NOTES]: {
     name: 'Internal Notes',
     internal: true,
@@ -206,18 +228,18 @@ export const FAMILY_FIELD_RENDER_LOOKUP = {
 }
 
 export const FAMILY_DETAIL_FIELDS = [
-  { id: FAMILY_FIELD_DESCRIPTION, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_STATUS, canEdit: true },
-  { id: FAMILY_FIELD_ASSIGNED_ANALYST, canEdit: true, collaboratorEdit: true },
-  { id: FAMILY_FIELD_ANALYSED_BY, canEdit: true, collaboratorEdit: true },
-  { id: FAMILY_FIELD_SUCCESS_STORY_TYPE, canEdit: true },
-  { id: FAMILY_FIELD_SUCCESS_STORY, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_NOTES, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_SUMMARY, canEdit: true },
-  { id: FAMILY_FIELD_MME_NOTES, canEdit: true },
-  { id: FAMILY_FIELD_CODED_PHENOTYPE, canEdit: true },
-  { id: FAMILY_FIELD_OMIM_NUMBER, canEdit: true },
-  { id: FAMILY_FIELD_PMIDS, canEdit: true },
+  { id: FAMILY_FIELD_DESCRIPTION },
+  { id: FAMILY_FIELD_ANALYSIS_STATUS },
+  { id: FAMILY_FIELD_ASSIGNED_ANALYST },
+  { id: FAMILY_FIELD_ANALYSED_BY },
+  { id: FAMILY_FIELD_SUCCESS_STORY_TYPE },
+  { id: FAMILY_FIELD_SUCCESS_STORY },
+  { id: FAMILY_FIELD_ANALYSIS_NOTES },
+  { id: FAMILY_FIELD_ANALYSIS_SUMMARY },
+  { id: FAMILY_FIELD_MME_NOTES },
+  { id: FAMILY_FIELD_CODED_PHENOTYPE },
+  { id: FAMILY_FIELD_OMIM_NUMBER },
+  { id: FAMILY_FIELD_PMIDS },
 ]
 
 // INDIVIDUAL FIELDS
@@ -334,6 +356,38 @@ export const INDIVIDUAL_HPO_EXPORT_DATA = [
     description: 'comma-separated list of HPO Terms for phenotypes not present in this individual',
   },
 ]
+
+export const exportConfigForField = fieldConfigs => (field) => {
+  const { label, format, description } = fieldConfigs[field]
+  return { field, header: label, format, description }
+}
+
+export const INDIVIDUAL_HAS_DATA_FIELD = 'hasLoadedSamples'
+export const INDIVIDUAL_ID_EXPORT_DATA = [
+  FAMILY_FIELD_ID, INDIVIDUAL_FIELD_ID,
+].map(exportConfigForField(INDIVIDUAL_FIELD_CONFIGS))
+
+const INDIVIDUAL_HAS_DATA_EXPORT_CONFIG = {
+  field: INDIVIDUAL_HAS_DATA_FIELD,
+  header: 'Individual Data Loaded',
+  format: hasData => (hasData ? 'Yes' : 'No'),
+}
+
+export const INDIVIDUAL_CORE_EXPORT_DATA = [
+  INDIVIDUAL_FIELD_PATERNAL_ID,
+  INDIVIDUAL_FIELD_MATERNAL_ID,
+  INDIVIDUAL_FIELD_SEX,
+  INDIVIDUAL_FIELD_AFFECTED,
+  INDIVIDUAL_FIELD_NOTES,
+].map(exportConfigForField(INDIVIDUAL_FIELD_CONFIGS))
+
+export const INDIVIDUAL_BULK_UPDATE_EXPORT_DATA = [
+  ...INDIVIDUAL_CORE_EXPORT_DATA, exportConfigForField(INDIVIDUAL_FIELD_CONFIGS)(INDIVIDUAL_FIELD_PROBAND_RELATIONSHIP),
+]
+
+export const INDIVIDUAL_EXPORT_DATA = [].concat(
+  INDIVIDUAL_ID_EXPORT_DATA, INDIVIDUAL_CORE_EXPORT_DATA, [INDIVIDUAL_HAS_DATA_EXPORT_CONFIG], INDIVIDUAL_HPO_EXPORT_DATA,
+)
 
 export const familyVariantSamples = (family, individualsByGuid, samplesByGuid) => {
   const sampleGuids = [...(family.individualGuids || []).map(individualGuid => individualsByGuid[individualGuid]).reduce(
@@ -498,6 +552,42 @@ const ORDERED_VEP_CONSEQUENCES = [
     description: 'A large duplication',
     text: 'Duplication',
     value: 'DUP',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A translocation variant',
+    text: 'Translocation',
+    value: 'BND',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A copy number polymorphism variant',
+    text: 'Copy Number',
+    value: 'CNV',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A Complex Structural Variant',
+    text: 'Complex SV',
+    value: 'CPX',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A reciprocal chromosomal translocation',
+    text: 'Reciprocal Translocation',
+    value: 'CTX',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A large insertion',
+    text: 'Insertion',
+    value: 'INS',
+    group: VEP_GROUP_SV,
+  },
+  {
+    description: 'A large inversion',
+    text: 'Inversion',
+    value: 'INV',
     group: VEP_GROUP_SV,
   },
   {
@@ -734,6 +824,7 @@ const SORT_BY_SPLICE_AI = 'SPLICE_AI'
 const SORT_BY_EIGEN = 'EIGEN'
 const SORT_BY_MPC = 'MPC'
 const SORT_BY_PRIMATE_AI = 'PRIMATE_AI'
+const SORT_BY_TAGGED_DATE = 'TAGGED_DATE'
 
 
 const clinsigSeverity = (variant, user) => {
@@ -811,8 +902,17 @@ const VARIANT_SORT_OPTONS = [
       Object.keys(a.transcripts || {}).reduce(
         (acc, geneId) => (genesById[geneId] ? acc + genesById[geneId].omimPhenotypes.length : acc), 0),
   },
+  {
+    value: SORT_BY_TAGGED_DATE,
+    text: 'Last Tagged',
+    comparator: (a, b, genesById, user, tagsByGuid) =>
+      (b.tagGuids.map(
+        tagGuid => (tagsByGuid[tagGuid] || {}).lastModifiedDate).sort()[b.tagGuids.length - 1] || '').localeCompare(
+        a.tagGuids.map(tagGuid => (tagsByGuid[tagGuid] || {}).lastModifiedDate).sort()[a.tagGuids.length - 1] || '',
+      ),
+  },
 ]
-const VARIANT_SORT_OPTONS_NO_FAMILY_SORT = VARIANT_SORT_OPTONS.slice(1)
+const VARIANT_SEARCH_SORT_OPTONS = VARIANT_SORT_OPTONS.slice(1, VARIANT_SORT_OPTONS.length - 1)
 
 export const VARIANT_SORT_LOOKUP = VARIANT_SORT_OPTONS.reduce(
   (acc, opt) => ({
@@ -830,7 +930,7 @@ const BASE_VARIANT_SORT_FIELD = {
   label: 'Sort By:',
 }
 export const VARIANT_SORT_FIELD = { ...BASE_VARIANT_SORT_FIELD, options: VARIANT_SORT_OPTONS }
-export const VARIANT_SORT_FIELD_NO_FAMILY_SORT = { ...BASE_VARIANT_SORT_FIELD, options: VARIANT_SORT_OPTONS_NO_FAMILY_SORT }
+export const VARIANT_SEARCH_SORT_FIELD = { ...BASE_VARIANT_SORT_FIELD, options: VARIANT_SEARCH_SORT_OPTONS }
 export const VARIANT_HIDE_EXCLUDED_FIELD = {
   name: 'hideExcluded',
   component: InlineToggle,

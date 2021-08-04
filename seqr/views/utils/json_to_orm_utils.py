@@ -1,12 +1,11 @@
-import logging
 from django.core.exceptions import PermissionDenied
 
 from seqr.models import Individual
-from seqr.utils.logging_utils import log_model_update
+from seqr.utils.logging_utils import log_model_update, SeqrLogger
 from seqr.views.utils.json_utils import _to_snake_case
 from seqr.views.utils.permissions_utils import user_is_analyst
 
-logger = logging.getLogger(__name__)
+logger = SeqrLogger(__name__)
 
 
 def update_project_from_json(project, json, user, allow_unknown_keys=False):
@@ -14,13 +13,14 @@ def update_project_from_json(project, json, user, allow_unknown_keys=False):
     update_model_from_json(project, json, user, allow_unknown_keys=allow_unknown_keys, immutable_keys=['genome_version'])
 
 
-def update_family_from_json(family, json, user, allow_unknown_keys=False):
+def update_family_from_json(family, json, user, allow_unknown_keys=False, immutable_keys=None):
     if json.get('displayName') and json['displayName'] == family.family_id:
         json['displayName'] = ''
 
+    immutable_keys = (immutable_keys or []) + ['pedigree_image', 'assigned_analyst', 'case_review_summary', 'case_review_notes', 'guid']
+
     update_model_from_json(
-        family, json, user=user, allow_unknown_keys=allow_unknown_keys,
-        immutable_keys=['pedigree_image', 'assigned_analyst', 'case_review_summary', 'case_review_notes'],
+        family, json, user=user, allow_unknown_keys=allow_unknown_keys, immutable_keys=immutable_keys,
     )
 
 
@@ -83,7 +83,7 @@ def create_model_from_json(model_class, json, user):
     return model
 
 
-def get_or_create_model_from_json(model_class, create_json, update_json, user):
+def get_or_create_model_from_json(model_class, create_json, update_json, user, update_on_create_only=False):
     model, created = model_class.objects.get_or_create(**create_json)
     updated_fields = set()
     if created:
@@ -94,6 +94,8 @@ def get_or_create_model_from_json(model_class, create_json, update_json, user):
         if update_json:
             log_update_fields += list(update_json.keys())
         log_model_update(logger, model, user, 'create', log_update_fields)
+    elif update_on_create_only:
+        update_json = None
     if update_json or updated_fields:
         update_model_from_json(model, update_json or {}, user, updated_fields=updated_fields, verbose=not created)
     return model, created

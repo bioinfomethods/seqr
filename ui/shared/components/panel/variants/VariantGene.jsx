@@ -5,7 +5,7 @@ import { connect } from 'react-redux'
 import { NavLink } from 'react-router-dom'
 import { Label, Popup, List, ListItem, Header } from 'semantic-ui-react'
 
-import { getGenesById, getLocusListsByGuid, getCurrentProject, getUser } from 'redux/selectors'
+import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
 import { MISSENSE_THRESHHOLD, LOF_THRESHHOLD, GENETALE_INHERITANCE_CODES } from '../../../utils/constants'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { InlineHeader, ButtonLink } from '../../StyledComponents'
@@ -13,6 +13,8 @@ import SearchResultsLink from '../../buttons/SearchResultsLink'
 import ShowGeneModal from '../../buttons/ShowGeneModal'
 
 const CONSTRAINED_GENE_RANK_THRESHOLD = 1000
+const HI_THRESHOLD = 0.84
+const TS_THRESHOLD = 0.993
 
 const INLINE_STYLE = {
   display: 'inline-block',
@@ -179,6 +181,26 @@ const GENE_DETAIL_SECTIONS = [
        observed in the gnomad data. Both LOEUF and pLi are measures of how likely the gene is to be intolerant of
        loss-of-function mutations`,
   },
+  {
+    color: 'red',
+    description: 'HaploInsufficient',
+    label: 'HI',
+    showDetails: gene => gene.cnSensitivity.phi && gene.cnSensitivity.phi > HI_THRESHOLD,
+    detailsDisplay: gene =>
+      `These are a score under development by the Talkowski lab that predict whether a gene is haploinsufficient based 
+      on large chromosomal microarray data set analysis. Scores >0.84 are considered to have high likelihood to be 
+      haploinsufficient. This gene has a score of ${gene.cnSensitivity.phi.toPrecision(4)}.`,
+  },
+  {
+    color: 'red',
+    description: 'TriploSensitive',
+    label: 'TS',
+    showDetails: gene => gene.cnSensitivity.pts && gene.cnSensitivity.pts > TS_THRESHOLD,
+    detailsDisplay: gene =>
+      `These are a score under development by the Talkowski lab that predict whether a gene is triplosensitive based on
+       large chromosomal microarray dataset analysis. Scores >0.993 are considered to have high likelihood to be 
+       triplosensitive. This gene has a score of ${gene.cnSensitivity.pts.toPrecision(4)}.`,
+  },
 ]
 
 const GENETALE_SECTIONS = [
@@ -235,7 +257,7 @@ GeneDetails.propTypes = {
   containerStyle: PropTypes.object,
 }
 
-const BaseVariantGene = React.memo(({ geneId, gene, project, user, variant, compact, showInlineDetails, areCompoundHets }) => {
+const BaseVariantGene = React.memo(({ geneId, gene, variant, compact, showInlineDetails, areCompoundHets }) => {
 
   const geneTranscripts = variant.transcripts[geneId]
   const geneConsequence = geneTranscripts && geneTranscripts.length > 0 && (geneTranscripts[0].majorConsequence || '').replace(/_/g, ' ')
@@ -260,16 +282,15 @@ const BaseVariantGene = React.memo(({ geneId, gene, project, user, variant, comp
 
   let summaryDetail
   if (compact) {
-    summaryDetail = showInlineDetails ? geneDetails : geneConsequence
+    summaryDetail = showInlineDetails ? <span>{geneDetails} {geneConsequence}</span> : geneConsequence
   } else {
     summaryDetail = (
       <GeneLinks>
-        <a href={`http://gnomad.broadinstitute.org/gene/${gene.geneId}`} target="_blank">gnomAD</a>
-        {/* TODO should be available to all users (https://github.com/broadinstitute/seqr-private/issues/891) */}
-        {user.isAnalyst && <span><HorizontalSpacer width={5} />|<HorizontalSpacer width={5} /></span>}
-        {user.isAnalyst && <NavLink to={`/summary_data/saved_variants/ALL/${gene.geneId}`} target="_blank">seqr</NavLink>}
-        {project && <span><HorizontalSpacer width={5} />|<HorizontalSpacer width={5} /></span>}
-        {project && <SearchResultsLink geneId={gene.geneId} familyGuids={variant.familyGuids} />}
+        <a href={`https://decipher.sanger.ac.uk/gene/${gene.geneId}/overview/protein-genomic-info`} target="_blank">Decipher</a>
+        <HorizontalSpacer width={5} />|<HorizontalSpacer width={5} />
+        <NavLink to={`/summary_data/saved_variants/ALL/${gene.geneId}`} target="_blank">seqr</NavLink>
+        <HorizontalSpacer width={5} />|<HorizontalSpacer width={5} />
+        <SearchResultsLink location={gene.geneId} familyGuids={variant.familyGuids} />
       </GeneLinks>
     )
   }
@@ -301,8 +322,6 @@ const BaseVariantGene = React.memo(({ geneId, gene, project, user, variant, comp
 
 BaseVariantGene.propTypes = {
   geneId: PropTypes.string.isRequired,
-  project: PropTypes.object,
-  user: PropTypes.object,
   gene: PropTypes.object,
   variant: PropTypes.object.isRequired,
   compact: PropTypes.bool,
@@ -311,8 +330,6 @@ BaseVariantGene.propTypes = {
 }
 
 const mapStateToProps = (state, ownProps) => ({
-  project: getCurrentProject(state),
-  user: getUser(state),
   gene: getGenesById(state)[ownProps.geneId],
 })
 
@@ -324,7 +341,6 @@ class VariantGenes extends React.PureComponent {
   static propTypes = {
     variant: PropTypes.object,
     mainGeneId: PropTypes.string,
-    project: PropTypes.object,
     genesById: PropTypes.object,
   }
 
@@ -339,22 +355,30 @@ class VariantGenes extends React.PureComponent {
   }
 
   render() {
-    const geneIds = Object.keys(this.props.variant.transcripts || {})
+    const { variant, genesById, mainGeneId } = this.props
+    const geneIds = Object.keys(variant.transcripts || {})
+
     if (this.state.showAll) {
-      return geneIds.filter(geneId => geneId !== this.props.mainGeneId).map(geneId =>
-        <BaseVariantGene
-          key={geneId}
-          geneId={geneId}
-          gene={this.props.genesById[geneId]}
-          variant={this.props.variant}
-          project={this.props.project}
-          showInlineDetails={!this.props.mainGeneId}
-          compact
-        />,
+      return (
+        <div>
+          {geneIds.filter(geneId => geneId !== mainGeneId).map(geneId =>
+            <BaseVariantGene
+              key={geneId}
+              geneId={geneId}
+              gene={genesById[geneId]}
+              variant={variant}
+              showInlineDetails={!mainGeneId}
+              compact
+            />,
+          )}
+          {!mainGeneId && geneIds.length > 0 &&
+            <SearchResultsLink location={geneIds.join(',')} familyGuids={variant.familyGuids} padding="10px 0" />
+          }
+        </div>
       )
     }
 
-    const genes = geneIds.map(geneId => this.props.genesById[geneId]).filter(gene => gene)
+    const genes = geneIds.map(geneId => genesById[geneId]).filter(gene => gene)
 
     return (
       <div>
@@ -384,7 +408,6 @@ class VariantGenes extends React.PureComponent {
 }
 
 const mapAllGenesStateToProps = state => ({
-  project: getCurrentProject(state),
   genesById: getGenesById(state),
 })
 

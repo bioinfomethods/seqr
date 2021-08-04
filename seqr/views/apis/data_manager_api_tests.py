@@ -4,7 +4,7 @@ import mock
 from requests import HTTPError
 import responses
 
-from seqr.views.apis.data_manager_api import elasticsearch_status, upload_qc_pipeline_output
+from seqr.views.apis.data_manager_api import elasticsearch_status, upload_qc_pipeline_output, delete_index
 from seqr.views.utils.test_utils import AuthenticationTestCase, urllib3_responses
 from seqr.models import Individual
 
@@ -25,12 +25,21 @@ ES_CAT_ALLOCATION=[{
      'disk.percent': None
      }]
 
+ES_CAT_NODES=[{
+    'name': 'node-1',
+    'heap.percent': '57',
+},
+    {'name': 'no-disk-node',
+     'heap.percent': '83',
+     }]
+
 EXPECTED_DISK_ALLOCATION = [{
     'node': 'node-1',
     'shards': '113',
     'diskUsed': '67.2gb',
     'diskAvail': '188.6gb',
-    'diskPercent': '26'
+    'diskPercent': '26',
+    'heapPercent': '57',
 },
     {'node': 'UNASSIGNED',
      'shards': '2',
@@ -188,19 +197,6 @@ TEST_INDEX_NO_PROJECT_EXPECTED_DICT = {
     "projects": []
 }
 
-TEST_INDEX_NO_PROJECT_EXPECTED_DICT = {
-    "index": "test_index_no_project",
-    "sampleType": "WGS",
-    "genomeVersion": "37",
-    "sourceFilePath": "test_index_no_project_path",
-    "docsCount": "672312",
-    "storeSize": "233.4mb",
-    "creationDateString": "2019-10-03T19:53:53.846Z",
-    "datasetType": "VARIANTS",
-    "gencodeVersion": "19",
-    "projects": []
-}
-
 EXPECTED_ERRORS = [
     'test_index_old does not exist and is used by project(s) 1kg project n\xe5me with uni\xe7\xf8de (1 samples)']
 
@@ -253,6 +249,8 @@ class DataManagerAPITest(AuthenticationTestCase):
         urllib3_responses.add_json(
             '/_cat/allocation?format=json&h=node,shards,disk.avail,disk.used,disk.percent', ES_CAT_ALLOCATION)
         urllib3_responses.add_json(
+            '/_cat/nodes?format=json&h=name,heap.percent', ES_CAT_NODES)
+        urllib3_responses.add_json(
            '/_cat/indices?format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
         urllib3_responses.add_json('/_cat/aliases?format=json&h=alias,index', ES_CAT_ALIAS)
         urllib3_responses.add_json('/_all/_mapping', ES_INDEX_MAPPING)
@@ -271,6 +269,33 @@ class DataManagerAPITest(AuthenticationTestCase):
 
         self.assertListEqual(response_json['diskStats'], EXPECTED_DISK_ALLOCATION)
 
+    @urllib3_responses.activate
+    def test_delete_index(self):
+        url = reverse(delete_index)
+        self.check_data_manager_login(url)
+
+        response = self.client.post(url, content_type='application/json', data=json.dumps({'index': 'test_index'}))
+        self.assertEqual(response.status_code, 403)
+        self.assertDictEqual(
+            response.json(), ({'error': 'Index "test_index" is still used by: 1kg project n\xe5me with uni\xe7\xf8de'}))
+        self.assertEqual(len(urllib3_responses.calls), 0)
+
+        urllib3_responses.add_json(
+            '/_cat/indices?format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
+        urllib3_responses.add_json('/_cat/aliases?format=json&h=alias,index', ES_CAT_ALIAS)
+        urllib3_responses.add_json('/_all/_mapping', ES_INDEX_MAPPING)
+        urllib3_responses.add(urllib3_responses.DELETE, '/unused_index')
+
+        response = self.client.post(url, content_type='application/json', data=json.dumps({'index': 'unused_index'}))
+        self.assertEqual(response.status_code, 200)
+        response_json = response.json()
+        self.assertSetEqual(set(response_json.keys()), {'indices'})
+        self.assertEqual(len(response_json['indices']), 5)
+        self.assertDictEqual(response_json['indices'][0], TEST_INDEX_EXPECTED_DICT)
+        self.assertDictEqual(response_json['indices'][3], TEST_INDEX_NO_PROJECT_EXPECTED_DICT)
+        self.assertDictEqual(response_json['indices'][4], TEST_SV_INDEX_EXPECTED_DICT)
+
+        self.assertEqual(urllib3_responses.calls[0].request.method, 'DELETE')
 
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     def test_upload_qc_pipeline_output(self, mock_subprocess):
@@ -278,11 +303,24 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.check_data_manager_login(url)
 
         request_data =json.dumps({
-            'file': 'gs://seqr-datasets/v02/GRCh38/RDG_WES_Broad_Internal/v15/sample_qc/final_output/seqr_sample_qc.tsv'
+            'file': ' gs://seqr-datasets/v02/GRCh38/RDG_WES_Broad_Internal/v15/sample_qc/final_output/seqr_sample_qc.tsv'
         })
 
+        # Test missing file
+        mock_does_file_exist = mock.MagicMock()
+        mock_subprocess.side_effect = [mock_does_file_exist]
+        mock_does_file_exist.wait.return_value = 1
+        response = self.client.post(url, content_type='application/json', data=request_data)
+        self.assertEqual(response.status_code, 400)
+        self.assertListEqual(
+            response.json()['errors'],
+            ['File not found: gs://seqr-datasets/v02/GRCh38/RDG_WES_Broad_Internal/v15/sample_qc/final_output/seqr_sample_qc.tsv'])
+
         # Test missing columns
-        mock_subprocess.return_value.stdout = [b'', b'']
+        mock_does_file_exist.wait.return_value = 0
+        mock_file_iter = mock.MagicMock()
+        mock_file_iter.stdout = [b'', b'']
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
@@ -290,25 +328,29 @@ class DataManagerAPITest(AuthenticationTestCase):
             'The following required columns are missing: seqr_id, data_type, filter_flags, qc_metrics_filters, qc_pop')
 
         # Test no data type error
-        mock_subprocess.return_value.stdout = SAMPLE_QC_DATA_NO_DATA_TYPE
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
+        mock_file_iter.stdout = SAMPLE_QC_DATA_NO_DATA_TYPE
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.reason_phrase, 'No data type detected')
 
         # Test multiple data types error
-        mock_subprocess.return_value.stdout = SAMPLE_QC_DATA_MORE_DATA_TYPE
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
+        mock_file_iter.stdout = SAMPLE_QC_DATA_MORE_DATA_TYPE
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.reason_phrase, 'Multiple data types detected: wes ,wgs')
 
         # Test unexpected data type error
-        mock_subprocess.return_value.stdout = SAMPLE_QC_DATA_UNEXPECTED_DATA_TYPE
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
+        mock_file_iter.stdout = SAMPLE_QC_DATA_UNEXPECTED_DATA_TYPE
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.reason_phrase, 'Unexpected data type detected: "unknown" (should be "exome" or "genome")')
 
         # Test normal functions
-        mock_subprocess.return_value.stdout = SAMPLE_QC_DATA
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
+        mock_file_iter.stdout = SAMPLE_QC_DATA
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 200)
         response_json = response.json()
@@ -358,7 +400,11 @@ class DataManagerAPITest(AuthenticationTestCase):
             'file': 'gs://seqr-datasets/v02/GRCh38/RDG_WES_Broad_Internal/v15/sample_qc/sv/sv_sample_metadata.tsv'
         })
 
-        mock_subprocess.return_value.stdout = SAMPLE_SV_QC_DATA
+        mock_does_file_exist = mock.MagicMock()
+        mock_does_file_exist.wait.return_value = 0
+        mock_file_iter = mock.MagicMock()
+        mock_file_iter.stdout = SAMPLE_SV_QC_DATA
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
         response = self.client.post(url, content_type='application/json', data=request_data)
         self.assertEqual(response.status_code, 200)
         response_json = response.json()
@@ -400,7 +446,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertEqual(response.get('x-test-header'), 'test')
         self.assertIsNone(response.get('keep-alive'))
 
-        data = json.dumps({'content': 'Test Body'})
+        data = json.dumps([{'content': 'Test Body'}])
         response = self.client.post(url, content_type='application/json', data=data)
         self.assertEqual(response.status_code, 201)
 
@@ -415,7 +461,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertEqual(post_request.headers['Host'], 'localhost:5601')
         self.assertEqual(get_request.headers['Authorization'], 'Basic a2liYW5hOmFiYzEyMw==')
         self.assertEqual(post_request.headers['Content-Type'], 'application/json')
-        self.assertEqual(post_request.headers['Content-Length'], '24')
+        self.assertEqual(post_request.headers['Content-Length'], '26')
         self.assertEqual(post_request.body, data.encode('utf-8'))
 
         # Test with error response

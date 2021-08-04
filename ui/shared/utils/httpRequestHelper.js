@@ -74,7 +74,10 @@ export class HttpRequestHelper {
   handlePromise = (promise, onSuccessArg) => {
     return promise.then((response) => {
       if (response.status === 401 && !window.location.href.includes('login')) {
-        window.location.href = `${window.location.origin}/login?next=${window.location.href.replace(window.location.origin, '')}`
+        response.json().then((errorJson) => {
+          const { error } = errorJson
+          window.location.href = `${window.location.origin}${error}?next=${window.location.href.replace(window.location.origin, '')}`
+        })
       }
       if (!response.ok) {
         console.log('ERROR: ', response.statusText, response.status, response)

@@ -10,13 +10,15 @@ import {
   GENOME_VERSION_DISPLAY_LOOKUP,
   familyVariantSamples,
   getVariantMainTranscript,
+  INDIVIDUAL_EXPORT_DATA,
+  INDIVIDUAL_HAS_DATA_FIELD,
 } from 'shared/utils/constants'
 import { toCamelcase, toSnakecase, snakecaseToTitlecase } from 'shared/utils/stringUtils'
 
 import {
-  getCurrentProject, getFamiliesGroupedByProjectGuid, getIndividualsByGuid, getSamplesByGuid, getGenesById, getUser,
+  getProjectsByGuid, getFamiliesGroupedByProjectGuid, getIndividualsByGuid, getSamplesByGuid, getGenesById, getUser,
   getAnalysisGroupsGroupedByProjectGuid, getSavedVariantsByGuid, getFirstSampleByFamily, getSortedIndividualsByFamily,
-  getMmeResultsByGuid, getMmeSubmissionsByGuid, getProjectGuid, getHasActiveVariantSampleByFamily,
+  getMmeResultsByGuid, getMmeSubmissionsByGuid, getHasActiveVariantSampleByFamily, getTagTypesByProject,
   getVariantTagsByGuid, getUserOptionsByUsername,
 } from 'redux/selectors'
 
@@ -28,8 +30,6 @@ import {
   FAMILY_EXPORT_DATA,
   CASE_REVIEW_FAMILY_EXPORT_DATA,
   CASE_REVIEW_TABLE_NAME,
-  INDIVIDUAL_HAS_DATA_FIELD,
-  INDIVIDUAL_EXPORT_DATA,
   CASE_REVIEW_INDIVIDUAL_EXPORT_DATA,
   SAMPLE_EXPORT_DATA,
 } from './constants'
@@ -43,10 +43,14 @@ const FAMILY_SORT_LOOKUP = FAMILY_SORT_OPTIONS.reduce(
 
 // project data selectors
 
+export const getProjectGuid = state => state.currentProjectGuid
 export const getProjectDetailsIsLoading = state => state.projectDetailsLoading.isLoading
 export const getMatchmakerMatchesLoading = state => state.matchmakerMatchesLoading.isLoading
 export const getMatchmakerContactNotes = state => state.mmeContactNotes
 
+export const getCurrentProject = createSelector(
+  getProjectsByGuid, getProjectGuid, (projectsByGuid, currentProjectGuid) => projectsByGuid[currentProjectGuid],
+)
 
 const selectEntitiesForProjectGuid = (entitiesGroupedByProjectGuid, projectGuid) => entitiesGroupedByProjectGuid[projectGuid] || {}
 export const getProjectFamiliesByGuid = createSelector(getFamiliesGroupedByProjectGuid, getProjectGuid, selectEntitiesForProjectGuid)
@@ -113,31 +117,72 @@ export const getProjectAnalysisGroupMmeSubmissions = createSelector(
     ), []),
 )
 
+export const getTaggedVariantsByFamily = createSelector(
+  getSavedVariantsByGuid,
+  getGenesById,
+  getVariantTagsByGuid,
+  (savedVariants, genesById, variantTagsByGuid) => {
+    return Object.values(savedVariants).filter(variant => variant.tagGuids.length).reduce((acc, variant) => {
+      const { familyGuids, ...variantDetail } = variant
+      variantDetail.tags = variant.tagGuids.map(tagGuid => variantTagsByGuid[tagGuid])
+      variantDetail.genes = Object.keys(variant.transcripts || {}).map(geneId => genesById[geneId])
+      familyGuids.forEach((familyGuid) => {
+        if (!acc[familyGuid]) {
+          acc[familyGuid] = []
+        }
+        acc[familyGuid].push(variantDetail)
+      })
+      return acc
+    }, {})
+  },
+)
+
+export const getTaggedVariantsByFamilyType = createSelector(
+  getTaggedVariantsByFamily,
+  (variantsByFamily) => {
+    return Object.entries(variantsByFamily).reduce((acc, [familyGuid, variants]) => ({
+      ...acc,
+      [familyGuid]: variants.reduce((acc2, variant) => {
+        const isSv = !!variant.svType
+        if (!acc2[isSv]) {
+          acc2[isSv] = []
+        }
+        acc2[isSv].push(variant)
+        return acc2
+      }, {}),
+    }), {})
+  },
+)
+
 export const getVariantUniqueId = ({ chrom, pos, ref, alt, end, geneId }, variantGeneId) =>
   `${chrom}-${pos}-${ref ? `${ref}-${alt}` : end}-${variantGeneId || geneId}`
 
 export const getIndividualTaggedVariants = createSelector(
-  getSavedVariantsByGuid,
+  getTaggedVariantsByFamily,
   getIndividualsByGuid,
-  getGenesById,
-  getVariantTagsByGuid,
   (state, props) => props.individualGuid,
-  (savedVariants, individualsByGuid, genesById, variantTagsByGuid, individualGuid) => {
+  (taggedVariants, individualsByGuid, individualGuid) => {
     const { familyGuid } = individualsByGuid[individualGuid]
-    return Object.values(savedVariants).filter(
-      o => o.familyGuids.includes(familyGuid) && o.tagGuids.length).reduce((acc, variant) => {
+    return Object.values(taggedVariants[familyGuid] || []).reduce((acc, variant) => {
       const variantDetail = {
         ...variant.genotypes[individualGuid],
         ...variant,
-        tags: variant.tagGuids.map(tagGuid => variantTagsByGuid[tagGuid]),
       }
-      return [...acc, ...Object.keys(variant.transcripts || {}).map(geneId => ({
+      return [...acc, ...variant.genes.map(gene => ({
         ...variantDetail,
-        variantId: getVariantUniqueId(variant, geneId),
-        ...genesById[geneId],
+        variantId: getVariantUniqueId(variant, gene.geneId),
+        ...gene,
       }))]
     }, [])
   },
+)
+
+export const getProjectTagTypeOptions = createSelector(
+  getProjectGuid,
+  getTagTypesByProject,
+  (projectGuid, tagTypesByProject) => tagTypesByProject[projectGuid].map(
+    ({ name, variantTagTypeGuid, ...tag }) => ({ value: name, text: name, ...tag }),
+  ),
 )
 
 // Family table selectors
@@ -368,10 +413,10 @@ export const getMmeDefaultContactEmail = createSelector(
     const { geneVariants: submissionGeneVariants, phenotypes, individualGuid, contactHref, submissionId } = mmeSubmissionsByGuid[submissionGuid]
     const { familyGuid } = individualsByGuid[individualGuid]
 
-    const geneName = geneVariants && geneVariants.length && (genesById[geneVariants[0].geneId] || {}).geneSymbol
-
     const submittedGenes = [...new Set((submissionGeneVariants || []).map(
-      ({ geneId }) => (genesById[geneId] || {}).geneSymbol))].join(', ')
+      ({ geneId }) => (genesById[geneId] || {}).geneSymbol))]
+
+    const geneName = (geneVariants || []).map(({ geneId }) => (genesById[geneId] || {}).geneSymbol).find(geneSymbol => geneSymbol && submittedGenes.includes(geneSymbol))
 
     const submittedVariants = (submissionGeneVariants || []).map(({ alt, ref, chrom, pos, end, genomeVersion }) => {
       const savedVariant = Object.values(savedVariants).find(
@@ -410,7 +455,7 @@ export const getMmeDefaultContactEmail = createSelector(
       patientId: patient.id,
       to: contacts.filter(val => val).join(','),
       subject: `${geneName || `Patient ${patient.id}`} Matchmaker Exchange connection (${submissionId})`,
-      body: `Dear ${patient.contact.name},\n\nWe recently matched with one of your patients in Matchmaker Exchange harboring ${(submissionGeneVariants || []).length === 1 ? 'a variant' : 'variants'} in ${submittedGenes}. Our patient has ${submittedVariants}${submittedPhenotypes ? ` and presents with ${submittedPhenotypes}` : ''}. Would you be willing to share whether your patient's phenotype and genotype match with ours? We are very grateful for your help and look forward to hearing more.\n\nBest wishes,\n${user.displayName}`,
+      body: `Dear ${patient.contact.name},\n\nWe recently matched with one of your patients in Matchmaker Exchange harboring ${(submissionGeneVariants || []).length === 1 ? 'a variant' : 'variants'} in ${submittedGenes.join(', ')}. Our patient has ${submittedVariants}${submittedPhenotypes ? ` and presents with ${submittedPhenotypes}` : ''}. Would you be willing to share whether your patient's phenotype and genotype match with ours? We are very grateful for your help and look forward to hearing more.\n\nBest wishes,\n${user.displayName}`,
     }
   },
 )
@@ -545,7 +590,9 @@ export const getPageHeaderEntityLinks = createSelector(
       to: `/variant_search/${searchType}/${searchId}`,
       content: `${snakecaseToTitlecase(searchType)} Variant Search`,
       disabled,
-      popup: disabled ? 'Search is disabled until data is loaded' : null,
+      popup: disabled ?
+        `Search is disabled until data is loaded${project.workspaceName ? '. Loading data from AnVIL to seqr is a slow process, and generally takes a week.' : ''}`
+        : null,
 
     }]
     if (project.hasCaseReview) {
