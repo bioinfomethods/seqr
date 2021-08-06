@@ -131,6 +131,8 @@ WORKDIR /seqr
 RUN apt-get update \
     && apt-get install -y libjpeg-dev
 
+run pip install wheel
+
 # install seqr dependencies
 RUN pip install -r requirements.txt
 
