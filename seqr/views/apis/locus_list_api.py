@@ -1,29 +1,26 @@
 import json
-import logging
 
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Count
+from django.db.utils import IntegrityError
 
 
 from reference_data.models import GENOME_VERSION_GRCh37
 from seqr.models import LocusList, LocusListGene, LocusListInterval
 from seqr.utils.gene_utils import get_genes, parse_locus_list_items
-from seqr.utils.logging_utils import log_model_update
+from seqr.utils.logging_utils import log_model_update, SeqrLogger
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.json_to_orm_utils import update_model_from_json, get_or_create_model_from_json, \
     create_model_from_json
 from seqr.views.utils.orm_to_json_utils import get_json_for_locus_lists, get_json_for_locus_list
 from seqr.views.utils.permissions_utils import get_project_and_check_permissions, check_multi_project_permissions, \
-    check_user_created_object_permissions
-from settings import API_LOGIN_REQUIRED_URL
+    check_user_created_object_permissions, login_and_policies_required
 
-
-logger = logging.getLogger(__name__)
+logger = SeqrLogger(__name__)
 
 INVALID_ITEMS_ERROR = 'This list contains invalid genes/ intervals. Update them, or select the "Ignore invalid genes and intervals" checkbox to ignore.'
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def locus_lists(request):
     locus_list_models = LocusList.objects.filter(
         Q(is_public=True) | Q(created_by=request.user)
@@ -36,7 +33,7 @@ def locus_lists(request):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def locus_list_info(request, locus_list_guid):
     locus_list = LocusList.objects.get(guid=locus_list_guid)
 
@@ -47,11 +44,11 @@ def locus_list_info(request, locus_list_guid):
     gene_ids = [item['geneId'] for item in locus_list_json['items'] if item.get('geneId')]
     return create_json_response({
         'locusListsByGuid': {locus_list_guid: locus_list_json},
-        'genesById': get_genes(gene_ids, add_dbnsfp=True, add_omim=True, add_constraints=True)
+        'genesById': get_genes(gene_ids)
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def create_locus_list_handler(request):
     request_json = json.loads(request.body)
 
@@ -62,11 +59,14 @@ def create_locus_list_handler(request):
     if invalid_items and not request_json.get('ignoreInvalidItems'):
         return create_json_response({'invalidLocusListItems': invalid_items}, status=400, reason=INVALID_ITEMS_ERROR)
 
-    locus_list = create_model_from_json(LocusList, {
-        'name': request_json['name'],
-        'description': request_json.get('description') or '',
-        'is_public': request_json.get('isPublic') or False,
-    }, request.user)
+    try:
+        locus_list = create_model_from_json(LocusList, {
+            'name': request_json['name'],
+            'description': request_json.get('description') or '',
+            'is_public': request_json.get('isPublic') or False,
+        }, request.user)
+    except IntegrityError:
+        return create_json_response({'error': 'This list already exists'}, status=400)
     _update_locus_list_items(locus_list, genes_by_id, intervals, request_json, request.user)
 
     return create_json_response({
@@ -75,7 +75,7 @@ def create_locus_list_handler(request):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def update_locus_list_handler(request, locus_list_guid):
     locus_list = LocusList.objects.get(guid=locus_list_guid)
     check_user_created_object_permissions(locus_list, request.user)
@@ -96,16 +96,16 @@ def update_locus_list_handler(request, locus_list_guid):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def delete_locus_list_handler(request, locus_list_guid):
     locus_list = LocusList.objects.get(guid=locus_list_guid)
     locus_list.delete_model(request.user)
     return create_json_response({'locusListsByGuid': {locus_list_guid: None}})
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def add_project_locus_lists(request, project_guid):
-    project = get_project_and_check_permissions(project_guid, request.user, can_edit=True)
+    project = get_project_and_check_permissions(project_guid, request.user)
     request_json = json.loads(request.body)
     locus_lists = LocusList.objects.filter(guid__in=request_json['locusListGuids'])
     for locus_list in locus_lists:
@@ -118,7 +118,7 @@ def add_project_locus_lists(request, project_guid):
     })
 
 
-@login_required(login_url=API_LOGIN_REQUIRED_URL)
+@login_and_policies_required
 def delete_project_locus_lists(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user, can_edit=True)
     request_json = json.loads(request.body)

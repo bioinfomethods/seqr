@@ -36,49 +36,32 @@ const predictionFieldValue = (predictions, { field, dangerThreshold, warningThre
     } else if (value >= warningThreshold) {
       color = 'yellow'
     }
-    return { value, color, infoValue, infoTitle }
+    return { value, color, infoValue, infoTitle, dangerThreshold, warningThreshold }
   }
 
   return indicatorMap ? { ...PREDICTION_INDICATOR_MAP[value[0]], ...indicatorMap[value[0]] } : PREDICTION_INDICATOR_MAP[value[0]]
 }
 
-const Prediction = ({ field, value, color, infoValue, infoTitle }) => {
-  let indicator = (<Icon name="circle" size="small" color={color} />)
-
-  if (infoValue) {
-    const triggerIcon = (<Icon name="question circle" size="small" color={color} />)
-    if (Array.isArray(infoValue)) {
-      // console.log(`this.props.gene=${this.props.gene}`)
-      indicator = (
-        <Popup
-          header={infoTitle}
-          trigger={triggerIcon}
-        >
-          <Popup.Header>{infoTitle}</Popup.Header>
-          <Popup.Content>
-            {
-              infoValue.map((inf) => {
-                return (<div>{inf}</div>)
-              })
-            }
-          </Popup.Content>
-        </Popup>
-      )
-    }
-    else {
-      indicator = (
-        <Popup
-          header={infoTitle}
-          content={infoValue}
-          trigger={triggerIcon}
-        />
-      )
-    }
-  }
+const Prediction = ({ field, value, color, infoValue, infoTitle, warningThreshold, dangerThreshold }) => {
+  const indicator = infoValue ? <Popup
+    header={infoTitle}
+    content={infoValue}
+    trigger={<Icon name="question circle" size="small" color={color} />}
+  /> : <Icon name="circle" size="small" color={color} />
+  const fieldName = snakecaseToTitlecase(field)
+  const fieldDisplay = dangerThreshold ? <Popup
+    header={`${fieldName} Color Ranges`}
+    content={
+      <div>
+        <div>Red &gt; {dangerThreshold}</div>
+        <div>Yellow &gt; {warningThreshold}</div>
+      </div>}
+    trigger={<span>{fieldName}</span>}
+  /> : fieldName
 
   return (
     <div>
-      {indicator} {snakecaseToTitlecase(field)}
+      {indicator} {fieldDisplay}
       <PredictionValue> {value}</PredictionValue>
     </div>
   )
@@ -91,6 +74,8 @@ Prediction.propTypes = {
   infoValue: PropTypes.any,
   infoTitle: PropTypes.string,
   color: PropTypes.string,
+  warningThreshold: PropTypes.number,
+  dangerThreshold: PropTypes.number,
 }
 
 const PREDICTOR_FIELDS = [
@@ -156,17 +141,17 @@ class Predictions extends React.PureComponent {
         }
         {
           predictorFields.length > NUM_TO_SHOW_ABOVE_THE_FOLD &&
-          <Transition.Group animation="fade down" duration="500">
-            {
-              this.state.showMore && predictorFields.slice(NUM_TO_SHOW_ABOVE_THE_FOLD).map(predictorField =>
-                <Prediction key={predictorField.field} {...predictorField} />,
-              )
-            }
-            <ButtonLink onClick={this.toggleShowMore}>
-              <HorizontalSpacer width={20} />
-              {this.state.showMore ? 'hide' : 'show more...'}
-            </ButtonLink>
-          </Transition.Group>
+            <Transition.Group animation="fade down" duration="500">
+              {
+                this.state.showMore && predictorFields.slice(NUM_TO_SHOW_ABOVE_THE_FOLD).map(predictorField =>
+                  <Prediction key={predictorField.field} {...predictorField} />,
+                )
+              }
+              <ButtonLink onClick={this.toggleShowMore}>
+                <HorizontalSpacer width={20} />
+                {this.state.showMore ? 'hide' : 'show more...'}
+              </ButtonLink>
+            </Transition.Group>
         }
       </div>
     )
@@ -178,3 +163,4 @@ const mapStateToProps = (state, ownProps) => ({
 })
 
 export default connect(mapStateToProps)(Predictions)
+

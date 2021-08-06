@@ -4,10 +4,8 @@ import { connect } from 'react-redux'
 import { Grid, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router-dom'
 
-import { getCurrentProject } from 'redux/selectors'
 import { HorizontalSpacer, VerticalSpacer } from 'shared/components/Spacers'
 import { SectionHeader } from 'shared/components/StyledComponents'
-import VariantTagTypeBar from 'shared/components/graph/VariantTagTypeBar'
 import {
   FAMILY_FIELD_DESCRIPTION,
   FAMILY_FIELD_ANALYSIS_STATUS,
@@ -16,6 +14,7 @@ import {
   FAMILY_DETAIL_FIELDS,
 } from 'shared/utils/constants'
 import {
+  getCurrentProject,
   getProjectDetailsIsLoading,
   getAnalysisStatusCounts,
   getFamiliesExportConfig,
@@ -26,19 +25,20 @@ import {
 import ProjectOverview from './ProjectOverview'
 import AnalysisGroups from './AnalysisGroups'
 import { UpdateAnalysisGroupButton } from './AnalysisGroupButtons'
-import ProjectCollaborators, { AddProjectCollaboratorButton } from './ProjectCollaborators'
+import ProjectCollaborators from './ProjectCollaborators'
 import { GeneLists, AddGeneListsButton } from './GeneLists'
 import FamilyTable from './FamilyTable/FamilyTable'
 import VariantTags from './VariantTags'
+import VariantTagTypeBar from './VariantTagTypeBar'
 
 
-const ProjectSectionComponent = React.memo(({ loading, label, children, editButton, linkPath, linkText, project }) => {
+const ProjectSectionComponent = React.memo(({ loading, label, children, editButton, linkPath, linkText, project, collaboratorEdit }) => {
   return ([
     <SectionHeader key="header">{label}</SectionHeader>,
     <div key="content">
       {loading ? <Loader key="content" inline active /> : children}
     </div>,
-    editButton && project.canEdit ? (
+    editButton && (project.canEdit || collaboratorEdit) ? (
       <div key="edit">
         <VerticalSpacer height={15} />
         {editButton}
@@ -62,6 +62,7 @@ ProjectSectionComponent.propTypes = {
   linkPath: PropTypes.string,
   linkText: PropTypes.string,
   project: PropTypes.object,
+  collaboratorEdit: PropTypes.bool,
 }
 
 const mapSectionStateToProps = state => ({
@@ -94,7 +95,7 @@ const ProjectPageUI = React.memo((props) => {
             <AnalysisGroups />
           </ProjectSection>}
           <VerticalSpacer height={10} />
-          <ProjectSection label="Gene Lists" editButton={<AddGeneListsButton project={props.project} />}>
+          <ProjectSection label="Gene Lists" editButton={<AddGeneListsButton project={props.project} />} collaboratorEdit>
             <GeneLists project={props.project} />
           </ProjectSection>
         </Grid.Column>
@@ -115,10 +116,9 @@ const ProjectPageUI = React.memo((props) => {
           </ProjectSection>
         </Grid.Column>
         <Grid.Column width={4}>
-          <ProjectSection label="Collaborators" editButton={<AddProjectCollaboratorButton />}>
-            <ProjectCollaborators anvilCollaborator={false} />
+          <ProjectSection label="Collaborators">
+            <ProjectCollaborators />
           </ProjectSection>
-          <br /><ProjectCollaborators anvilCollaborator />
         </Grid.Column>
       </Grid.Row>
       <Grid.Row>

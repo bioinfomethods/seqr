@@ -2,10 +2,9 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
-import { Popup, Icon } from 'semantic-ui-react'
+import { Popup, Icon, Header } from 'semantic-ui-react'
 
 import { getSortedIndividualsByFamily } from 'redux/selectors'
-import ShowReadsButton from '../../buttons/ShowReadsButton'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import HpoPanel from '../HpoPanel'
@@ -50,9 +49,17 @@ const IndividualCell = styled.div`
   }
 `
 
-const AlleleContainer = styled.span`
-  color: black;
-  font-size: 1.2em;
+const AlleleContainer = styled(Header).attrs({ size: 'medium' })`
+  &.ui.header {
+    font-weight: 300;
+    white-space: nowrap;
+    .content {
+      width: 100%;
+    }
+    &.ui.header>.icon {
+      font-size: 1em;
+     }
+  }
 `
 
 const PAR_REGIONS = {
@@ -78,22 +85,39 @@ const missingParentVariant = variant => (parentGuid) => {
 const isHemiUPDVariant = (numAlt, variant, individual) =>
   numAlt === 2 && [individual.maternalGuid, individual.paternalGuid].some(missingParentVariant(variant))
 
-const Allele = React.memo(({ isAlt, variant }) => {
-  const allele = isAlt ? variant.alt : variant.ref
-  let alleleText = allele.substring(0, 3)
-  if (allele.length > 3) {
-    alleleText += '...'
-  }
-
-  return isAlt ? <b><i>{alleleText}</i></b> : alleleText
-})
+const Allele = styled.div.attrs(({ isAlt, variant }) => ({ children: isAlt ? variant.alt : variant.ref }))`
+  display: inline-block;
+  max-width: 50px;
+  width: 40%;
+  height: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: ${props => props.textAlign};
+  ${props => (props.isAlt ? `
+    font-style: italic;
+    font-weight: 400;` : '')}
+`
 
 Allele.propTypes = {
   isAlt: PropTypes.bool,
   variant: PropTypes.object,
 }
 
-export const Alleles = React.memo(({ numAlt, cn, variant, isHemiX, warning }) =>
+const svGenotype = (genotype, isHemiX) => {
+  const hasGenotype = Number.isInteger(genotype.numAlt) && genotype.numAlt >= 0
+  const isAltCn = Number.isInteger(genotype.cn) && genotype.cn !== (isHemiX ? 1 : 2)
+  if (!hasGenotype) {
+    return <span>CN: {isAltCn ? <b><i>{genotype.cn}</i></b> : genotype.cn}</span>
+  }
+  return (
+    <span>
+      {genotype.numAlt > 0 ? <b><i>X</i></b> : '-'}/{isHemiX || genotype.numAlt < 2 ? '-' : <b><i>X</i></b>}
+      {isAltCn && <span><br />CN: <b><i>{genotype.cn}</i></b></span>}
+    </span>
+  )
+}
+
+export const Alleles = React.memo(({ genotype, variant, isHemiX, warning }) =>
   <AlleleContainer>
     {warning &&
       <Popup
@@ -102,23 +126,52 @@ export const Alleles = React.memo(({ numAlt, cn, variant, isHemiX, warning }) =>
         content={<div><b>Warning:</b> {warning}</div>}
       />
     }
-    {numAlt >= 0 ?
-      <span>
-        <Allele isAlt={numAlt > (isHemiX ? 0 : 1)} variant={variant} />/{isHemiX ? '-' : <Allele isAlt={numAlt > 0} variant={variant} />}
-      </span> :
-      <span>CN: {cn === (isHemiX ? 1 : 2) ? cn : <b><i>{cn}</i></b>}</span>
+    {variant.svType ?
+      <Header.Content>
+        {svGenotype(genotype, isHemiX)}
+      </Header.Content> :
+      <Header.Content>
+        <Allele isAlt={genotype.numAlt > (isHemiX ? 0 : 1)} variant={variant} textAlign="right" />
+        /{isHemiX ? '-' : <Allele isAlt={genotype.numAlt > 0} variant={variant} textAlign="left" />}
+      </Header.Content>
     }
   </AlleleContainer>,
 )
 
 Alleles.propTypes = {
-  numAlt: PropTypes.number,
-  cn: PropTypes.number,
+  genotype: PropTypes.object,
   variant: PropTypes.object,
   warning: PropTypes.string,
   isHemiX: PropTypes.bool,
 }
 
+const GENOTYPE_DETAILS = [
+  { title: 'Sample Type', field: 'sampleType' },
+  {
+    title: 'Raw Alt. Alleles',
+    variantField: 'originalAltAlleles',
+    format: val => (val || []).join(', '),
+    shouldHide: (val, variant) => (val || []).length < 1 || ((val || []).length === 1 && val[0] === variant.alt),
+  },
+  { title: 'Allelic Depth', field: 'ad' },
+  { title: 'Read Depth', field: 'dp' },
+  { title: 'Genotype Quality', field: 'gq' },
+  { title: 'Allelic Balance', field: 'ab', format: val => val && val.toPrecision(2) },
+  { title: 'Filter', variantField: 'genotypeFilters', shouldHide: val => (val || []).length < 1 },
+  { title: 'Phred Likelihoods', field: 'pl' },
+  { title: 'Quality Score', field: 'qs' },
+  { title: 'Start', field: 'start' },
+  { title: 'End', field: 'end' },
+]
+
+const genotypeDetails = (genotype, variant) =>
+  GENOTYPE_DETAILS.map(({ shouldHide, title, field, variantField, format }) => {
+    const value = field ? genotype[field] : variant[variantField]
+    return value && !(shouldHide && shouldHide(value, variant)) ?
+      <div key={title}>
+        {title}:<HorizontalSpacer width={10} /><b>{format ? format(value) : value}</b>
+      </div> : null
+  }).filter(val => val)
 
 const Genotype = React.memo(({ variant, individual, isCompoundHet }) => {
   if (!variant.genotypes) {
@@ -129,23 +182,13 @@ const Genotype = React.memo(({ variant, individual, isCompoundHet }) => {
     return null
   }
 
-  const qualityDetails = [
-    {
-      title: 'Raw Alt. Alleles',
-      value: (variant.originalAltAlleles || []).join(', '),
-      shouldHide: (variant.originalAltAlleles || []).length < 1 ||
-      (variant.originalAltAlleles.length === 1 && variant.originalAltAlleles[0] === variant.alt),
-    },
-    { title: 'Allelic Depth', value: genotype.ad },
-    { title: 'Read Depth', value: genotype.dp },
-    { title: 'Genotype Quality', value: genotype.gq },
-    { title: 'Allelic Balance', value: genotype.ab && genotype.ab.toPrecision(2) },
-    { title: 'Filter', value: variant.genotypeFilters, shouldHide: (variant.genotypeFilters || []).length < 1 },
-    { title: 'Phred Likelihoods', value: genotype.pl },
-    { title: 'Quality Score', value: genotype.qs },
-    { title: 'Start', value: genotype.start },
-    { title: 'End', value: genotype.end },
-  ]
+  const isNoCall = variant.svType ?
+    (!Number.isInteger(genotype.cn) && (!Number.isInteger(genotype.numAlt) || genotype.numAlt < 0)) :
+    genotype.numAlt < 0
+  if (isNoCall) {
+    return <b>NO CALL</b>
+  }
+
   const isHemiX = isHemiXVariant(variant, individual)
 
   let warning
@@ -157,28 +200,36 @@ const Genotype = React.memo(({ variant, individual, isCompoundHet }) => {
     warning = 'Variant absent in parents'
   }
 
-  return (
-    (genotype.numAlt >= 0 || (variant.svType && genotype.cn >= 0)) ?
-      <Popup
-        position="top center"
+  const hasConflictingNumAlt = genotype.otherSample && genotype.otherSample.numAlt !== genotype.numAlt
+  const details = genotypeDetails(genotype, variant)
+
+  const content = (
+    <span>
+      {genotype.otherSample && <Popup
         flowing
-        trigger={
-          <span>
-            <Alleles cn={genotype.cn} numAlt={genotype.numAlt} variant={variant} isHemiX={isHemiX} warning={warning} />
-            <VerticalSpacer width={5} />
-            {genotype.gq || genotype.qs || '-'}{genotype.numAlt >= 0 && `, ${genotype.ab ? genotype.ab.toPrecision(2) : '-'}`}
-            {variant.genotypeFilters && <small><br />{variant.genotypeFilters}</small>}
-          </span>
-        }
+        header="Additional Sample Type"
+        trigger={<Icon name="plus circle" color={hasConflictingNumAlt ? 'red' : 'green'} />}
         content={
-          qualityDetails.map(({ shouldHide, title, value }) => {
-            return value && !shouldHide ?
-              <div key={title}>{title}:<HorizontalSpacer width={10} /><b>{value}</b></div> : null
-          })
+          <div>
+            {hasConflictingNumAlt &&
+              <div>
+                <VerticalSpacer height={5} />
+                <Alleles genotype={genotype.otherSample} variant={variant} isHemiX={isHemiX} />
+                <VerticalSpacer height={5} />
+              </div>
+            }
+            {genotypeDetails(genotype.otherSample, variant)}
+          </div>
         }
-      />
-      : <b>NO CALL</b>
+      />}
+      <Alleles genotype={genotype} variant={variant} isHemiX={isHemiX} warning={warning} />
+      <VerticalSpacer height={2} />
+      {genotype.gq || genotype.qs || '-'}{!variant.svType && genotype.numAlt >= 0 && `, ${genotype.ab ? genotype.ab.toPrecision(2) : '-'}`}
+      {variant.genotypeFilters && <small><br />{variant.genotypeFilters}</small>}
+    </span>
   )
+
+  return details.length ? <Popup position="top center" flowing trigger={content} content={details} /> : content
 })
 
 Genotype.propTypes = {
@@ -188,7 +239,7 @@ Genotype.propTypes = {
 }
 
 
-const VariantIndividuals = React.memo(({ variant, individuals, familyGuid, isCompoundHet }) => (
+const BaseVariantIndividuals = React.memo(({ variant, individuals, isCompoundHet }) => (
   <IndividualsContainer>
     {(individuals || []).map(individual =>
       <IndividualCell key={individual.individualGuid} numIndividuals={individuals.length}>
@@ -205,12 +256,10 @@ const VariantIndividuals = React.memo(({ variant, individuals, familyGuid, isCom
         <Genotype variant={variant} individual={individual} isCompoundHet={isCompoundHet} />
       </IndividualCell>,
     )}
-    <ShowReadsButton familyGuid={familyGuid} igvId={variant.variantId} />
   </IndividualsContainer>
 ))
 
-VariantIndividuals.propTypes = {
-  familyGuid: PropTypes.string,
+BaseVariantIndividuals.propTypes = {
   variant: PropTypes.object,
   individuals: PropTypes.array,
   isCompoundHet: PropTypes.bool,
@@ -220,4 +269,20 @@ const mapStateToProps = (state, ownProps) => ({
   individuals: getSortedIndividualsByFamily(state)[ownProps.familyGuid],
 })
 
-export default connect(mapStateToProps)(VariantIndividuals)
+const FamilyVariantIndividuals = connect(mapStateToProps)(BaseVariantIndividuals)
+
+const VariantIndividuals = React.memo(({ variant, isCompoundHet }) =>
+  <span>
+    {variant.familyGuids.map(familyGuid =>
+      <FamilyVariantIndividuals key={familyGuid} familyGuid={familyGuid} variant={variant} isCompoundHet={isCompoundHet} />,
+    )}
+  </span>,
+)
+
+
+VariantIndividuals.propTypes = {
+  variant: PropTypes.object,
+  isCompoundHet: PropTypes.bool,
+}
+
+export default VariantIndividuals

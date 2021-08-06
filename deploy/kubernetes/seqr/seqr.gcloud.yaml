@@ -30,7 +30,7 @@ spec:
     metadata:
       annotations:
         linkerd.io/inject: enabled
-        config.linkerd.io/skip-outbound-ports: "6379,5432"
+        config.linkerd.io/opaque-ports: "6379,5432"
       labels:
         name: seqr
         deployment: {{ DEPLOY_TO }}
@@ -162,8 +162,8 @@ spec:
           value: "https://{{ CLUSTER_HOSTNAME }}/"
         - name: DATABASE_BACKUP_BUCKET
           value: "{{ DATABASE_BACKUP_BUCKET }}"
-        - name: ENABLE_DATABASE_BACKUPS
-          value: "{{ ENABLE_DATABASE_BACKUPS }}"
+        - name: RUN_CRON_JOBS
+          value: "{{ RUN_CRON_JOBS }}"
         - name: STATIC_MEDIA_DIR
           value: "{{ STATIC_MEDIA_DIR }}"
         - name: MME_CONFIG_DIR
@@ -174,12 +174,42 @@ spec:
           value: "{{ ELASTICSEARCH_PROTOCOL }}"
         # - name: ELASTICSEARCH_CA_PATH
         #   value: "{{ ELASTICSEARCH_CA_PATH }}"
+        - name: TERRA_PERMS_CACHE_EXPIRE_SECONDS
+          value: "{{ TERRA_PERMS_CACHE_EXPIRE_SECONDS }}"
+        - name: TERRA_WORKSPACE_CACHE_EXPIRE_SECONDS
+          value: "{{ TERRA_WORKSPACE_CACHE_EXPIRE_SECONDS }}"
+        - name: ANALYST_PROJECT_CATEGORY
+          value: "{{ ANALYST_PROJECT_CATEGORY }}"
+        - name: ANALYST_USER_GROUP
+          value: "{{ ANALYST_USER_GROUP }}"
+        - name: PM_USER_GROUP
+          value: "{{ PM_USER_GROUP }}"
         readinessProbe:
           exec:
             command:
             - /bin/bash
             - -c
             - /readiness_probe
+      - name: cloud-sql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.17
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances={{ GCLOUD_PROJECT }}:{{ GCLOUD_ZONE }}:postgres-{{ DEPLOYMENT_TYPE}}=tcp:{{ POSTGRES_SERVICE_PORT }}"
+          - "-credential_file=/.config/service-account-key.json"
+        securityContext:
+          # The default Cloud SQL proxy image runs as the "nonroot" user and group (uid: 65532) by default.
+          runAsNonRoot: true
+        volumeMounts:
+        - name: gcloud-client-secrets-volume
+          mountPath: /.config
+          readOnly: true
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
       restartPolicy: Always
       dnsPolicy: ClusterFirst
       affinity:

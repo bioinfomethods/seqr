@@ -3,7 +3,7 @@ from seqr.models import Individual
 
 MAX_VARIANTS = 10000
 MAX_COMPOUND_HET_GENES = 1000
-MAX_INDEX_NAME_LENGTH = 7500
+MAX_INDEX_NAME_LENGTH = 4000
 
 XPOS_SORT_KEY = 'xpos'
 
@@ -99,6 +99,7 @@ POPULATIONS = {
     'gnomad_genomes': {
         'filter_AF': ['gnomad_genomes_FAF_AF', 'gnomad_genomes_AF_POPMAX_OR_GLOBAL'],
     },
+    'gnomad_svs': {},
 }
 POPULATION_FIELD_CONFIGS = {
     'AF': {'format_value': float},
@@ -107,6 +108,8 @@ POPULATION_FIELD_CONFIGS = {
     'AN': {},
     'Hom': {},
     'Hemi': {},
+    'Het': {},
+    'ID': {'format_value': str, 'default_value': None},
 }
 for population, pop_config in POPULATIONS.items():
     for freq_field in POPULATION_FIELD_CONFIGS.keys():
@@ -182,7 +185,7 @@ SORT_FIELDS = {
         '_script': {
             'type': 'number',
             'script': {
-               'source': "doc.containsKey('svType') ? 4.5 : doc['mainTranscript_major_consequence_rank'].value"
+               'source': "doc.containsKey('svType') ? 4.5 : (doc['mainTranscript_major_consequence_rank'].empty ? 1000 : doc['mainTranscript_major_consequence_rank'].value)"
             }
         }
     }],
@@ -230,7 +233,7 @@ PREDICTOR_SORT_FIELDS = {
     'primate_ai': 'primate_ai_score',
 }
 SORT_FIELDS.update({
-    sort: [{sort_field: {'order': 'desc', 'unmapped_type': True}}]
+    sort: [{sort_field: {'order': 'desc', 'unmapped_type': 'double', 'numeric_type': 'double'}}]
     for sort, sort_field in PREDICTOR_SORT_FIELDS.items()
 })
 
@@ -272,6 +275,11 @@ CORE_FIELDS_CONFIG = {
     'variantId': {},
     'xpos': {'format_value': int},
     GRCH38_LOCUS_FIELD: {},
+    'sv_type_detail': {'response_key': 'svTypeDetail'},
+    'cpx_intervals': {
+      'response_key': 'cpxIntervals',
+      'format_value': lambda intervals:  [interval.to_dict() for interval in (intervals or [])],
+},
 }
 PREDICTION_FIELDS_CONFIG = {
     'cadd_PHRED': {'response_key': 'cadd'},
@@ -309,6 +317,7 @@ GENOTYPE_FIELDS_CONFIG = {
     'num_exon': {},
     'defragged': {'format_value': bool},
     'sample_id': {},
+    'sample_type': {},
     'num_alt': {'format_value': int, 'default_value': -1},
 }
 GENOTYPE_FIELDS_CONFIG.update({field: {} for field in QUALITY_FIELDS.keys()})

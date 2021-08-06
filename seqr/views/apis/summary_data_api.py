@@ -1,5 +1,4 @@
 from django.db.models import prefetch_related_objects, Q
-import logging
 
 from matchmaker.matchmaker_utils import get_mme_genes_phenotypes_for_submissions, parse_mme_features, \
     parse_mme_gene_variants, get_mme_metrics
@@ -10,19 +9,18 @@ from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.orm_to_json_utils import _get_json_for_individuals, get_json_for_saved_variants_with_tags, \
     get_json_for_variant_functional_data_tag_types, get_json_for_projects, _get_json_for_families, \
     get_json_for_locus_lists, _get_json_for_models, get_json_for_matchmaker_submissions
-from seqr.views.utils.permissions_utils import analyst_required
+from seqr.views.utils.permissions_utils import analyst_required, user_is_analyst, get_project_guids_user_can_view, \
+    login_and_policies_required
 from seqr.views.utils.variant_utils import saved_variant_genes
 from settings import ANALYST_PROJECT_CATEGORY
-
-logger = logging.getLogger(__name__)
 
 MAX_SAVED_VARIANTS = 10000
 
 
-@analyst_required
+@login_and_policies_required
 def mme_details(request):
-    submissions = MatchmakerSubmission.objects.filter(
-        deleted_date__isnull=True, individual__family__project__projectcategory__name=ANALYST_PROJECT_CATEGORY)
+    submissions = MatchmakerSubmission.objects.filter(deleted_date__isnull=True).filter(
+        individual__family__project__guid__in=get_project_guids_user_can_view(request.user))
 
     hpo_terms_by_id, genes_by_id, gene_symbols_to_ids = get_mme_genes_phenotypes_for_submissions(submissions)
 
@@ -38,11 +36,14 @@ def mme_details(request):
             'geneSymbols': ','.join({genes_by_id.get(gv['geneId'], {}).get('geneSymbol') for gv in gene_variants})
         })
 
-    return create_json_response({
-        'metrics': get_mme_metrics(),
+    response = {
         'submissions': list(submissions_by_guid.values()),
         'genesById': genes_by_id,
-    })
+    }
+    if user_is_analyst(request.user):
+        response['metrics'] = get_mme_metrics()
+
+    return create_json_response(response)
 
 
 @analyst_required
@@ -68,7 +69,7 @@ def success_story(request, success_story_types):
     })
 
 
-@analyst_required
+@login_and_policies_required
 def saved_variants_page(request, tag):
     gene = request.GET.get('gene')
     if tag == 'ALL':
@@ -76,7 +77,8 @@ def saved_variants_page(request, tag):
     else:
         tag_type = VariantTagType.objects.get(name=tag, project__isnull=True)
         saved_variant_models = SavedVariant.objects.filter(varianttag__variant_tag_type=tag_type)
-    saved_variant_models = saved_variant_models.filter(family__project__projectcategory__name=ANALYST_PROJECT_CATEGORY)
+
+    saved_variant_models = saved_variant_models.filter(family__project__guid__in=get_project_guids_user_can_view(request.user))
 
     if gene:
         saved_variant_models = saved_variant_models.filter(saved_variant_json__transcripts__has_key=gene)

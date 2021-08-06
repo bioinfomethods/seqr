@@ -5,8 +5,8 @@ import os
 from pprint import pformat
 import time
 
-from deploy.servctl_utils.other_command_utils import check_kubernetes_context, set_environment, get_disk_names
-from deploy.servctl_utils.kubectl_utils import is_pod_running, get_pod_name, get_node_name, run_in_pod, \
+from deploy.servctl_utils.other_command_utils import get_disk_names
+from deploy.servctl_utils.kubectl_utils import is_pod_running, get_node_name, \
     wait_until_pod_is_running as sleep_until_pod_is_running, wait_until_pod_is_ready as sleep_until_pod_is_ready, \
     wait_for_resource, wait_for_not_resource
 from deploy.servctl_utils.yaml_settings_utils import process_jinja_template, load_settings
@@ -30,7 +30,8 @@ DEPLOYMENT_TARGETS = [
     "kibana",
     "redis",
     "seqr",
-    "kube-scan",
+    "elasticsearch-snapshot-infra",
+    "elasticsearch-snapshot-config",
 ]
 
 # pipeline runner docker image is used by docker-compose for local installs, but isn't part of the Broad seqr deployment
@@ -40,6 +41,7 @@ GCLOUD_CLIENT = 'gcloud-client'
 
 SECRETS = {
     'elasticsearch': ['users', 'users_roles', 'roles.yml'],
+    'es-snapshot-gcs': ['{deploy_to}/gcs.client.default.credentials_file'],
     GCLOUD_CLIENT: ['service-account-key.json'],
     'kibana': ['elasticsearch.password'],
     'matchbox': ['{deploy_to}/config.json'],
@@ -64,7 +66,7 @@ def deploy_init_cluster(settings):
     if not node_name:
         raise Exception("Unable to retrieve node name. Was the cluster created successfully?")
 
-    set_environment(settings["DEPLOY_TO"])
+    run('deploy/kubectl_helpers/set_env.sh {}'.format(settings['DEPLOYMENT_TYPE']))
 
     create_namespace(settings)
 
@@ -109,7 +111,7 @@ def deploy_settings(settings):
     run("kubectl get configmaps all-settings -o yaml")
 
 
-def deploy_secrets(settings):
+def deploy_secrets(settings, components=None):
     """Deploys or updates k8s secrets."""
 
     if settings["ONLY_PUSH_TO_REGISTRY"]:
@@ -119,11 +121,18 @@ def deploy_secrets(settings):
 
     create_namespace(settings)
 
+    if not components:
+        components = SECRETS.keys()
+
     # deploy secrets
-    for secret_label in SECRETS.keys():
+    for secret_label in components:
         run("kubectl delete secret {}-secrets".format(secret_label), verbose=False, errors_to_ignore=["not found"])
 
-    for secret_label, secret_files in SECRETS.items():
+    for secret_label in components:
+        secret_files = SECRETS.get(secret_label)
+        if not secret_files:
+            raise Exception('Invalid secret component {}'.format(secret_label))
+
         secret_command = ['kubectl create secret generic {secret_label}-secrets'.format(secret_label=secret_label)]
         secret_command += [
             '--from-file deploy/secrets/gcloud/{secret_label}/{file}'.format(secret_label=secret_label, file=file)
@@ -182,6 +191,45 @@ def _set_elasticsearch_kubernetes_resources():
         run('kubectl apply -f deploy/kubernetes/elasticsearch/kubernetes-elasticsearch-all-in-one.yaml')
 
 
+def deploy_elasticsearch_snapshot_infra(settings):
+    print_separator('elasticsearch snapshot infra')
+
+    if settings['ES_CONFIGURE_SNAPSHOTS']:
+        # create the bucket
+        run("gsutil mb -p seqr-project -c STANDARD -l US-CENTRAL1 gs://%(ES_SNAPSHOTS_BUCKET)s" % settings,
+            errors_to_ignore=["already exists"])
+        # create the IAM user
+        run(" ".join([
+            "gcloud iam service-accounts create %(ES_SNAPSHOTS_ACCOUNT_NAME)s",
+            "--display-name %(ES_SNAPSHOTS_ACCOUNT_NAME)s"]) % settings,
+            errors_to_ignore="already exists within project projects/seqr-project")
+        # grant storage admin permissions on the snapshot bucket
+        run(" ".join([
+            "gsutil iam ch",
+            "serviceAccount:%(ES_SNAPSHOTS_ACCOUNT_NAME)s@seqr-project.iam.gserviceaccount.com:roles/storage.admin",
+            "gs://%(ES_SNAPSHOTS_BUCKET)s"]) % settings)
+
+
+def deploy_elasticsearch_snapshot_config(settings):
+    print_separator('elasticsearch snapshot configuration')
+
+    docker_build("curl", settings)
+
+    if settings["ONLY_PUSH_TO_REGISTRY"]:
+        return
+
+    if settings['ES_CONFIGURE_SNAPSHOTS']:
+        # run the k8s job to set up the repo
+        run('kubectl apply -f %(DEPLOYMENT_TEMP_DIR)s/deploy/kubernetes/elasticsearch/configure-snapshot-repo.yaml' % settings)
+        wait_for_resource(
+            'configure-es-snapshot-repo', resource_type='job', json_path='{.items[0].status.conditions[0].type}',
+            expected_status='Complete')
+        # clean up the job after completion
+        run('kubectl delete -f %(DEPLOYMENT_TEMP_DIR)s/deploy/kubernetes/elasticsearch/configure-snapshot-repo.yaml' % settings)
+        # Set up the monthly cron job
+        run('kubectl apply -f %(DEPLOYMENT_TEMP_DIR)s/deploy/kubernetes/elasticsearch/snapshot-cronjob.yaml' % settings)
+
+
 def deploy_linkerd(settings):
     print_separator('linkerd')
 
@@ -201,25 +249,52 @@ def deploy_linkerd(settings):
 def deploy_postgres(settings):
     print_separator("postgres")
 
-    docker_build("postgres", settings)
+    with open('deploy/secrets/gcloud/postgres/{}/password'.format(settings['DEPLOY_TO'])) as f:
+        password = f.read()
 
-    restore_seqr_db_from_backup = settings.get("RESTORE_SEQR_DB_FROM_BACKUP")
-    reset_db = settings.get("RESET_DB")
+    sql_instance_name = 'postgres-{}'.format(settings['DEPLOYMENT_TYPE'])
+    run(' '.join([
+        'gcloud beta sql instances create', sql_instance_name,
+        '--database-version=POSTGRES_{}'.format(settings['POSTGRES_VERSION']),
+        '--root-password={}'.format(password),
+        '--project={}'.format(settings['GCLOUD_PROJECT']),
+        '--zone={}'.format(settings['GCLOUD_ZONE']),
+        '--availability-type=regional',
+        '--cpu=4', '--memory=26',
+        '--assign-ip',
+        '--backup',
+        '--maintenance-release-channel=production', '--maintenance-window-day=SUN', '--maintenance-window-hour=5',
+        '--require-ssl',
+        '--retained-backups-count=30',
+        '--storage-auto-increase',
+    ]), errors_to_ignore=['already exists'])
 
-    if reset_db or restore_seqr_db_from_backup:
-        # Since pgdata is stored on a persistent volume, redeploying does not get rid of it. If any existing pgdata is
-        # present, even if the databases are empty, postgres will not fully re-initialize the database. This is
-        # good if you want to keep the data across a deployment, but problematic if you actually need to rest and
-        # reinitialize the db. Therefore, when the database needs to be fully reinitialized, delete pgdata
-        run_in_pod(get_pod_name("postgres", deployment_target=settings["DEPLOY_TO"]),
-                   "rm -rf /var/lib/postgresql/data/pgdata", verbose=True)
+    seqr_db_backup = settings.get('RESTORE_SEQR_DB_FROM_BACKUP')
+    reference_data_db_backup = settings.get('RESTORE_REFERENCE_DB_FROM_BACKUP')
+    reset_db = settings.get('RESET_DB')
 
-    deploy_pod("postgres", settings, wait_until_pod_is_ready=True)
+    if reset_db or seqr_db_backup:
+        run('gcloud sql databases delete seqrdb --instance={} --quiet'.format(sql_instance_name),
+            errors_to_ignore=['does not exist'])
+    if reset_db or reference_data_db_backup:
+        run('gcloud sql databases delete reference_data_db --instance={} --quiet'.format(sql_instance_name),
+            errors_to_ignore=['does not exist'])
 
-    if restore_seqr_db_from_backup:
-        postgres_pod_name = get_pod_name("postgres", deployment_target=settings["DEPLOY_TO"])
-        _restore_seqr_db_from_backup(
-            postgres_pod_name, restore_seqr_db_from_backup, settings.get("RESTORE_REFERENCE_DB_FROM_BACKUP"))
+    run('gcloud sql databases create seqrdb --instance={}'.format(sql_instance_name),
+        errors_to_ignore=['already exists'])
+    run('gcloud sql databases create reference_data_db --instance={}'.format(sql_instance_name),
+        errors_to_ignore=['already exists'])
+
+    if seqr_db_backup:
+        run(' '.join([
+            'gcloud sql import sql', sql_instance_name, seqr_db_backup, '--database=seqrdb', '--user=postgres',
+            ' --quiet',
+        ]))
+    if reference_data_db_backup:
+        run(' '.join([
+            'gcloud sql import sql', sql_instance_name, reference_data_db_backup, '--database=reference_data_db',
+            '--user=postgres', ' --quiet',
+        ]))
 
 
 def deploy_redis(settings):
@@ -249,80 +324,10 @@ def deploy_seqr(settings):
     if settings["ONLY_PUSH_TO_REGISTRY"]:
         return
 
-    restore_seqr_db_from_backup = settings.get("RESTORE_SEQR_DB_FROM_BACKUP")
-    reset_db = settings.get("RESET_DB")
-
-    deployment_target = settings["DEPLOY_TO"]
-    postgres_pod_name = get_pod_name("postgres", deployment_target=deployment_target)
-
     if settings["DELETE_BEFORE_DEPLOY"]:
         delete_pod("seqr", settings)
-    elif reset_db or restore_seqr_db_from_backup:
-        seqr_pod_name = get_pod_name('seqr', deployment_target=deployment_target)
-        if seqr_pod_name:
-            sleep_until_pod_is_running("seqr", deployment_target=deployment_target)
-
-            run_in_pod(seqr_pod_name, "/usr/local/bin/stop_server.sh", verbose=True)
-
-    if reset_db:
-        _drop_seqr_db(postgres_pod_name)
-    if restore_seqr_db_from_backup:
-        _drop_seqr_db(postgres_pod_name)
-        _restore_seqr_db_from_backup(postgres_pod_name, restore_seqr_db_from_backup)
-    else:
-        run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'create database seqrdb'",
-                   errors_to_ignore=["already exists"],
-                   verbose=True,
-                   )
-        run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'create database reference_data_db'",
-                   errors_to_ignore=["already exists"],
-                   verbose=True,
-                   )
 
     deploy_pod("seqr", settings, wait_until_pod_is_ready=True)
-
-
-def redeploy_seqr(deployment_target):
-    print_separator('re-deploying seqr')
-
-    seqr_pod_name = get_pod_name('seqr', deployment_target=deployment_target)
-    if not seqr_pod_name:
-        raise ValueError('No seqr pod found, unable to re-deploy')
-    sleep_until_pod_is_running('seqr', deployment_target=deployment_target)
-
-    run_in_pod(seqr_pod_name, 'git pull', verbose=True)
-    run_in_pod(seqr_pod_name, './manage.py migrate', verbose=True)
-    run_in_pod(seqr_pod_name, '/usr/local/bin/restart_server.sh')
-
-
-def _drop_seqr_db(postgres_pod_name):
-    run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'drop database seqrdb'",
-               errors_to_ignore=["does not exist"],
-               verbose=True,
-               )
-    run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'drop database reference_data_db'",
-               errors_to_ignore=["does not exist"],
-               verbose=True,
-               )
-
-
-def _restore_seqr_db_from_backup(postgres_pod_name, seqrdb_backup, reference_data_backup=None):
-    run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'create database seqrdb'", verbose=True)
-    run_in_pod(postgres_pod_name, "psql -U postgres postgres -c 'create database reference_data_db'", verbose=True)
-    run("kubectl cp '{backup}' {postgres_pod_name}:/root/$(basename {backup})".format(
-        postgres_pod_name=postgres_pod_name, backup=seqrdb_backup), verbose=True)
-    run_in_pod(
-        postgres_pod_name, "/root/restore_database_backup.sh postgres seqrdb /root/$(basename {backup})".format(
-            backup=seqrdb_backup), verbose=True)
-    run_in_pod(postgres_pod_name, "rm /root/$(basename {backup})".format(backup=seqrdb_backup, verbose=True))
-
-    if reference_data_backup:
-        run("kubectl cp '{backup}' {postgres_pod_name}:/root/$(basename {backup})".format(
-            postgres_pod_name=postgres_pod_name, backup=reference_data_backup), verbose=True)
-        run_in_pod(
-            postgres_pod_name, "/root/restore_database_backup.sh postgres reference_data_db /root/$(basename {backup})".format(
-                backup=reference_data_backup), verbose=True)
-        run_in_pod(postgres_pod_name, "rm /root/$(basename {backup})".format(backup=reference_data_backup, verbose=True))
 
 
 def deploy_kibana(settings):
@@ -358,18 +363,6 @@ def deploy_pipeline_runner(settings):
     ])
 
 
-def deploy_kube_scan(settings):
-    print_separator("kube-scan")
-
-    if settings["DELETE_BEFORE_DEPLOY"]:
-        run("kubectl delete -f https://raw.githubusercontent.com/octarinesec/kube-scan/master/kube-scan.yaml")
-
-        if settings["ONLY_PUSH_TO_REGISTRY"]:
-            return
-
-    run("kubectl apply -f https://raw.githubusercontent.com/octarinesec/kube-scan/master/kube-scan.yaml")
-
-
 def deploy(deployment_target, components, output_dir=None, runtime_settings={}):
     """Deploy one or more components to the kubernetes cluster specified as the deployment_target.
 
@@ -385,13 +378,17 @@ def deploy(deployment_target, components, output_dir=None, runtime_settings={}):
         raise ValueError("components list is empty")
 
     if components and "init-cluster" not in components:
-        check_kubernetes_context(deployment_target)
+        run('deploy/kubectl_helpers/utils/check_context.sh {}'.format(deployment_target.replace('gcloud-', '')))
 
     settings = prepare_settings_for_deployment(deployment_target, output_dir, runtime_settings)
 
     # make sure namespace exists
     if "init-cluster" not in components and not runtime_settings.get("ONLY_PUSH_TO_REGISTRY"):
         create_namespace(settings)
+
+    if components[0] == 'secrets':
+        deploy_secrets(settings, components=components[1:])
+        return
 
     # call deploy_* functions for each component in "components" list, in the order that these components are listed in DEPLOYABLE_COMPONENTS
     for component in DEPLOYABLE_COMPONENTS:
@@ -403,24 +400,6 @@ def deploy(deployment_target, components, output_dir=None, runtime_settings={}):
                 f(settings)
             else:
                 raise ValueError("'deploy_{}' function not found. Is '{}' a valid component name?".format(func_name, component))
-
-def redeploy(deployment_target, components):
-    if not components:
-        raise ValueError("components list is empty")
-
-    check_kubernetes_context(deployment_target)
-
-    # call redeploy_* functions for each component in "components" list, in the order that these components are listed in DEPLOYABLE_COMPONENTS
-    for component in DEPLOYABLE_COMPONENTS:
-        if component in components:
-            # only deploy requested components
-            func_name = "redeploy_" + component.replace("-", "_")
-            f = globals().get(func_name)
-            if f is not None:
-                f(deployment_target)
-            else:
-                raise ValueError(
-                    "'redeploy_{}' function not found. Is '{}' a valid component name?".format(func_name, component))
 
 
 def prepare_settings_for_deployment(deployment_target, output_dir, runtime_settings):

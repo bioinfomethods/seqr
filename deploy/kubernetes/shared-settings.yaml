@@ -2,7 +2,8 @@
 ####### SETTINGS THAT MAY NEED TO BE MODIFIED #######
 KUBERNETES_VERSION: '1.16.15-gke.4300'
 ELASTICSEARCH_VERSION: 7.8.1
-LINKERD_VERSION: 'stable-2.9.1'
+LINKERD_VERSION: 'stable-2.10.0'
+POSTGRES_VERSION: '12'
 
 DEFAULT_POOL_MACHINE_TYPE: 'n1-highmem-8'
 DEFAULT_POOL_NUM_NODES: 2
@@ -11,8 +12,10 @@ NODE_POOLS:
     num_nodes: 3
     machine_type: n1-highmem-8
     labels: nodeType=data
+#  es-loading-nodes:
+#    num_nodes: 2
 
-DISKS: postgres, seqr-static-files, es-data
+DISKS: seqr-static-files, es-data
 
 POSTGRES_DISK_SIZE: '200Gb'
 SEQR_STATIC_FILES_DISK_SIZE: '50Gb'
@@ -26,6 +29,7 @@ ES_POD_VOLUME_SIZE: '50Gi'
 
 ELASTICSEARCH_JVM_MEMORY: 22g
 ELASTICSEARCH_CONTAINER_MEMORY: 44Gi
+ELASTICSEARCH_MAX_SHARDS_PER_NODE: 450
 
 ES_DATA_NUM_PODS: 3
 ES_CLIENT_NUM_PODS: 3
@@ -38,10 +42,17 @@ ELASTICSEARCH_PROTOCOL: http
 SEQR_GIT_BRANCH: 'master'
 POSTGRES_USERNAME: postgres
 
+ANALYST_PROJECT_CATEGORY: analyst-projects
+ANALYST_USER_GROUP: analysts
+PM_USER_GROUP: project-managers
+
+
 # this is a security measure to prevent kubectl commands from working unless they are run on a machine with a listed ip address
 # this allows cluster administration only from known machines or from machines on google cloud.
 MASTER_AUTHORIZED_NETWORKS: '69.173.112.0/21,69.173.127.232/29,69.173.127.128/26,69.173.127.0/25,69.173.127.240/28,69.173.127.224/30,69.173.127.230/31,69.173.120.0/22,69.173.127.228/32,69.173.126.0/24,69.173.96.0/20,69.173.64.0/19,69.173.127.192/27,69.173.124.0/23'
 
+TERRA_PERMS_CACHE_EXPIRE_SECONDS: 60
+TERRA_WORKSPACE_CACHE_EXPIRE_SECONDS: 300
 ###########################################################
 ####### SETTINGS THAT SHOULDN'T NEED TO BE MODIFIED #######
 GCLOUD_PROJECT: 'seqr-project'
@@ -54,7 +65,7 @@ DEPLOYMENT_TEMP_DIR: '/tmp'
 STATIC_MEDIA_DIR: '/seqr_static_files'
 MME_CONFIG_DIR: '/mme'
 
-POSTGRES_SERVICE_HOSTNAME: postgres
+POSTGRES_SERVICE_HOSTNAME: '127.0.0.1'
 ELASTICSEARCH_SERVICE_HOSTNAME: elasticsearch-es-http
 KIBANA_SERVICE_HOSTNAME: kibana-kb-http
 REDIS_SERVICE_HOSTNAME: redis

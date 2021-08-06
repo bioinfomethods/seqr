@@ -1,7 +1,6 @@
 from abc import abstractmethod
 import uuid
 import json
-import logging
 import random
 
 from django.contrib.auth.models import User, Group
@@ -14,12 +13,12 @@ from django.utils.text import slugify as __slugify
 
 from guardian.shortcuts import assign_perm
 
-from seqr.utils.logging_utils import log_model_update, log_model_bulk_update
+from seqr.utils.logging_utils import log_model_update, log_model_bulk_update, SeqrLogger
 from seqr.utils.xpos_utils import get_chrom_pos
 from reference_data.models import GENOME_VERSION_GRCh37, GENOME_VERSION_CHOICES
 from settings import MME_DEFAULT_CONTACT_NAME, MME_DEFAULT_CONTACT_HREF, MME_DEFAULT_CONTACT_INSTITUTION
 
-logger = logging.getLogger(__name__)
+logger = SeqrLogger(__name__)
 
 #  Allow adding the custom json_fields and internal_json_fields to the model Meta
 # (from https://stackoverflow.com/questions/1088431/adding-attributes-into-django-models-meta-class)
@@ -126,13 +125,13 @@ class ModelWithGUID(models.Model):
         if queryset is None:
             queryset = cls.objects.filter(**filter_kwargs)
         log_model_bulk_update(logger, queryset, user, 'delete')
-        queryset.delete()
+        return queryset.delete()
 
 
 class UserPolicy(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
-    privacy_version = models.DecimalField(max_digits=4, decimal_places=2, null=True)
-    tos_version = models.DecimalField(max_digits=4, decimal_places=2, null=True)
+    privacy_version = models.FloatField(null=True)
+    tos_version = models.FloatField(null=True)
 
 
 class Project(ModelWithGUID):
@@ -241,6 +240,7 @@ class Family(ModelWithGUID):
         ('S_kgfp', 'Solved - known gene for phenotype'),
         ('S_kgdp', 'Solved - gene linked to different phenotype'),
         ('S_ng', 'Solved - novel gene'),
+        ('ES', 'External solve'),
         ('Sc_kgfp', 'Strong candidate - known gene for phenotype'),
         ('Sc_kgdp', 'Strong candidate - gene linked to different phenotype'),
         ('Sc_ng', 'Strong candidate - novel gene'),
@@ -310,10 +310,10 @@ class Family(ModelWithGUID):
         json_fields = [
             'guid', 'family_id', 'display_name', 'description', 'analysis_notes', 'analysis_summary',
             'analysis_status', 'pedigree_image', 'created_date', 'coded_phenotype',
-            'post_discovery_omim_number', 'pubmed_ids', 'assigned_analyst', 'mme_notes'
+            'post_discovery_omim_number', 'assigned_analyst', 'mme_notes'
         ]
         internal_json_fields = [
-            'success_story_types', 'success_story'
+            'success_story_types', 'success_story', 'pubmed_ids',
         ]
 
 
@@ -578,9 +578,21 @@ class IgvSample(ModelWithGUID):
     """This model represents a single data type that can be displayed in IGV (eg. Read Alignments) that's generated from
     a single biological sample (eg. WES, WGS, RNA, Array).
     """
+    SAMPLE_TYPE_ALIGNMENT = 'alignment'
+    SAMPLE_TYPE_COVERAGE = 'wig'
+    SAMPLE_TYPE_JUNCTION = 'spliceJunctions'
+    SAMPLE_TYPE_GCNV = 'gcnv'
+    SAMPLE_TYPE_CHOICES = (
+        (SAMPLE_TYPE_ALIGNMENT, 'Bam/Cram'),
+        (SAMPLE_TYPE_COVERAGE, 'RNAseq Coverage'),
+        (SAMPLE_TYPE_JUNCTION, 'RNAseq Junction'),
+        (SAMPLE_TYPE_GCNV, 'gCNV'),
+    )
 
     individual = models.ForeignKey('Individual', on_delete=models.PROTECT)
+    sample_type = models.CharField(max_length=15, choices=SAMPLE_TYPE_CHOICES)
     file_path = models.TextField()
+    sample_id = models.TextField(null=True)
 
     def __unicode__(self):
         return self.file_path.split('/')[-1].split('.')[0].strip()
@@ -589,24 +601,16 @@ class IgvSample(ModelWithGUID):
         return 'S%010d_%s' % (self.id, _slugify(str(self)))
 
     class Meta:
-       json_fields = ['guid', 'file_path',]
+        unique_together = ('individual', 'sample_type')
 
-
-class AliasField(models.Field):
-    def contribute_to_class(self, cls, name, private_only=False):
-        super(AliasField, self).contribute_to_class(cls, name, private_only=True)
-        setattr(cls, name, self)
-
-    def __get__(self, instance, instance_type=None):
-        return getattr(instance, self.db_column)
+        json_fields = ['guid', 'file_path', 'sample_type', 'sample_id']
 
 
 class SavedVariant(ModelWithGUID):
     family = models.ForeignKey('Family', on_delete=models.CASCADE)
 
-    xpos_start = models.BigIntegerField()
+    xpos = models.BigIntegerField()
     xpos_end = models.BigIntegerField(null=True)
-    xpos = AliasField(db_column="xpos_start")
     ref = models.TextField(null=True)
     alt = models.TextField(null=True)
     variant_id = models.TextField(db_index=True)
@@ -615,14 +619,14 @@ class SavedVariant(ModelWithGUID):
     saved_variant_json = JSONField(default=dict)
 
     def __unicode__(self):
-        chrom, pos = get_chrom_pos(self.xpos_start)
+        chrom, pos = get_chrom_pos(self.xpos)
         return "%s:%s-%s" % (chrom, pos, self.family.guid)
 
     def _compute_guid(self):
         return 'SV%07d_%s' % (self.id, _slugify(str(self)))
 
     class Meta:
-        unique_together = ('xpos_start', 'xpos_end', 'variant_id', 'family')
+        unique_together = ('xpos', 'xpos_end', 'variant_id', 'family')
 
         json_fields = ['guid', 'xpos', 'ref', 'alt', 'variant_id', 'selected_main_transcript_id']
 
@@ -642,13 +646,14 @@ class VariantTagType(ModelWithGUID):
         '#8F754F',
         '#383838',
     """
-    project = models.ForeignKey('Project', null=True, on_delete=models.CASCADE)
+    project = models.ForeignKey('Project', null=True, blank=True, on_delete=models.CASCADE)
 
     name = models.TextField()
     category = models.TextField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     color = models.CharField(max_length=20, default="#1f78b4")
     order = models.FloatField(null=True)
+    metadata_title = models.CharField(max_length=20, null=True, blank=True)
 
     def __unicode__(self):
         return self.name.strip()
@@ -659,12 +664,13 @@ class VariantTagType(ModelWithGUID):
     class Meta:
         unique_together = ('project', 'name', 'color')
 
-        json_fields = ['guid', 'name', 'category', 'description', 'color', 'order']
+        json_fields = ['guid', 'name', 'category', 'description', 'color', 'order', 'metadata_title']
 
 
 class VariantTag(ModelWithGUID):
     saved_variants = models.ManyToManyField('SavedVariant')
     variant_tag_type = models.ForeignKey('VariantTagType', on_delete=models.CASCADE)
+    metadata = models.TextField(null=True)
 
     # context in which a variant tag was saved
     search_hash = models.CharField(max_length=50, null=True)
@@ -677,7 +683,7 @@ class VariantTag(ModelWithGUID):
         return 'VT%07d_%s' % (self.id, _slugify(str(self)))
 
     class Meta:
-        json_fields = ['guid', 'search_hash', 'last_modified_date', 'created_by']
+        json_fields = ['guid', 'search_hash', 'metadata', 'last_modified_date', 'created_by']
 
 
 class VariantNote(ModelWithGUID):

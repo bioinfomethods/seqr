@@ -13,38 +13,20 @@ import {
   getFunctionalTagTypesTypesByProject,
   getVariantId,
 } from 'redux/selectors'
-import {
-  DISCOVERY_CATEGORY_NAME,
-  FAMILY_FIELD_DESCRIPTION,
-  FAMILY_FIELD_ANALYSIS_STATUS,
-  FAMILY_FIELD_ANALYSIS_NOTES,
-  FAMILY_FIELD_ANALYSIS_SUMMARY,
-  FAMILY_FIELD_INTERNAL_NOTES,
-  FAMILY_FIELD_INTERNAL_SUMMARY,
-  FAMILY_ANALYSIS_STATUS_LOOKUP,
-} from 'shared/utils/constants'
+import { DISCOVERY_CATEGORY_NAME } from 'shared/utils/constants'
 import PopupWithModal from '../../PopupWithModal'
 import { HorizontalSpacer } from '../../Spacers'
-import { ColoredLink, NoBorderTable, InlineHeader } from '../../StyledComponents'
+import { NoBorderTable, InlineHeader } from '../../StyledComponents'
+import FamilyLink from '../../buttons/FamilyLink'
 import ReduxFormWrapper from '../../form/ReduxFormWrapper'
 import { InlineToggle, BooleanCheckbox } from '../../form/Inputs'
 import TagFieldView from '../view-fields/TagFieldView'
 import TextFieldView from '../view-fields/TextFieldView'
-import Family from '../family'
 
 const TagTitle = styled.span`
   font-weight: bolder;
   color: #999;
 `
-
-const FAMILY_FIELDS = [
-  { id: FAMILY_FIELD_DESCRIPTION, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_STATUS, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_NOTES, canEdit: true },
-  { id: FAMILY_FIELD_ANALYSIS_SUMMARY, canEdit: true },
-  { id: FAMILY_FIELD_INTERNAL_NOTES },
-  { id: FAMILY_FIELD_INTERNAL_SUMMARY },
-]
 
 const NO_DISPLAY = { display: 'none' }
 
@@ -62,7 +44,7 @@ const VARIANT_NOTE_FIELDS = [{
   component: BooleanCheckbox,
 }]
 
-export const taggedByPopup = (tag, title) => trigger =>
+export const taggedByPopup = (tag, title) => (trigger, hideMetadata) =>
   <Popup
     position="top right"
     size="tiny"
@@ -74,7 +56,7 @@ export const taggedByPopup = (tag, title) => trigger =>
       <div>
         {tag.createdBy || 'unknown user'}
         {tag.lastModifiedDate && <span>&nbsp; on {new Date(tag.lastModifiedDate).toLocaleDateString()}</span>}
-        {tag.metadata && <div>{tag.metadataTitle ? <span><b>{tag.metadataTitle}:</b> {tag.metadata}</span> : <i>{tag.metadata}</i>}</div>}
+        {tag.metadata && !hideMetadata && <div>{tag.metadataTitle ? <span><b>{tag.metadataTitle}:</b> {tag.metadata}</span> : <i>{tag.metadata}</i>}</div>}
         {tag.searchHash && <div><NavLink to={`/variant_search/results/${tag.searchHash}`}>Re-run search</NavLink></div>}
       </div>
     }
@@ -133,6 +115,10 @@ ShortcutTags.propTypes = {
 }
 
 
+const validateTags = tags => (tags.filter(({ category }) => category === DISCOVERY_CATEGORY_NAME).length > 1 ?
+  'Only 1 Discovery Tag can be added' : undefined
+)
+
 const VariantTagField = React.memo(({ variantTagNotes, variantId, fieldName, family, ...props }) =>
   <TagFieldView
     idField="variantGuids"
@@ -149,6 +135,7 @@ const VariantTagField = React.memo(({ variantTagNotes, variantId, fieldName, fam
     compact
     isEditable
     popup={taggedByPopup}
+    validate={validateTags}
     {...props}
   />,
 )
@@ -216,25 +203,10 @@ VariantLink.propTypes = {
   family: PropTypes.object,
 }
 
-const FamilyLabel = React.memo(({ family, disableEdit, target, to }) =>
+const FamilyLabel = React.memo(props =>
   <InlineHeader size="small">
     Family<HorizontalSpacer width={5} />
-    <PopupWithModal
-      hoverable
-      wide="very"
-      position="right center"
-      keepInViewPort
-      trigger={
-        <ColoredLink
-          to={to || `/project/${family.projectGuid}/family_page/${family.familyGuid}`}
-          color={FAMILY_ANALYSIS_STATUS_LOOKUP[family[FAMILY_FIELD_ANALYSIS_STATUS]].color}
-          target={target}
-        >
-          {family.displayName}
-        </ColoredLink>
-      }
-      content={<Family family={family} fields={FAMILY_FIELDS} disableEdit={disableEdit} useFullWidth disablePedigreeZoom />}
-    />
+    <FamilyLink PopupClass={PopupWithModal} {...props} />
   </InlineHeader>,
 )
 
@@ -242,7 +214,7 @@ const FamilyLabel = React.memo(({ family, disableEdit, target, to }) =>
 FamilyLabel.propTypes = {
   family: PropTypes.object,
   disableEdit: PropTypes.bool,
-  to: PropTypes.string,
+  path: PropTypes.string,
   target: PropTypes.string,
 }
 
@@ -252,7 +224,8 @@ export const LoadedFamilyLabel = connect((state, ownProps) => ({
 
 const FamilyVariantTags = React.memo((
   { variant, variantTagNotes, family, projectTagTypes, projectFunctionalTagTypes, dispatchUpdateVariantNote,
-    dispatchUpdateFamilyVariantTags, dispatchUpdateFamilyVariantFunctionalTags, isCompoundHet, variantId },
+    dispatchUpdateFamilyVariantTags, dispatchUpdateFamilyVariantFunctionalTags, isCompoundHet, variantId,
+    linkToSavedVariants },
 ) => (
   family ?
     <NoBorderTable basic="very" compact="very" celled>
@@ -260,7 +233,7 @@ const FamilyVariantTags = React.memo((
         <Table.Row verticalAlign="top">
           {!isCompoundHet &&
           <Table.Cell collapsing rowSpan={2}>
-            <FamilyLabel family={family} />
+            <FamilyLabel family={family} path={linkToSavedVariants && `saved_variants/family/${family.familyGuid}`} />
           </Table.Cell>}
           <Table.Cell collapsing textAlign="right">
             <TagTitle>Tags:</TagTitle>
@@ -282,6 +255,7 @@ const FamilyVariantTags = React.memo((
               variantTagNotes={variantTagNotes}
               variantId={variantId}
               tagOptions={projectTagTypes}
+              displayMetadata
               onSubmit={dispatchUpdateFamilyVariantTags}
             />
             <HorizontalSpacer width={5} />
@@ -295,7 +269,6 @@ const FamilyVariantTags = React.memo((
                 variantTagNotes={variantTagNotes}
                 variantId={variantId}
                 tagOptions={projectFunctionalTagTypes}
-                editMetadata
                 onSubmit={dispatchUpdateFamilyVariantFunctionalTags}
               />
             </span>
@@ -347,6 +320,7 @@ FamilyVariantTags.propTypes = {
   projectTagTypes: PropTypes.array,
   projectFunctionalTagTypes: PropTypes.array,
   isCompoundHet: PropTypes.bool,
+  linkToSavedVariants: PropTypes.bool,
   dispatchUpdateVariantNote: PropTypes.func,
   dispatchUpdateFamilyVariantTags: PropTypes.func,
   dispatchUpdateFamilyVariantFunctionalTags: PropTypes.func,

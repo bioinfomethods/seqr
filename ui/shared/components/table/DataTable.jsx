@@ -15,7 +15,7 @@ const TableContainer = styled.div`
 const RightAligned = styled.span`
   position: absolute;
   right: 20px;
-  top: 30px;
+  top: ${props => (props.topAlign || '30px')};
 `
 
 const StyledDataTable = styled(Table)`
@@ -52,6 +52,7 @@ class DataTable extends React.PureComponent {
     getRowFilterVal: PropTypes.func,
     selectRows: PropTypes.func,
     selectedRows: PropTypes.object,
+    includeSelectedRowData: PropTypes.bool,
     loading: PropTypes.bool,
     emptyContent: PropTypes.node,
     footer: PropTypes.node,
@@ -60,6 +61,7 @@ class DataTable extends React.PureComponent {
     fixedWidth: PropTypes.bool,
     downloadTableType: PropTypes.string,
     downloadFileName: PropTypes.string,
+    downloadAlign: PropTypes.string,
     loadingProps: PropTypes.object,
   }
 
@@ -102,16 +104,21 @@ class DataTable extends React.PureComponent {
     Object.keys(this.props.selectedRows).length === this.props.data.length &&
     Object.values(this.props.selectedRows).every(isSelected => isSelected)
   )
-  someSelected = () => Object.values(this.props.selectedRows).includes(true) && Object.values(this.props.selectedRows).includes(false)
+
+  someSelected = () =>
+    this.props.data.some(row => this.props.selectedRows[row[this.props.idField]]) &&
+    this.props.data.some(row => !this.props.selectedRows[row[this.props.idField]])
 
   selectAll = () => {
     if (!this.props.selectRows) {
       return
     }
 
-    const rowIds = this.props.data.map(row => row[this.props.idField])
     const allSelected = !this.allSelected()
-    this.props.selectRows(rowIds.reduce((acc, rowId) => ({ ...acc, [rowId]: allSelected }), {}))
+    this.props.selectRows(
+      this.props.data.reduce((acc, row) => (
+        { ...acc, [row[this.props.idField]]: (allSelected && this.props.includeSelectedRowData) ? row : allSelected }
+      ), {}))
   }
 
   handleSelect = rowId => () => {
@@ -119,14 +126,19 @@ class DataTable extends React.PureComponent {
       return
     }
 
-    this.props.selectRows({ ...this.props.selectedRows, [rowId]: !this.props.selectedRows[rowId] })
+    let newSelected = !this.props.selectedRows[rowId]
+    if (newSelected && this.props.includeSelectedRowData) {
+      newSelected = this.props.data.find(row => row[this.props.idField] === rowId)
+    }
+
+    this.props.selectRows({ ...this.props.selectedRows, [rowId]: newSelected })
   }
 
   render() {
     const {
       data, defaultSortColumn, defaultSortDescending, getRowFilterVal, idField, columns, selectRows, selectedRows = {},
-      loading, emptyContent, footer, rowsPerPage, horizontalScroll, downloadFileName, downloadTableType,
-      fixedWidth, loadingProps = {}, ...tableProps
+      loading, emptyContent, footer, rowsPerPage, horizontalScroll, downloadFileName, downloadTableType, downloadAlign,
+      fixedWidth, includeSelectedRowData, loadingProps = {}, ...tableProps
     } = this.props
     const { column, direction, activePage, filter } = this.state
 
@@ -144,7 +156,7 @@ class DataTable extends React.PureComponent {
           data: {
             filename: downloadFileName,
             rawData: sortedData,
-            headers: columns.map(config => config.content),
+            headers: columns.map(config => config.downloadColumn || config.content),
             processRow: row => columns.map(getRowColumnContent(row, true)),
           },
         },
@@ -160,7 +172,7 @@ class DataTable extends React.PureComponent {
       sortedData = sortedData.slice((activePage - 1) * rowsPerPage, activePage * rowsPerPage)
     }
 
-    const processedColumns = columns.map(({ formFieldProps, ...columnProps }) => (
+    const processedColumns = columns.map(({ formFieldProps, downloadColumn, ...columnProps }) => (
       formFieldProps ?
         {
           ...columnProps,
@@ -175,7 +187,7 @@ class DataTable extends React.PureComponent {
       tableContent = <Table.Row><Table.Cell colSpan={columns.length}>{emptyContent}</Table.Cell></Table.Row>
     } else {
       tableContent = sortedData.map(row => (
-        <Table.Row key={row[idField]} onClick={this.handleSelect(row[idField])} active={selectedRows[row[idField]]}>
+        <Table.Row key={row[idField]} onClick={this.handleSelect(row[idField])} active={!!selectedRows[row[idField]]}>
           {selectRows && <Table.Cell content={<Checkbox checked={!!selectedRows[row[idField]]} />} />}
           {processedColumns.map(({ name, format, textAlign, verticalAlign }) =>
             <Table.Cell
@@ -196,7 +208,7 @@ class DataTable extends React.PureComponent {
       <TableContainer horizontalScroll={horizontalScroll}>
         {!hasFooter && filterInput}
         {exportConfig &&
-          <RightAligned>
+          <RightAligned topAlign={downloadAlign}>
             <ExportTableButton downloads={exportConfig} />
           </RightAligned>
         }

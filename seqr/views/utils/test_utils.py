@@ -4,10 +4,13 @@ from django.test import TestCase
 from guardian.shortcuts import assign_perm
 import json
 import mock
+import re
+from urllib.parse import quote_plus, urlparse
 from urllib3_mock import Responses
 
 from seqr.models import Project, CAN_VIEW, CAN_EDIT
 
+WINDOW_REGEX_TEMPLATE = 'window\.{key}=(?P<value>[^)<]+)'
 
 def _initialize_users(cls):
     cls.super_user = User.objects.get(username='test_superuser')
@@ -17,6 +20,8 @@ def _initialize_users(cls):
     cls.manager_user = User.objects.get(username='test_user_manager')
     cls.collaborator_user = User.objects.get(username='test_user_collaborator')
     cls.no_access_user = User.objects.get(username='test_user_no_access')
+    cls.inactive_user = User.objects.get(username='test_user_inactive')
+    cls.no_policy_user = User.objects.get(username='test_user_no_policies')
 
 class AuthenticationTestCase(TestCase):
     databases = '__all__'
@@ -27,6 +32,7 @@ class AuthenticationTestCase(TestCase):
     MANAGER = 'manager'
     COLLABORATOR = 'collaborator'
     AUTHENTICATED_USER = 'authenticated'
+    NO_POLICY_USER = 'no_policy'
 
     super_user = None
     analyst_user = None
@@ -35,6 +41,16 @@ class AuthenticationTestCase(TestCase):
     manager_user = None
     collaborator_user = None
     no_access_user = None
+    inactive_user = None
+    no_policy_user = None
+
+    def setUp(self):
+        patcher = mock.patch('seqr.views.utils.permissions_utils.SEQR_PRIVACY_VERSION', 2.1)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.views.utils.permissions_utils.SEQR_TOS_VERSION', 1.3)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     @classmethod
     def setUpTestData(cls):
@@ -48,8 +64,11 @@ class AuthenticationTestCase(TestCase):
         assign_perm(user_or_group=edit_group, perm=CAN_VIEW, obj=Project.objects.filter(can_view_group=edit_group))
         assign_perm(user_or_group=view_group, perm=CAN_VIEW, obj=Project.objects.filter(can_view_group=view_group))
 
-    def check_require_login(self, url):
-        self._check_login(url, self.AUTHENTICATED_USER)
+    def check_require_login(self, url, **request_kwargs):
+        self._check_login(url, self.AUTHENTICATED_USER, **request_kwargs)
+
+    def check_require_login_no_policies(self, url, **request_kwargs):
+        self._check_login(url, self.NO_POLICY_USER, **request_kwargs)
 
     def check_collaborator_login(self, url, **request_kwargs):
         self._check_login(url, self.COLLABORATOR, **request_kwargs)
@@ -66,8 +85,8 @@ class AuthenticationTestCase(TestCase):
     def check_data_manager_login(self, url):
         self._check_login(url, self.DATA_MANAGER)
 
-    def check_superuser_login(self, url):
-        self._check_login(url, self.SUPERUSER)
+    def check_superuser_login(self, url, **request_kwargs):
+        self._check_login(url, self.SUPERUSER, **request_kwargs)
 
     def login_base_user(self):
         self.client.force_login(self.no_access_user)
@@ -87,7 +106,8 @@ class AuthenticationTestCase(TestCase):
     def login_data_manager_user(self):
         self.client.force_login(self.data_manager_user)
 
-    def _check_login(self, url, permission_level, request_data=None):
+    def _check_login(self, url, permission_level, request_data=None, login_redirect_url='/api/login-required-error',
+                     policy_redirect_url='/api/policy-required-error', permission_denied_error=403):
         """For integration tests of django views that can only be accessed by a logged-in user,
         the 1st step is to authenticate. This function checks that the given url redirects requests
         if the user isn't logged-in, and then authenticates a test user.
@@ -97,8 +117,26 @@ class AuthenticationTestCase(TestCase):
             url (string): The url of the django view being tested.
             permission_level (string): what level of permission this url requires
          """
+        # check that it redirects if you don't login
+        parsed_url = urlparse(url)
+        next_query = quote_plus('?{}'.format(parsed_url.query)) if parsed_url.query else ''
+        next_url = 'next={}{}'.format('/'.join(map(quote_plus, parsed_url.path.split('/'))), next_query)
+        login_required_url = '{}?{}'.format(login_redirect_url, next_url)
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 302)  # check that it redirects if you don't login
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, login_required_url)
+
+        self.client.force_login(self.inactive_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, permission_denied_error)
+
+        self.client.force_login(self.no_policy_user)
+        if permission_level == self.NO_POLICY_USER:
+            return
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '{}?{}'.format(policy_redirect_url, next_url))
 
         self.client.force_login(self.no_access_user)
         if permission_level == self.AUTHENTICATED_USER:
@@ -110,49 +148,66 @@ class AuthenticationTestCase(TestCase):
                 response = self.client.post(url, content_type='application/json', data=json.dumps(request_data))
             else:
                 response = self.client.get(url)
-            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.status_code, permission_denied_error)
 
         self.login_collaborator()
         if permission_level == self.COLLABORATOR:
             return
 
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 403 if permission_level == self.MANAGER else 302)
+        self.assertEqual(response.status_code, permission_denied_error)
 
         self.client.force_login(self.manager_user)
         if permission_level == self.MANAGER:
             return
 
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, permission_denied_error)
 
         self.login_analyst_user()
         if permission_level in self.ANALYST:
             return
 
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, permission_denied_error)
 
         self.login_pm_user()
         if permission_level in self.PM:
             return
 
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, permission_denied_error)
 
         self.login_data_manager_user()
         if permission_level in self.DATA_MANAGER:
             return
 
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, permission_denied_error)
 
         self.client.force_login(self.super_user)
 
+    def get_initial_page_window(self, key, response):
+        content = response.content.decode('utf-8')
+        regex = WINDOW_REGEX_TEMPLATE.format(key=key)
+        self.assertRegex(content, regex)
+        m = re.search(regex, content)
+        return json.loads(m.group('value'))
+
+    def get_initial_page_json(self, response):
+        return self.get_initial_page_window('initialJSON', response)
+
+TEST_WORKSPACE_NAMESPACE = 'my-seqr-billing'
+TEST_WORKSPACE_NAME = 'anvil-1kg project n\u00e5me with uni\u00e7\u00f8de'
+TEST_WORKSPACE_NAME1 = 'anvil-project 1000 Genomes Demo'
+TEST_NO_PROJECT_WORKSPACE_NAME = 'anvil-no-project-workspace1'
+TEST_NO_PROJECT_WORKSPACE_NAME2 = 'anvil-no-project-workspace2'
+
+TEST_SERVICE_ACCOUNT = 'test_account@my-seqr.iam.gserviceaccount.com'
 
 ANVIL_WORKSPACES = [{
-    'workspace_namespace': 'my-seqr-billing',
-    'workspace_name': 'anvil-1kg project n\u00e5me with uni\u00e7\u00f8de',
+    'workspace_namespace': TEST_WORKSPACE_NAMESPACE,
+    'workspace_name': TEST_WORKSPACE_NAME,
     'public': False,
     'acl': {
         'test_user_manager@test.com': {
@@ -165,6 +220,12 @@ ANVIL_WORKSPACES = [{
             "accessLevel": "READER",
             "pending": False,
             "canShare": True,
+            "canCompute": True
+        },
+        TEST_SERVICE_ACCOUNT: {
+            "accessLevel": "READER",
+            "pending": False,
+            "canShare": False,
             "canCompute": True
         },
         'test_user_not_registered@test.com': {
@@ -179,10 +240,13 @@ ANVIL_WORKSPACES = [{
             "canShare": False,
             "canCompute": True
         }
-    }
+    },
+    'workspace': {
+        'bucketName': 'test_bucket'
+    },
 }, {
-    'workspace_namespace': 'my-seqr-billing',
-    'workspace_name': 'anvil-project 1000 Genomes Demo',
+    'workspace_namespace': TEST_WORKSPACE_NAMESPACE,
+    'workspace_name': TEST_WORKSPACE_NAME1,
     'public': False,
     'acl': {
         'test_user_manager@test.com': {
@@ -197,10 +261,13 @@ ANVIL_WORKSPACES = [{
             "canShare": True,
             "canCompute": False
         }
-    }
+    },
+    'workspace': {
+        'bucketName': 'test_bucket'
+    },
 }, {
-    'workspace_namespace': 'my-seqr-billing',
-    'workspace_name': 'anvil-no-project-workspace1',
+    'workspace_namespace': TEST_WORKSPACE_NAMESPACE,
+    'workspace_name': TEST_NO_PROJECT_WORKSPACE_NAME,
     'public': True,
     'acl': {
         'test_user_manager@test.com': {
@@ -215,10 +282,13 @@ ANVIL_WORKSPACES = [{
             "canShare": False,
             "canCompute": True
         }
-    }
+    },
+    'workspace': {
+        'bucketName': 'test_bucket'
+    },
 }, {
-    'workspace_namespace': 'my-seqr-billing',
-    'workspace_name': 'anvil-no-project-workspace2',
+    'workspace_namespace': TEST_WORKSPACE_NAMESPACE,
+    'workspace_name': TEST_NO_PROJECT_WORKSPACE_NAME2,
     'public': False,
     'acl': {
         'test_user_manager@test.com': {
@@ -227,16 +297,19 @@ ANVIL_WORKSPACES = [{
             "canShare": True,
             "canCompute": True
         }
-    }
+    },
+    'workspace': {
+        'bucketName': 'test_bucket'
+    },
 }
 ]
 
 
 TEST_TERRA_API_ROOT_URL =  'https://terra.api/'
+TEST_OAUTH2_KEY = 'abc123'
 
 # the time must the same as that in 'auth_time' in the social_auth fixture data
 TOKEN_AUTH_TIME = 1603287741
-WORKSPACE_FIELDS = 'public,accessLevel,workspace.name,workspace.namespace,workspace.workspaceId'
 REGISTER_RESPONSE = '{"enabled":{"ldap":true,"allUsersGroup":true,"google":true},"userInfo": {"userEmail":"test@test.com","userSubjectId":"123456"}}'
 
 
@@ -246,20 +319,23 @@ def get_ws_acl_side_effect(user, workspace_namespace, workspace_name):
     return wss[0]['acl'] if wss else {}
 
 
-def get_ws_al_side_effect(user, workspace_namespace, workspace_name):
+def get_ws_al_side_effect(user, workspace_namespace, workspace_name, meta_fields=None):
     wss = filter(lambda x: x['workspace_namespace'] == workspace_namespace and x['workspace_name'] == workspace_name, ANVIL_WORKSPACES)
     wss = list(wss)
     acl = wss[0]['acl'] if wss else {}
-    if user.email in acl.keys():
-        return {'accessLevel': acl[user.email]['accessLevel']}
-    return {}
+    access_level = {
+        'accessLevel': acl[user.email]['accessLevel'],
+        'canShare': acl[user.email]['canShare'],
+    } if user.email in acl.keys() else {}
+    if meta_fields and 'workspace.bucketName' in meta_fields:
+        access_level['workspace'] = {'bucketName': wss[0]['workspace']['bucketName']}
+    return access_level
 
 
-def get_workspaces_side_effect(user, fields):
+def get_workspaces_side_effect(user):
     return [
         {
             'public': ws['public'],
-            'accessLevel': ws['acl'][user.email]['accessLevel'],
             'workspace':{
                 'namespace': ws['workspace_namespace'],
                 'name': ws['workspace_name']
@@ -278,6 +354,12 @@ class AnvilAuthenticationTestCase(AuthenticationTestCase):
         patcher = mock.patch('seqr.views.utils.terra_api_utils.TERRA_API_ROOT_URL', TEST_TERRA_API_ROOT_URL)
         patcher.start()
         self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.views.utils.terra_api_utils.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY', TEST_OAUTH2_KEY)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.views.utils.orm_to_json_utils.SERVICE_ACCOUNT_FOR_ANVIL', TEST_SERVICE_ACCOUNT)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         patcher = mock.patch('seqr.views.utils.terra_api_utils.time')
         patcher.start().return_value = TOKEN_AUTH_TIME + 10
         self.addCleanup(patcher.stop)
@@ -293,6 +375,7 @@ class AnvilAuthenticationTestCase(AuthenticationTestCase):
         self.mock_get_ws_access_level = patcher.start()
         self.mock_get_ws_access_level.side_effect = get_ws_al_side_effect
         self.addCleanup(patcher.stop)
+        super(AnvilAuthenticationTestCase, self).setUp()
 
 
 # inherit AnvilAuthenticationTestCase for the mocks of AnVIL permissions.
@@ -343,13 +426,13 @@ PROJECT_FIELDS = {
 FAMILY_FIELDS = {
     'projectGuid', 'familyGuid', 'analysedBy', 'pedigreeImage', 'familyId', 'displayName', 'description',
     'analysisNotes', 'analysisSummary', 'analysisStatus', 'pedigreeImage', 'createdDate', 'assignedAnalyst',
-    'codedPhenotype', 'postDiscoveryOmimNumber', 'pubmedIds', 'mmeNotes',
+    'codedPhenotype', 'postDiscoveryOmimNumber', 'mmeNotes',
 }
 CASE_REVIEW_FAMILY_FIELDS = {
     'caseReviewNotes', 'caseReviewSummary'
 }
 INTERNAL_FAMILY_FIELDS = {
-    'individualGuids', 'successStory', 'successStoryTypes',
+    'individualGuids', 'successStory', 'successStoryTypes', 'pubmedIds',
 }
 INTERNAL_FAMILY_FIELDS.update(FAMILY_FIELDS)
 
@@ -377,12 +460,14 @@ SAMPLE_FIELDS = {
 }
 
 IGV_SAMPLE_FIELDS = {
-    'projectGuid', 'individualGuid', 'sampleGuid', 'filePath',
+    'projectGuid', 'individualGuid', 'sampleGuid', 'filePath', 'sampleId', 'sampleType',
 }
 
 SAVED_VARIANT_FIELDS = {'variantGuid', 'variantId', 'familyGuids', 'xpos', 'ref', 'alt', 'selectedMainTranscriptId'}
 
-TAG_FIELDS = {'tagGuid', 'name', 'category', 'color', 'searchHash', 'lastModifiedDate', 'createdBy', 'variantGuids'}
+TAG_FIELDS = {
+    'tagGuid', 'name', 'category', 'color', 'searchHash', 'metadata', 'lastModifiedDate', 'createdBy', 'variantGuids',
+}
 
 VARIANT_NOTE_FIELDS = {'noteGuid', 'note', 'submitToClinvar', 'lastModifiedDate', 'createdBy', 'variantGuids'}
 
@@ -403,11 +488,14 @@ GENE_FIELDS = {
     'chromGrch37', 'chromGrch38', 'codingRegionSizeGrch37', 'codingRegionSizeGrch38',  'endGrch37', 'endGrch38',
     'gencodeGeneType', 'geneId', 'geneSymbol', 'startGrch37', 'startGrch38',
 }
-
-GENE_DETAIL_FIELDS = {
-    'constraints', 'diseaseDesc', 'functionDesc', 'notes', 'omimPhenotypes', 'mimNumber', 'mgiMarkerId', 'geneNames',
+GENE_VARIANT_FIELDS = {
+    'constraints', 'diseaseDesc', 'functionDesc', 'omimPhenotypes', 'mimNumber', 'geneNames', 'primateAi',
+    'cnSensitivity',
 }
-GENE_DETAIL_FIELDS.update(GENE_FIELDS)
+GENE_VARIANT_FIELDS.update(GENE_FIELDS)
+
+GENE_DETAIL_FIELDS = {'notes', 'mgiMarkerId'}
+GENE_DETAIL_FIELDS.update(GENE_VARIANT_FIELDS)
 
 VARIANTS = [
     {
@@ -631,6 +719,7 @@ PARSED_VARIANTS = [
         'chrom': '1',
         'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
         'familyGuids': ['F000003_3'],
+        'cpxIntervals': None,
         'genetale': {
             'allDiseases': ['(3)', 'AD', 'OMIM:Robinowsyndrome', 'autosomaldominant2'],
             'allInheritances': ['AD', 'none'],
@@ -644,7 +733,7 @@ PARSED_VARIANTS = [
         'genotypes': {
             'I000007_na20870': {
                 'ab': 1, 'ad': None, 'gq': 99, 'sampleId': 'NA20870', 'numAlt': 2, 'dp': 74, 'pl': None,
-                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None,
+                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
             }
         },
         'genomeVersion': '37',
@@ -656,13 +745,14 @@ PARSED_VARIANTS = [
         'mainTranscriptId': TRANSCRIPT_3['transcriptId'],
         'originalAltAlleles': ['T'],
         'populations': {
-            'callset': {'an': 32, 'ac': 2, 'hom': None, 'af': 0.063, 'hemi': None, 'filter_af': None},
-            'g1k': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None},
-            'gnomad_genomes': {'an': 30946, 'ac': 4, 'hom': 0, 'af': 0.00012925741614425127, 'hemi': 0, 'filter_af': 0.000437},
-            'exac': {'an': 121308, 'ac': 8, 'hom': 0, 'af': 0.00006589, 'hemi': 0, 'filter_af': 0.0006726888333653661},
-            'gnomad_exomes': {'an': 245930, 'ac': 16, 'hom': 0, 'af': 0.00006505916317651364, 'hemi': 0, 'filter_af': 0.0009151523074911753},
-            'topmed': {'an': 125568, 'ac': 21, 'hom': 0, 'af': 0.00016724, 'hemi': 0, 'filter_af': None},
-            'sv_callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
+            'callset': {'an': 32, 'ac': 2, 'hom': None, 'af': 0.063, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+            'g1k': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None, 'het': 0, 'id': None},
+            'gnomad_genomes': {'an': 30946, 'ac': 4, 'hom': 0, 'af': 0.00012925741614425127, 'hemi': 0, 'filter_af': 0.000437, 'het': 0, 'id': None},
+            'exac': {'an': 121308, 'ac': 8, 'hom': 0, 'af': 0.00006589, 'hemi': 0, 'filter_af': 0.0006726888333653661, 'het': 0, 'id': None},
+            'gnomad_exomes': {'an': 245930, 'ac': 16, 'hom': 0, 'af': 0.00006505916317651364, 'hemi': 0, 'filter_af': 0.0009151523074911753, 'het': 0, 'id': None},
+            'topmed': {'an': 125568, 'ac': 21, 'hom': 0, 'af': 0.00016724, 'hemi': 0, 'filter_af': None, 'het': 0, 'id': None},
+            'sv_callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+            'gnomad_svs': {'ac': None, 'af': None, 'an': None, 'filter_af': None, 'hemi': None, 'hom': None, 'het': None, 'id': None},
         },
         'pos': 248367227,
         'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
@@ -681,6 +771,7 @@ PARSED_VARIANTS = [
         'xpos': 1248367227,
         'end': None,
         'svType': None,
+        'svTypeDetail': None,
         'numExon': None,
         '_sort': [1248367227],
     },
@@ -689,6 +780,7 @@ PARSED_VARIANTS = [
         'chrom': '2',
         'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
         'familyGuids': ['F000002_2', 'F000003_3'],
+        'cpxIntervals': None,
         'genetale': {
             'allDiseases': [],
             'allInheritances': [],
@@ -702,19 +794,19 @@ PARSED_VARIANTS = [
         'genotypes': {
             'I000004_hg00731': {
                 'ab': 0, 'ad': None, 'gq': 99, 'sampleId': 'HG00731', 'numAlt': 0, 'dp': 67, 'pl': None,
-                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None,
+                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
             },
             'I000005_hg00732': {
                 'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00732', 'numAlt': 2, 'dp': 42, 'pl': None,
-                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None,
+                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
             },
             'I000006_hg00733': {
                 'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00733', 'numAlt': 1, 'dp': 42, 'pl': None,
-                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None,
+                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
             },
             'I000007_na20870': {
                 'ab': 0.70212764, 'ad': None, 'gq': 46, 'sampleId': 'NA20870', 'numAlt': 1, 'dp': 50, 'pl': None,
-                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None,
+                'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
             }
         },
         'genotypeFilters': '',
@@ -726,13 +818,14 @@ PARSED_VARIANTS = [
         'mainTranscriptId': TRANSCRIPT_1['transcriptId'],
         'originalAltAlleles': ['G'],
         'populations': {
-            'callset': {'an': 32, 'ac': 1, 'hom': None, 'af': 0.031, 'hemi': None, 'filter_af': None},
-            'g1k': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None},
-            'gnomad_genomes': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None},
-            'exac': {'an': 121336, 'ac': 6, 'hom': 0, 'af': 0.00004942, 'hemi': 0, 'filter_af': 0.000242306760358614},
-            'gnomad_exomes': {'an': 245714, 'ac': 6, 'hom': 0, 'af': 0.000024418633044922146, 'hemi': 0, 'filter_af': 0.00016269686320447742},
-            'topmed': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None},
-            'sv_callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
+            'callset': {'an': 32, 'ac': 1, 'hom': None, 'af': 0.031, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+            'g1k': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None, 'het': 0, 'id': None},
+            'gnomad_genomes': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None, 'het': 0, 'id': None},
+            'exac': {'an': 121336, 'ac': 6, 'hom': 0, 'af': 0.00004942, 'hemi': 0, 'filter_af': 0.000242306760358614, 'het': 0, 'id': None},
+            'gnomad_exomes': {'an': 245714, 'ac': 6, 'hom': 0, 'af': 0.000024418633044922146, 'hemi': 0, 'filter_af': 0.00016269686320447742, 'het': 0, 'id': None},
+            'topmed': {'an': 0, 'ac': 0, 'hom': 0, 'af': 0.0, 'hemi': 0, 'filter_af': None, 'het': 0, 'id': None},
+            'sv_callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+            'gnomad_svs': {'ac': None, 'af': None, 'an': None, 'filter_af': None, 'hemi': None, 'hom': None, 'het': None, 'id': None},
         },
         'pos': 103343353,
         'predictions': {
@@ -752,6 +845,7 @@ PARSED_VARIANTS = [
         'xpos': 2103343353,
         'end': None,
         'svType': None,
+        'svTypeDetail': None,
         'numExon': None,
         '_sort': [2103343353],
     },
@@ -760,14 +854,17 @@ PARSED_SV_VARIANT = {
     'alt': None,
     'chrom': '1',
     'familyGuids': ['F000002_2'],
+    'cpxIntervals': [{'chrom': '1', 'end': 3000, 'start': 1000, 'type': 'DUP'},
+                     {'chrom': '20', 'end': 13000, 'start': 11000, 'type': 'INS'}],
     'genotypes': {
         'I000004_hg00731': {
             'ab': None, 'ad': None, 'gq': None, 'sampleId': 'HG00731', 'numAlt': -1, 'dp': None, 'pl': None,
-            'cn': 1, 'end': None, 'start': None, 'numExon': 2, 'defragged': False, 'qs': 33,
+            'cn': 1, 'end': None, 'start': None, 'numExon': 2, 'defragged': False, 'qs': 33, 'sampleType': 'WES',
         },
         'I000005_hg00732': {
             'ab': None, 'ad': None, 'gq': None, 'sampleId': 'HG00732', 'numAlt': -1, 'dp': None, 'pl': None,
             'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'isRef': True,
+            'sampleType': None,
         },
     },
     'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
@@ -782,13 +879,14 @@ PARSED_SV_VARIANT = {
     'mainTranscriptId': None,
     'originalAltAlleles': [],
     'populations': {
-        'callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'g1k': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'gnomad_genomes': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'exac': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'gnomad_exomes': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'topmed': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None},
-        'sv_callset': {'an': 10088, 'ac': 7, 'hom': None, 'af': 0.000693825, 'hemi': None, 'filter_af': None},
+        'callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'g1k': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'gnomad_genomes': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'exac': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'gnomad_exomes': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'topmed': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'sv_callset': {'an': 10088, 'ac': 7, 'hom': None, 'af': 0.000693825, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
+        'gnomad_svs': {'ac': 0, 'af': 0.00679, 'an': 0, 'filter_af': None, 'hemi': 0, 'hom': 0, 'het': 0, 'id': 'gnomAD-SV_v2.1_BND_1_1'},
     },
     'pos': 49045487,
     'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
@@ -816,6 +914,7 @@ PARSED_SV_VARIANT = {
     'xpos': 1049045487,
     'end': 49045899,
     'svType': 'DEL',
+    'svTypeDetail': None,
     'numExon': 2,
     '_sort': [1049045387],
 }
