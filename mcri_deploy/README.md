@@ -18,7 +18,7 @@ SEQR_PROJECT_PATH=$(pwd)
 SEQR_GIT_BRANCH="mcri/master"
 
 # Clone if necessary, otherwise cd to git clone of seqr
-git clone https://github.com/ssadedin/seqr.git; cd seqr
+git clone https://github.com/bioinfomethods/seqr; cd seqr
 git submodule update --init --recursive"
 git checkout -b "$SEQR_GIT_BRANCH" --track "origin/$SEQR_GIT_BRANCH"
 
