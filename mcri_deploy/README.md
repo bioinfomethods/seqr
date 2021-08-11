@@ -35,6 +35,7 @@ docker-compose --verbose \
   -f $COMPOSE_BUILD_FILE \
   --env-file=$COMPOSE_ENV_FILE \
   build \
+  --build-arg "DISABLE_CACHE=2" \
   --build-arg "SEQR_REPO=$SEQR_REPO" \
   --build-arg "SEQR_GIT_BRANCH=$SEQR_GIT_BRANCH"
 
