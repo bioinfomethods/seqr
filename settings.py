@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'anymail',
     'seqr',
     'mcri_ext',
+    'panelapp',
     'reference_data',
     'matchmaker',
     'oauth2_provider',
