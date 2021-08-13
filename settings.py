@@ -80,7 +80,7 @@ IGV_CSS2_HASH = "'sha256-m7BbAVh3TyZH136+WARZw8eulS+0pHbppq98KGFYbhA='"
 CSP_STYLE_SRC_ELEM = ('https://fonts.googleapis.com', "'self'", IGV_CSS1_HASH, IGV_CSS2_HASH)
 
 # django-debug-toolbar settings
-ENABLE_DJANGO_DEBUG_TOOLBAR = False
+ENABLE_DJANGO_DEBUG_TOOLBAR = os.environ.get('ENABLE_DJANGO_DEBUG_TOOLBAR', 'False') == 'True'
 if ENABLE_DJANGO_DEBUG_TOOLBAR:
     MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
     INSTALLED_APPS = ['debug_toolbar'] + INSTALLED_APPS
