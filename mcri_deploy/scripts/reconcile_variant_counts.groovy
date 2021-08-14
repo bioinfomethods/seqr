@@ -87,6 +87,9 @@ new File(variantCountPath).splitEachLine(/\t/) { def lineItems ->
   if (indexVariantCount < vcfVariantCount || indexVariantCount > vcfVariantCount * 1.1) {
     errors << "Elasticsearch index variant counts not within range of expected VCF variant counts, index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=${indexVariantCount - vcfVariantCount}"
   }
+  else {
+    println "index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=${indexVariantCount - vcfVariantCount}"
+  }
 }
 
 if (errors.empty) {
