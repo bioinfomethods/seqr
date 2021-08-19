@@ -26,3 +26,4 @@ generated_files
 seqr.*.env
 !seqr.template.env
 tmp
+htmlcov
