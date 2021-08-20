@@ -7,10 +7,12 @@ from seqr.views.react_app import main_app, no_login_main_app
 from seqr.views.status import status_view
 from seqr.views.apis.dataset_api import add_variants_dataset_handler
 from settings import ENABLE_DJANGO_DEBUG_TOOLBAR, MEDIA_ROOT, API_LOGIN_REQUIRED_URL, LOGIN_URL, DEBUG, \
-    API_POLICY_REQUIRED_URL
+    API_POLICY_REQUIRED_URL, ENABLE_PANEL_APP
 from django.conf.urls import url, include
 from django.contrib import admin
 from django.views.generic.base import RedirectView
+from mcri_ext.views.echo import echo
+
 import django.views.static
 
 from seqr.views.apis.family_api import \
@@ -275,6 +277,8 @@ api_endpoints = {
     'matchmaker/v1/metrics': external_api.mme_metrics_proxy,
 
     'create_project_from_workspace/submit/(?P<namespace>[^/]+)/(?P<name>[^/]+)': create_project_from_workspace,
+
+    'echo': echo,
 }
 
 urlpatterns = [url('^status', status_view)]
@@ -331,4 +335,9 @@ if ENABLE_DJANGO_DEBUG_TOOLBAR:
     import debug_toolbar
     urlpatterns = [
         url(r'^__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
+
+if ENABLE_PANEL_APP:
+    urlpatterns = [
+        url('', include('panelapp.urls')),
     ] + urlpatterns

@@ -69,6 +69,13 @@ services:
       - PGPORT=${POSTGRES_SERVICE_PORT:-5433}
       - PGUSER=postgres
       - GUNICORN_WORKER_THREADS=4
+      - SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID=${SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID}
+      - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-okta-openidconnect}
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://dev-000000.okta.com/oauth2/default}
+      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-okta-client-id}
+      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-okta-client-secret}
+      - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
+      - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
     depends_on:
       postgres:
         condition: service_healthy

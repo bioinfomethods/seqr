@@ -35,6 +35,7 @@ if [ "$SEQR_GIT_BRANCH" ]; then
   git checkout "$SEQR_GIT_BRANCH"
 fi
 
+pip install --upgrade pip
 pip install --upgrade -r requirements.txt  # doublecheck that requirements are up-to-date
 
 # allow pg_dump and other postgres command-line tools to run without having to enter a password
