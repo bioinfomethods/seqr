@@ -2,7 +2,7 @@ version: '2.4'
 
 services:
   postgres:
-    image: gcr.io/seqr-project/postgres:gcloud-prod
+    image: "${SEQR_CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_POSTGRES_IMAGE_NAME:-mcri-seqr-postgres}:${SEQR_POSTGRES_IMAGE_TAG:-latest}"
     container_name: mcri_postgres
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
