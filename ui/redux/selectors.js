@@ -238,8 +238,9 @@ export const getFunctionalTagTypesTypesByProject = createSelector(
 export const getParsedLocusList = createSelector(
   getLocusListsByGuid,
   getGenesById,
+  getPaGenesById,
   (state, props) => props.locusListGuid,
-  (locusListsByGuid, genesById, locusListGuid) => {
+  (locusListsByGuid, genesById, pagenesById, locusListGuid) => {
     const locusList = locusListsByGuid[locusListGuid] || {}
     if (locusList.items) {
       locusList.items = locusList.items.map((item) => {
