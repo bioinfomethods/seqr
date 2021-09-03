@@ -24,5 +24,5 @@ docker-compose.*.env
 .coverage
 generated_files
 seqr.*.env
-!seqr.sample.env
+!seqr.template.env
 tmp

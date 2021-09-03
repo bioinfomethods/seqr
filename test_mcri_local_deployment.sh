@@ -2,7 +2,7 @@
 
 set -ex
 
-cp "./mcri_deploy/docker-compose/seqr.sample.env" "./.env"
+cp "./mcri_deploy/docker-compose/seqr.template.env" "./.env"
 cp "./mcri_deploy/docker-compose/docker-compose.yml" "./"
 
 docker-compose up -d seqr
