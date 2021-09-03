@@ -16,17 +16,18 @@ and deployment Seqr application.
 # From here, assume $SEQR_PROJECT_PATH is the path to seqr checkout
 SEQR_PROJECT_PATH=$(pwd)
 SEQR_GIT_BRANCH="mcri/master"
+SEQR_REPO="https://github.com/bioinfomethods/seqr"
 
 # Clone if necessary, otherwise cd to git clone of seqr
-git clone https://github.com/bioinfomethods/seqr; cd seqr
+git clone "$SEQR_REPO.git"; cd seqr
 git submodule update --init --recursive"
 git checkout -b "$SEQR_GIT_BRANCH" --track "origin/$SEQR_GIT_BRANCH"
 
 COMPOSE_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/docker-compose.yml"
 COMPOSE_BUILD_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/docker-compose.build.yml"
 
-# Use seqr.sample.env or create your own (if changing build ENV vars) 
-COMPOSE_ENV_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/seqr.sample.env"
+# Use seqr.template.env or create your own (if changing build ENV vars) 
+COMPOSE_ENV_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/seqr.template.env"
 source $COMPOSE_ENV_FILE
 
 # Build image and adds latest Docker tag by default
