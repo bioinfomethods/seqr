@@ -1101,10 +1101,7 @@ def setup_mcri_responses():
     urllib3_responses.add_callback(
         urllib3_responses.GET, re.compile('^/[,\w]+/_mapping$'), callback=get_mcri_metadata_callback,
         content_type='application/json', match_querystring=True)
-    urllib3_responses.add_callback(
-        urllib3_responses.POST, re.compile('^/[,\w]+/_msearch$'), callback=get_msearch_callback,
-        content_type='application/json', match_querystring=True)
-    setup_search_response()
+    setup_search_responses()
 
 
 @mock.patch('seqr.utils.redis_utils.redis.StrictRedis', lambda **kwargs: MOCK_REDIS)
@@ -1256,7 +1253,7 @@ class EsUtilsTest(TestCase):
         with self.assertRaises(InvalidSearchException) as cm:
             get_single_es_variant(self.families, '10-10334333-A-G')
         self.assertEqual(str(cm.exception), 'Variant 10-10334333-A-G not found')
-        
+
     @mock.patch('seqr.utils.elasticsearch.es_search.MAX_COMPOUND_HET_GENES', 1)
     @mock.patch('seqr.utils.elasticsearch.es_gene_agg_search.MAX_COMPOUND_HET_GENES', 1)
     @urllib3_responses.activate

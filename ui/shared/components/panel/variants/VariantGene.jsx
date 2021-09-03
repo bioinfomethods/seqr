@@ -131,6 +131,13 @@ GeneDetailSection.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
+const GENETALE_SECTIONS = [
+  {
+    color: 'orange',
+    description: 'Genetale All Inheritances',
+  },
+]
+
 const OMIM_SECTION = {
   color: 'orange',
   description: 'Disease Phenotypes',
@@ -266,7 +273,7 @@ export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists
             )}
           </List>
         ) : null
-  
+
         return (<GeneDetailSection
           key={sectionConfig.label}
           compact={compact}
