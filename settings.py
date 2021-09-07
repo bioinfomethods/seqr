@@ -45,14 +45,12 @@ INSTALLED_APPS = [
     'matchmaker',
     'oauth2_provider',
     'social_django',
+    'panelapp',
 ]
 
 ###########
 # PanelApp
 ###########
-ENABLE_PANEL_APP = os.environ.get('ENABLE_PANEL_APP', 'False') == 'True'
-if ENABLE_PANEL_APP:
-    INSTALLED_APPS += ['panelapp']
 PANEL_APP_API_URL = os.environ.get('PANEL_APP_API_URL', 'https://panelapp.url/api/v1')
 
 MIDDLEWARE = [
