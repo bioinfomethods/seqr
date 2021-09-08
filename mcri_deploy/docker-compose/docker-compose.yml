@@ -76,6 +76,9 @@ services:
       - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-okta-client-secret}
       - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud
+      # - /mnt/disks/seqr_static:/seqr_static_files
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,4 +92,4 @@ services:
     image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
     container_name: mcri_pipeline-runner
     volumes:
-      - ~/.config:/root/.config
+      - ~/.config/gcloud:/root/.config/gcloud
