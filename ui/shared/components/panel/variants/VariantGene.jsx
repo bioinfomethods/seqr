@@ -161,26 +161,6 @@ const OMIM_SECTION = {
 
 const GENE_DETAIL_SECTIONS = [
   {
-    color: 'orange',
-    description: 'Disease Phenotypes',
-    label: 'IN OMIM',
-    compactLabel: 'OMIM Disease Phenotypes',
-    showDetails: gene => gene.omimPhenotypes.length > 0,
-    detailsDisplay: gene =>
-      <List>
-        {gene.omimPhenotypes.map(phenotype =>
-          <ListItemLink
-            key={phenotype.phenotypeDescription}
-            content={phenotype.phenotypeInheritance ?
-              <span>{phenotype.phenotypeDescription} (<i>{phenotype.phenotypeInheritance}</i>)</span> :
-              phenotype.phenotypeDescription}
-            target="_blank"
-            href={`https://www.omim.org/entry/${phenotype.phenotypeMimNumber}`}
-          />,
-        )}
-      </List>,
-  },
-  {
     color: 'red',
     description: 'Missense Constraint',
     label: 'MISSENSE CONSTR',
