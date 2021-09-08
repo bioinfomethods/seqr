@@ -1168,6 +1168,12 @@ export const INHERITANCE_FILTER_OPTIONS = [
   },
 ]
 
+export const VARIANT_BACKGROUND_COLORS = {
+  red: '#eaa8a857',
+  amber: '#f5d55c57',
+  green: '#21a92624',
+  lightBlue: '#f3f8fa',
+}
 // Users
 
 export const USER_NAME_FIELDS = [
