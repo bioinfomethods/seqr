@@ -1,4 +1,4 @@
-import { RadioGroup, BooleanCheckbox, BaseSemanticInput } from 'shared/components/form/Inputs'
+import { RadioGroup, BooleanCheckbox, BaseSemanticInput, CheckboxGroup } from 'shared/components/form/Inputs'
 import { snakecaseToTitlecase } from 'shared/utils/stringUtils'
 import {
   VEP_GROUP_NONSENSE,
@@ -371,6 +371,28 @@ export const LOCATION_FIELDS = [
     component: BooleanCheckbox,
     label: 'Exclude locations',
     labelHelp: 'Search for variants not in the specified genes/ intervals',
+    width: 3,
+  },
+  {
+    name: 'panelApp',
+    groupLabel: 'Panel App',
+    component: CheckboxGroup,
+    value: 'panelAllGroup',
+    options: [
+      {
+        text: 'Green',
+        value: 'green',
+      },
+      { text: 'Amber', value: 'amber' },
+      {
+        text: 'Red',
+        value: 'red',
+      },
+    ],
+    onChange() {
+      console.log('changing panelApp??')
+    },
+    horizontalGrouped: false,
     width: 3,
   },
 ]
