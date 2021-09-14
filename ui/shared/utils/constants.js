@@ -1168,19 +1168,20 @@ export const INHERITANCE_FILTER_OPTIONS = [
   },
 ]
 
-export const VARIANT_BACKGROUND_COLORS = {
-  red: '#eaa8a857',
-  amber: '#f5d55c57',
-  green: '#21a92624',
+export const VARIANT_LINK_COLORS = {
+  default: '#4183C4',
+  red: '#eaa8a8',
+  amber: '#f5d55c',
+  green: '#21a926',
   lightBlue: '#f3f8fa',
 }
 
 export const PANEL_APP_CONFIDENCE_LEVEL_COLORS = {
-  0: 'None',
-  1: VARIANT_BACKGROUND_COLORS.red,
-  2: VARIANT_BACKGROUND_COLORS.amber,
-  3: VARIANT_BACKGROUND_COLORS.green,
-  4: VARIANT_BACKGROUND_COLORS.green,
+  0: VARIANT_LINK_COLORS.default,
+  1: VARIANT_LINK_COLORS.red,
+  2: VARIANT_LINK_COLORS.amber,
+  3: VARIANT_LINK_COLORS.green,
+  4: VARIANT_LINK_COLORS.green,
 }
 
 // Users

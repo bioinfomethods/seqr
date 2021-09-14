@@ -11,7 +11,7 @@ const ShowGeneModal = ({ pagene, gene, modalId = 'gene', ...linkProps }) =>
     trigger={
       <ButtonLink
         padding="0.5em"
-        background={PANEL_APP_CONFIDENCE_LEVEL_COLORS[pagene?.confidenceLevel || 0]}
+        color={PANEL_APP_CONFIDENCE_LEVEL_COLORS[pagene?.confidenceLevel || 0]}
         {...linkProps}
       >
         {gene.geneSymbol}
