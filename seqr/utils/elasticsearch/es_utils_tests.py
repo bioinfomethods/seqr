@@ -1109,7 +1109,7 @@ def setup_mcri_responses():
     urllib3_responses.add_callback(
         urllib3_responses.POST, re.compile('^/[,\w]+/_msearch$'), callback=get_msearch_callback,
         content_type='application/json', match_querystring=True)
-    setup_search_response()
+    setup_search_responses()
 
 
 @mock.patch('seqr.utils.redis_utils.redis.StrictRedis', lambda **kwargs: MOCK_REDIS)

@@ -226,7 +226,7 @@ const OmimSegments = styled(Segment.Group).attrs({ size: 'tiny', horizontal: tru
   }
 `
 
-export const GeneDetails = React.memo(({ gene, compact, showLocusLists, containerStyle, ...labelProps }) => {
+export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists, containerStyle, ...labelProps }) => {
   const omimDetails = OMIM_SECTION.showDetails(gene) && OMIM_SECTION.detailsDisplay(gene)
   return (
     <div style={containerStyle}>
@@ -253,30 +253,30 @@ export const GeneDetails = React.memo(({ gene, compact, showLocusLists, containe
           </Segment>
         </OmimSegments>
       )}
-    {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
-      const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
-      const label = `GENETALE ${allInheritances.join(', ')}`
-      const details = allInheritances.length > 0 ? (
-        <List>
-          {allInheritances.map(h =>
-            <ListItem
-              key={h}
-              content={h}
-            />,
-          )}
-        </List>
-      ) : null
+      {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
+        const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
+        const label = `GENETALE ${allInheritances.join(', ')}`
+        const details = allInheritances.length > 0 ? (
+          <List>
+            {allInheritances.map(h =>
+              <ListItem
+                key={h}
+                content={h}
+              />,
+            )}
+          </List>
+        ) : null
 
-      return (<GeneDetailSection
-        key={sectionConfig.label}
-        compact={compact}
-        details={details}
-        label={label}
-        {...sectionConfig}
-        {...labelProps}
-      />)
-    },
-    )}
+        return (<GeneDetailSection
+          key={sectionConfig.label}
+          compact={compact}
+          details={details}
+          label={label}
+          {...sectionConfig}
+          {...labelProps}
+        />)
+      },
+      )}
     </div>
   )
 },
