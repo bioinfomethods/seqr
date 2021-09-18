@@ -1,0 +1,66 @@
+[
+{
+    "model": "seqr.varianttagtype",
+    "pk": 117,
+    "fields": {
+        "guid": "VTT00117_discussed_at_mdt",
+        "created_date": "2020-06-30 10:35:29.296100Z",
+        "created_by": 9,
+        "last_modified_date": "2020-06-30 10:35:29.296100Z",
+        "project": 17,
+        "name": "Discussed at MDT",
+        "category": "Data Sharing",
+        "description": "Variant discussed during MDT",
+        "color": "#1f78b4",
+        "order": 30
+    }
+},
+{
+    "model": "seqr.varianttagtype",
+    "pk": null,
+    "fields": {
+        "guid": "VTT_segr_confirm_maternal",
+        "created_date": "2021-06-30T00:00:00.000Z",
+        "created_by": 48,
+        "last_modified_date": null,
+        "project": null,
+        "name": "Segregated: maternal",
+        "category": "Collaboration",
+        "description": "Segregated: maternal",
+        "color": "#799a5b",
+        "order": 14.71
+    }
+},
+{
+    "model": "seqr.varianttagtype",
+    "pk": null,
+    "fields": {
+        "guid": "VTT_segr_confirm_paternal",
+        "created_date": "2021-06-30T00:00:00.000Z",
+        "created_by": 48,
+        "last_modified_date": null,
+        "project": null,
+        "name": "Segregated: paternal",
+        "category": "Collaboration",
+        "description": "Segregated: paternal",
+        "color": "#799a5b",
+        "order": 14.72
+    }
+},
+{
+    "model": "seqr.varianttagtype",
+    "pk": null,
+    "fields": {
+        "guid": "VTT_segr_confirm_denovo",
+        "created_date": "2021-06-30T00:00:00.000Z",
+        "created_by": 48,
+        "last_modified_date": null,
+        "project": null,
+        "name": "Segregated: de novo",
+        "category": "Collaboration",
+        "description": "Segregated: de novo",
+        "color": "#799a5b",
+        "order": 14.73
+    }
+}
+]

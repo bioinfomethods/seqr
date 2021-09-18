@@ -1,0 +1,47 @@
+[
+  {
+    "name": "index_name",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "sample_id",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "variant_id",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "chromosome",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "start",
+    "type": "INT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "end",
+    "type": "INT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "ref",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "alt",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "original_alt_alleles",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]

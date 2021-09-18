@@ -142,6 +142,13 @@ def create_project_collaborator(request, project_guid):
         first_name=request_json.get('firstName') or '',
         last_name=request_json.get('lastName') or '',
     )
+
+    get_or_create_model_from_json(
+        UserPolicy, {'user': user}, update_json={
+            'privacy_version': SEQR_PRIVACY_VERSION,
+            'tos_version': SEQR_TOS_VERSION,
+        }, user=user)
+
     logger.info('Created user {} (local)'.format(request_json['email']), request.user)
 
     send_welcome_email(user, request.user)

@@ -40,8 +40,10 @@ INSTALLED_APPS = [
     'guardian',
     'anymail',
     'seqr',
+    'mcri_ext',
     'reference_data',
     'matchmaker',
+    'oauth2_provider',
     'social_django',
     'panelapp',
 ]
@@ -50,6 +52,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'mcri_ext.security.security_middleware.DisableCsrfOAuth2TokenMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.common.CommonMiddleware',
     'csp.middleware.CSPMiddleware',
@@ -80,7 +83,7 @@ CSP_STYLE_SRC = ('https://fonts.googleapis.com', "'self'", IGV_CSS1_HASH, IGV_CS
 CSP_STYLE_SRC_ELEM = ('https://fonts.googleapis.com', "'self'", IGV_CSS1_HASH, IGV_CSS2_HASH)
 
 # django-debug-toolbar settings
-ENABLE_DJANGO_DEBUG_TOOLBAR = False
+ENABLE_DJANGO_DEBUG_TOOLBAR = os.environ.get('ENABLE_DJANGO_DEBUG_TOOLBAR', 'False') == 'True'
 if ENABLE_DJANGO_DEBUG_TOOLBAR:
     MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
     INSTALLED_APPS = ['debug_toolbar'] + INSTALLED_APPS
@@ -190,6 +193,8 @@ ANVIL_UI_URL = 'https://anvil.terra.bio/'
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
+    'oauth2_provider.backends.OAuth2Backend',
+    'mcri_ext.security.okta.McriOktaOpenIdConnect',
     'django.contrib.auth.backends.ModelBackend',
     'guardian.backends.ObjectPermissionBackend',
 )
@@ -228,8 +233,10 @@ WSGI_APPLICATION = 'wsgi.application'
 WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 # Email settings
-EMAIL_BACKEND = "anymail.backends.postmark.EmailBackend"
-DEFAULT_FROM_EMAIL = "seqr@broadinstitute.org"
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "anymail.backends.postmark.EmailBackend")
+EMAIL_HOST = os.environ.get("SMTP_EMAIL_HOST", "localhost")
+EMAIL_PORT = os.environ.get("SMTP_EMAIL_PORT", "10025")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "seqr@broadinstitute.org")
 
 ANYMAIL = {
     "POSTMARK_SERVER_TOKEN": os.environ.get('POSTMARK_SERVER_TOKEN', 'postmark-server-token-placeholder'),
@@ -341,12 +348,16 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'openid'
 ]
 
-SOCIAL_AUTH_PROVIDER = 'google-oauth2'
+SOCIAL_AUTH_PROVIDER = os.environ.get('SOCIAL_AUTH_PROVIDER', 'google-oauth2')
 GOOGLE_LOGIN_REQUIRED_URL = '/login/{}'.format(SOCIAL_AUTH_PROVIDER)
 
 
 # Use Google sub ID as the user ID, safer than using email
 USE_UNIQUE_USER_ID = True
+
+SOCIAL_AUTH_API_URL = os.environ.get('SOCIAL_AUTH_API_URL', 'https://dev-000000.okta.com/oauth2/default')
+SOCIAL_AUTH_CLIENT_ID = os.environ.get('SOCIAL_AUTH_CLIENT_ID')
+SOCIAL_AUTH_CLIENT_SECRET = os.environ.get('SOCIAL_AUTH_CLIENT_SECRET')
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
@@ -356,7 +367,10 @@ LOGIN_URL = GOOGLE_LOGIN_REQUIRED_URL if SOCIAL_AUTH_GOOGLE_OAUTH2_KEY else '/lo
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+SOCIAL_AUTH_OKTA_OPENIDCONNECT_API_URL = SOCIAL_AUTH_API_URL
+SOCIAL_AUTH_OKTA_OPENIDCONNECT_KEY = SOCIAL_AUTH_CLIENT_ID
+SOCIAL_AUTH_OKTA_OPENIDCONNECT_SECRET = SOCIAL_AUTH_CLIENT_SECRET
 
 SOCIAL_AUTH_PIPELINE_BASE = (
     'social_core.pipeline.social_auth.social_details',
@@ -395,3 +409,32 @@ if TERRA_API_ROOT_URL:
 else:
     SOCIAL_AUTH_PIPELINE = SOCIAL_AUTH_PIPELINE_BASE + SOCIAL_AUTH_PIPELINE_USER_EXIST + \
                            SOCIAL_AUTH_PIPELINE_ASSOCIATE_USER + SOCIAL_AUTH_PIPELINE_LOG
+
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.social_auth.associate_by_email',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.user.user_details',
+    'social_core.pipeline.social_auth.associate_user',
+    'seqr.utils.social_auth_pipeline.validate_user_exist',
+    'mcri_ext.security.social_auth_pipeline.associate_groups',
+    'seqr.utils.social_auth_pipeline.log_signed_in',
+)
+
+##########################################################
+#  Security Settings - Django OAuth Toolkit
+#  Enables authorisation to API using bearer access tokens
+#  https://django-oauth-toolkit.readthedocs.io/en/latest/
+##########################################################
+OAUTH2_PROVIDER = {
+    'OAUTH2_VALIDATOR_CLASS': 'oauth2_provider.oauth2_validators.OAuth2Validator',
+    'RESOURCE_SERVER_INTROSPECTION_URL': f"{SOCIAL_AUTH_API_URL}/oauth2/v1/introspect",
+    'RESOURCE_SERVER_INTROSPECTION_CREDENTIALS': (
+        SOCIAL_AUTH_CLIENT_ID,
+        SOCIAL_AUTH_CLIENT_SECRET
+    ),
+    'ALWAYS_RELOAD_OAUTHLIB_CORE': DEBUG,
+}

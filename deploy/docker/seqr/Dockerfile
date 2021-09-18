@@ -102,7 +102,7 @@ RUN git clone -q --branch $SEQR_GIT_BRANCH $SEQR_REPO
 WORKDIR /seqr
 
 # install seqr dependencies
-RUN pip install wheel && pip install -r requirements.txt
+RUN pip install wheel && pip install --upgrade pip && pip install -r requirements.txt
 
 ARG SEQR_SERVICE_PORT
 ENV SEQR_SERVICE_PORT=$SEQR_SERVICE_PORT

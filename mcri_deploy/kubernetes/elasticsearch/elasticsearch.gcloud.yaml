@@ -1,0 +1,240 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  labels:
+    name: elasticsearch
+    env: test
+spec:
+  version: 7.8.1
+  image: "gcr.io/seqr-project/elasticsearch:gcloud-prod-7.8.1"
+  auth:
+    roles:
+      - secretName: elasticsearch-secrets
+    fileRealm:
+      - secretName: elasticsearch-secrets
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+  nodeSets:
+  - name: master-node
+    count: 3
+    config:
+      node.master: true
+      node.data: false
+      node.ingest: false
+      node.ml: false
+      node.remote_cluster_client: false
+      cluster.routing.allocation.disk.watermark.low: "91%"
+      cluster.routing.allocation.disk.watermark.high: "95%"
+      cluster.routing.allocation.disk.watermark.flood_stage: "97%"
+      xpack.security.enabled: false
+    podTemplate:
+      metadata:
+        labels:
+          name: elasticsearch
+          role: master
+          env: test
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nodeType
+                  operator: In
+                  values:
+                  - default
+        initContainers:
+          - name: sysctl
+            securityContext:
+              privileged: true
+            command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-data
+              subPath: data
+    volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: pd-standard-expandable-storage-class
+            resources:
+              requests:
+                storage: 10Gi
+  - name: client-node
+    count: 2
+    config:
+      node.master: false
+      node.data: false
+      node.ingest: false
+      node.ml: false
+      node.remote_cluster_client: false
+      cluster.routing.allocation.disk.watermark.low: "91%"
+      cluster.routing.allocation.disk.watermark.high: "95%"
+      cluster.routing.allocation.disk.watermark.flood_stage: "97%"
+      xpack.security.enabled: false
+    podTemplate:
+      metadata:
+        labels:
+          name: elasticsearch
+          role: client
+          env: test
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nodeType
+                  operator: In
+                  values:
+                  - default
+        initContainers:
+          - name: sysctl
+            securityContext:
+              privileged: true
+            command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          imagePullPolicy: Always
+    volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: standard
+            resources:
+              requests:
+                storage: 10Gi
+  - name: data
+    count: 3
+    config:
+      node.master: false
+      node.data: true
+      node.ingest: false
+      node.ml: false
+      node.remote_cluster_client: false
+      cluster.routing.allocation.disk.watermark.low: "91%"
+      cluster.routing.allocation.disk.watermark.high: "95%"
+      cluster.routing.allocation.disk.watermark.flood_stage: "97%"
+      xpack.security.enabled: false
+    podTemplate:
+      metadata:
+        labels:
+          name: elasticsearch
+          role: data
+          env: test
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nodeType
+                  operator: In
+                  values:
+                  - default
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          imagePullPolicy: Always
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms4096m -Xmx4096m"
+          resources:
+            requests:
+              memory: 5Gi
+            limits:
+              memory: 5Gi
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-data
+              subPath: data
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: pd-standard-expandable-storage-class
+        resources:
+          requests:
+            storage: 300Gi
+  - name: data-loading-node
+    count: 2
+    config:
+      node.master: false
+      node.data: true
+      node.ingest: true
+      node.ml: false
+      node.remote_cluster_client: false
+      cluster.routing.allocation.disk.watermark.low: "91%"
+      cluster.routing.allocation.disk.watermark.high: "95%"
+      cluster.routing.allocation.disk.watermark.flood_stage: "97%"
+      xpack.security.enabled: false
+    podTemplate:
+      metadata:
+        labels:
+          name: elasticsearch
+          role: ingest
+          env: test
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nodeType
+                  operator: In
+                  values:
+                  - default
+        initContainers:
+          - name: sysctl
+            securityContext:
+              privileged: true
+            command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          imagePullPolicy: Always
+    volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: pd-standard-expandable-storage-class
+            resources:
+              requests:
+                storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-es-http-ilb
+  labels:
+    name: elasticsearch-es-http-ilb
+    env: test
+  annotations:
+    cloud.google.com/load-balancer-type: "Internal"
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.152.0.6
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+  selector:
+    common.k8s.elastic.co/type: elasticsearch
+    elasticsearch.k8s.elastic.co/cluster-name: elasticsearch

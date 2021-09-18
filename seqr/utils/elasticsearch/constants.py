@@ -240,15 +240,26 @@ SORT_FIELDS.update({
     for sort, sort_field in PREDICTOR_SORT_FIELDS.items()
 })
 
-CLINVAR_FIELDS = ['clinical_significance', 'variation_id', 'allele_id', 'gold_stars']
-HGMD_FIELDS = ['accession', 'class']
+CLINVAR_FIELDS = {'clinical_significance': {}, 'variation_id': {}, 'allele_id': {}, 'gold_stars': {}}
+HGMD_FIELDS = {'accession': {}, 'class': {}}
+GENETALE_FIELDS = {
+    'all_diseases': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'all_inheritances': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'alt_res_flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'gene_class': {},
+    'gene_class_info': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'previous': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'var_class_num': {}
+}
 GENOTYPES_FIELD_KEY = 'genotypes'
 HAS_ALT_FIELD_KEYS = ['samples_num_alt_1', 'samples_num_alt_2', 'samples']
 SORTED_TRANSCRIPTS_FIELD_KEY = 'sortedTranscriptConsequences'
 NESTED_FIELDS = {
-    field_name: {field: {} for field in fields} for field_name, fields in {
+    field_name: nested_fields for field_name, nested_fields in {
         'clinvar': CLINVAR_FIELDS,
         'hgmd': HGMD_FIELDS,
+        'genetale': GENETALE_FIELDS,
     }.items()
 }
 
@@ -290,6 +301,12 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
+    'genetale_var_class_num': {'response_key': 'genetale_var_class_num'},
+    'genetale_gene_class_info': {
+        'response_key': 'genetale_gene_class_info',
+        'format_value': lambda values: [v for v in values],
+        'default_value': []
+    },
 }
 
 QUALITY_FIELDS = {'gq': 5, 'ab': 5, 'qs': 10}

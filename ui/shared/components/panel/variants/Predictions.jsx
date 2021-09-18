@@ -79,6 +79,7 @@ Prediction.propTypes = {
 }
 
 const PREDICTOR_FIELDS = [
+  { field: 'genetale_var_class_num', warningThreshold: 5, dangerThreshold: 6, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
   { field: 'cadd', warningThreshold: 10, dangerThreshold: 20 },
   { field: 'revel', warningThreshold: 0.5, dangerThreshold: 0.75 },
   { field: 'primate_ai', warningThreshold: 0.5, dangerThreshold: 0.7 },

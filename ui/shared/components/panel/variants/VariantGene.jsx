@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
 import { NavLink } from 'react-router-dom'
-import { Label, Popup, List, Header, Segment } from 'semantic-ui-react'
+import { Label, Popup, List, ListItem, Header, Segment } from 'semantic-ui-react'
 
 import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
-import { MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED } from '../../../utils/constants'
+import { MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED, GENETALE_INHERITANCE_CODES } from '../../../utils/constants'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { InlineHeader, ButtonLink } from '../../StyledComponents'
 import SearchResultsLink from '../../buttons/SearchResultsLink'
@@ -43,7 +43,7 @@ const ListItemLink = styled(List.Item).attrs({ icon: 'linkify' })`
     color: initial;
     cursor: auto;
  }
- 
+
  i.icon {
   color: #4183C4 !important;
  }
@@ -204,6 +204,13 @@ const GENE_DETAIL_SECTIONS = [
   },
 ]
 
+const GENETALE_SECTIONS = [
+  {
+    color: 'orange',
+    description: 'Genetale All Inheritances',
+  },
+]
+
 const OmimSegments = styled(Segment.Group).attrs({ size: 'tiny', horizontal: true, compact: true })`
   max-height: 6em;
   overflow-y: auto;
@@ -246,6 +253,30 @@ export const GeneDetails = React.memo(({ gene, compact, showLocusLists, containe
           </Segment>
         </OmimSegments>
       )}
+    {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
+      const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
+      const label = `GENETALE ${allInheritances.join(', ')}`
+      const details = allInheritances.length > 0 ? (
+        <List>
+          {allInheritances.map(h =>
+            <ListItem
+              key={h}
+              content={h}
+            />,
+          )}
+        </List>
+      ) : null
+
+      return (<GeneDetailSection
+        key={sectionConfig.label}
+        compact={compact}
+        details={details}
+        label={label}
+        {...sectionConfig}
+        {...labelProps}
+      />)
+    },
+    )}
     </div>
   )
 },
@@ -253,6 +284,7 @@ export const GeneDetails = React.memo(({ gene, compact, showLocusLists, containe
 
 GeneDetails.propTypes = {
   gene: PropTypes.object,
+  genetale: PropTypes.object,
   compact: PropTypes.bool,
   showLocusLists: PropTypes.bool,
   containerStyle: PropTypes.object,
@@ -272,6 +304,7 @@ const BaseVariantGene = React.memo(({ geneId, gene, variant, compact, showInline
   const geneDetails = (
     <GeneDetails
       gene={gene}
+      genetale={variant.genetale}
       compact={compactDetails}
       containerStyle={(showInlineDetails || areCompoundHets) && INLINE_STYLE}
       margin={showInlineDetails ? '1em .5em 0px 0px' : null}
@@ -408,7 +441,7 @@ class VariantGenes extends React.PureComponent {
                 {...sectionConfig}
               />
             )
-        })}
+          })}
         </div>
       </div>
     )

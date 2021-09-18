@@ -1,0 +1,113 @@
+# kubectl get statefulsets es-master -o=yaml | yq -Y 'del(.status) | del(.metadata.annotations) | del(.metadata.generation) | del(.metadata.creationTimestamp) | del(.metadata.resourceVersion) | del(.metadata.selfLink) | del(.metadata.uid) | del(.spec.volumeClaimTemplates[].status)'
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    component: elasticsearch
+    role: master
+  name: es-master
+  namespace: default
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 2
+  selector:
+    matchLabels:
+      component: elasticsearch
+      role: master
+  serviceName: elasticsearch-master
+  template:
+    metadata:
+      labels:
+        component: elasticsearch
+        role: master
+    spec:
+      containers:
+        - env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              value: myesdb
+            - name: NUMBER_OF_MASTERS
+              value: "2"
+            - name: NODE_MASTER
+              value: "true"
+            - name: NODE_INGEST
+              value: "false"
+            - name: NODE_DATA
+              value: "false"
+            - name: HTTP_ENABLE
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: -Xms256m -Xmx256m
+            - name: PROCESSORS
+              valueFrom:
+                resourceFieldRef:
+                  divisor: "0"
+                  resource: limits.cpu
+          image: quay.io/pires/docker-elasticsearch-kubernetes:6.3.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: transport
+            timeoutSeconds: 1
+          name: es-master
+          ports:
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: 250m
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /data
+              name: pvc-es-master
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - sysctl
+            - -w
+            - vm.max_map_count=262144
+          image: busybox:1.27.2
+          imagePullPolicy: IfNotPresent
+          name: init-sysctl
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: pvc-es-master
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: "standard-expandable"
+        resources:
+          requests:
+            storage: 10Gi
+        volumeMode: Filesystem

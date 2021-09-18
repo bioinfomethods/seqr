@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { Table } from 'semantic-ui-react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
 
 import { getVersion } from 'redux/selectors'
 
@@ -22,8 +21,6 @@ const Footer = React.memo(({ version }) =>
       <Table.Row>
         <TableHeaderCell width={1} />
         <TableHeaderCell collapsing disabled>seqr {version}</TableHeaderCell>
-        <TableHeaderCell collapsing><Link to="/privacy_policy">Privacy Policy</Link></TableHeaderCell>
-        <TableHeaderCell collapsing><Link to="/terms_of_service">Terms of Service</Link></TableHeaderCell>
         <TableHeaderCell>
           For bug reports or feature requests please submit  &nbsp;
           <a href="https://github.com/broadinstitute/seqr/issues">Github Issues</a>
