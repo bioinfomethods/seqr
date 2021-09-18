@@ -30,6 +30,9 @@ COMPOSE_BUILD_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/docker-compose
 COMPOSE_ENV_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/seqr.template.env"
 source $COMPOSE_ENV_FILE
 
+# Set this to override SEQR_GIT_BRANCH in seqr.template.env for a different branch e.g.
+# SEQR_GIT_BRANCH="mcri/feat-upstream-merge-20210918"
+
 # Build image and adds latest Docker tag by default
 docker-compose --verbose \
   -f $COMPOSE_FILE \
