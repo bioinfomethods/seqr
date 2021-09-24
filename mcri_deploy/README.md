@@ -1,37 +1,56 @@
 # MCRI Deployment
 
-This folder contains documentation and deployment descriptors specific to MCRI.
-This may only be needed temporarily but does keep source code management simple
-when merging in upstream changes.
+This folder contains documentation and deployment instructions, resources and descriptors specific to MCRI.
 
-The `kubernetes` folder contains Kubernetes deployment descriptors for Elasticsearch
-service.
+The `kubernetes` folder contains Kubernetes deployment descriptors for Elasticsearch service.
 
-The `docker-compose` folder contains docker-compose deployment descriptors for building
-and deployment Seqr application.
+The `docker-compose` folder contains docker-compose deployment descriptors for building and deployment Seqr application.
+
+## Prerequisities
+
+* Python 3 installed, preferably using an environment manager such as
+  [venv](https://docs.python.org/3/library/venv.html)
+* Node.js 11.8.0 installed, preferably using an environment such as [nvm](https://github.com/nvm-sh/nvm)
+
+## Getting Started
+
+Below instructions assume `PROJECT_DIR` is set to your seqr checkout path.
+
+```bash
+# From here, assume $PROJECT_DIR is the path to your seqr checkout
+PROJECT_DIR=$(pwd)
+SEQR_REPO="https://github.com/bioinfomethods/seqr"
+```
+
+## Source Code Branches
+
+At MCRI, source code branches do not follow the usual convention, below are explanations what each code branch means and
+how they're used.
+
+| Name              | Owner          | Description                                                                                                                                                                                                                                             |
+| ----------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `upstream/master` | broadinstitute | Refers to Broad's `master` branch, i.e. their production deployment branch                                                                                                                                                                              |
+| `upstream/dev`    | broadinstitute | Refers to Broad's `dev` branch, i.e. their development and integration branch                                                                                                                                                                           |
+| `master`          | bioinfomethods | Not really used for commits, only one commit ahead of `upstream/master` to clarify README and build related badges.  This branch is kept in sync with `upstream/master` so there is a base to branch off when creating feature/PR branches for upstream |
+| `mcri/master`     | bioinfomethods | MCRI's production deployment branch                                                                                                                                                                                                                     |
+| `mcri/develop`    | bioinfomethods | MCRI's development and integration branch, typically deployed to MCRI's test server                                                                                                                                                                     |
+| `mcri/feat-*`     | bioinfomethods | MCRI's feature branches, typically deployed to local dev environments                                                                                                                                                                                   |
 
 ## Building Seqr Application
 
+Make sure you're on the correct branch!  Note `SEQR_GIT_BRANCH` also needs to be set to the branch you're building Seqr
+for.
+
 ```bash
-# From here, assume $SEQR_PROJECT_PATH is the path to seqr checkout
-SEQR_PROJECT_PATH=$(pwd)
-SEQR_GIT_BRANCH="mcri/master"
-SEQR_REPO="https://github.com/bioinfomethods/seqr"
-
-# Clone if necessary, otherwise cd to git clone of seqr
-git clone "$SEQR_REPO.git"; cd seqr
-git submodule update --init --recursive"
-git checkout -b "$SEQR_GIT_BRANCH" --track "origin/$SEQR_GIT_BRANCH"
-
-COMPOSE_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/docker-compose.yml"
-COMPOSE_BUILD_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/docker-compose.build.yml"
+COMPOSE_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.yml"
+COMPOSE_BUILD_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.build.yml"
 
 # Use seqr.template.env or create your own (if changing build ENV vars) 
-COMPOSE_ENV_FILE="$SEQR_PROJECT_PATH/mcri_deploy/docker-compose/seqr.template.env"
+COMPOSE_ENV_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/seqr.template.env"
 source $COMPOSE_ENV_FILE
 
-# Set this to override SEQR_GIT_BRANCH in seqr.template.env for a different branch e.g.
-# SEQR_GIT_BRANCH="mcri/feat-upstream-merge-20210918"
+# Change this to override SEQR_GIT_BRANCH in seqr.template.env for a different branch
+SEQR_GIT_BRANCH="mcri/master"
 
 # Build image and adds latest Docker tag by default
 docker-compose --verbose \
@@ -66,13 +85,3 @@ docker-compose -f $COMPOSE_FILE -f $COMPOSE_BUILD_FILE --env-file=$COMPOSE_ENV_F
 
 docker-compose -f $COMPOSE_FILE -f $COMPOSE_BUILD_FILE --env-file=$COMPOSE_ENV_FILE stop
 ```
-
-## TODOs
-
-* Enable Travis build to authenticate with MCRI container registry to push and pull images, here are some useful links:
-  * [https://ciaranarcher.github.io/gcp/travis/2017/02/23/pushing-from-travis-to-google-container-registry.html](https://ciaranarcher.github.io/gcp/travis/2017/02/23/pushing-from-travis-to-google-container-registry.html)
-  * [https://cloud.google.com/container-registry/docs/overview](https://cloud.google.com/container-registry/docs/overview)
-  * [https://cloud.google.com/container-registry/docs/continuous-delivery](https://cloud.google.com/container-registry/docs/continuous-delivery)
-  * [https://docs.travis-ci.com/user/docker/](https://docs.travis-ci.com/user/docker/)
-  * [https://cloud.google.com/container-registry/docs/advanced-authentication](https://cloud.google.com/container-registry/docs/advanced-authentication)
-  * [https://cloud.google.com/container-registry/docs/access-control](https://cloud.google.com/container-registry/docs/access-control)
