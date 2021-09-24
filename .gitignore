@@ -20,7 +20,6 @@ django_key
 
 data
 docker-compose.*.env
-!docker-compose.sample.env
 .coverage
 generated_files
 seqr.*.env

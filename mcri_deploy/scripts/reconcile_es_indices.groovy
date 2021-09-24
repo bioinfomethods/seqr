@@ -21,14 +21,6 @@ import picocli.CommandLine
 This script compares two instances of Seqr Elasticsearch and ensures all their indices have the same document counts.
 It also compares the first 1000 documents and ensure all contents (hits) are identical.
 Requires access to Seqr DB, Seqr source ES and the other Seqr ES service to compare with.
-
-To run this script locally, create SSH tunnel as follows:
-seqrDb: ssh -L 0.0.0.0:15432:localhost:5432 seqr@seqr-test-gcp
-sourceEsUrl: ssh -L 0.0.0.0:19200:\$(gcloud compute addresses list --filter='name=seqr-prod-b-es' --format='value(address)'):30100 seqr@seqrprodb
-targetEsUrl: ssh -L 0.0.0.0:29200:\$(gcloud compute addresses list --filter='name=seqr-prod-a-es' --format='value(address)'):30100 seqr@seqrproda
-
-then run script as follows:
-groovy reconcile_es_indices.groovy "jdbc:postgresql://localhost:15432/seqrdb?user=postgres&password=\$DB_PASSWORD" http://localhost:9200 elastic \$PASSWORD http://localhost:19200 elastic \$PASSWORD
 """)
 import java.sql.Connection
 import java.sql.DriverManager

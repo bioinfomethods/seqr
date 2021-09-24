@@ -11,8 +11,8 @@ import {
   getHasActiveVariantSampleByFamily,
 } from 'redux/selectors'
 import { FAMILY_DETAIL_FIELDS, getVariantMainGeneId } from 'shared/utils/constants'
-import Family from 'shared/components/panel/family'
-import FamilyReads from 'shared/components/panel/FamilyReads'
+import Family from 'shared/components/panel/family/Family'
+import FamilyReads from 'shared/components/panel/family/FamilyReads'
 import { VerticalSpacer, HorizontalSpacer } from 'shared/components/Spacers'
 import { HelpIcon, ButtonLink } from 'shared/components/StyledComponents'
 
@@ -110,7 +110,6 @@ const BaseFamilyDetail = React.memo(({ family, individuals, compact, tableName, 
     {individuals && individuals.map(individual => (
       <IndividualRow
         key={individual.individualGuid}
-        family={family}
         individual={individual}
         tableName={tableName}
       />),
@@ -129,8 +128,6 @@ BaseFamilyDetail.propTypes = {
 const mapStateToProps = (state, ownProps) => ({
   family: getFamiliesByGuid(state)[ownProps.familyGuid],
   project: getCurrentProject(state),
-  genesById: getGenesById(state),
-  hasActiveVariantSample: getHasActiveVariantSampleByFamily(state)[ownProps.familyGuid],
   individuals: ownProps.showIndividuals ? getSortedIndividualsByFamily(state)[ownProps.familyGuid] : null,
 })
 

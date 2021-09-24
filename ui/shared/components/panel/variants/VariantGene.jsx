@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
 import { NavLink } from 'react-router-dom'
-import { Label, Popup, List, ListItem, Header } from 'semantic-ui-react'
+import { Label, Popup, List, ListItem, Header, Segment } from 'semantic-ui-react'
 
 import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
-import { MISSENSE_THRESHHOLD, LOF_THRESHHOLD, GENETALE_INHERITANCE_CODES } from '../../../utils/constants'
+import { MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED, GENETALE_INHERITANCE_CODES } from '../../../utils/constants'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { InlineHeader, ButtonLink } from '../../StyledComponents'
 import SearchResultsLink from '../../buttons/SearchResultsLink'
@@ -131,27 +131,28 @@ GeneDetailSection.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
+const OMIM_SECTION = {
+  color: 'orange',
+  description: 'Disease Phenotypes',
+  label: 'IN OMIM',
+  compactLabel: 'OMIM Disease Phenotypes',
+  showDetails: gene => gene.omimPhenotypes.length > 0,
+  detailsDisplay: gene =>
+    <List>
+      {gene.omimPhenotypes.map(phenotype =>
+        <ListItemLink
+          key={phenotype.phenotypeDescription}
+          content={phenotype.phenotypeInheritance ?
+            <span>{phenotype.phenotypeDescription} (<i>{phenotype.phenotypeInheritance}</i>)</span> :
+            phenotype.phenotypeDescription}
+          target="_blank"
+          href={`https://www.omim.org/entry/${phenotype.phenotypeMimNumber}`}
+        />,
+      )}
+    </List>,
+}
+
 const GENE_DETAIL_SECTIONS = [
-  {
-    color: 'orange',
-    description: 'Disease Phenotypes',
-    label: 'IN OMIM',
-    compactLabel: 'OMIM Disease Phenotypes',
-    showDetails: gene => gene.omimPhenotypes.length > 0,
-    detailsDisplay: gene =>
-      <List>
-        {gene.omimPhenotypes.map(phenotype =>
-          <ListItemLink
-            key={phenotype.phenotypeDescription}
-            content={phenotype.phenotypeInheritance ?
-              <span>{phenotype.phenotypeDescription} (<i>{phenotype.phenotypeInheritance}</i>)</span> :
-              phenotype.phenotypeDescription}
-            target="_blank"
-            href={`https://www.omim.org/entry/${phenotype.phenotypeMimNumber}`}
-          />,
-        )}
-      </List>,
-  },
   {
     color: 'red',
     description: 'Missense Constraint',
@@ -210,43 +211,75 @@ const GENETALE_SECTIONS = [
   },
 ]
 
-export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists, containerStyle, ...labelProps }) =>
-  <div style={containerStyle}>
-    {GENE_DETAIL_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) =>
-      <GeneDetailSection
-        key={sectionConfig.label}
-        compact={compact}
-        details={showDetails(gene) && detailsDisplay(gene)}
-        {...sectionConfig}
-        {...labelProps}
-      />,
-    )}
-    {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
-      const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
-      const label = `GENETALE ${allInheritances.join(', ')}`
-      const details = allInheritances.length > 0 ? (
-        <List>
-          {allInheritances.map(h =>
-            <ListItem
-              key={h}
-              content={h}
-            />,
-          )}
-        </List>
-      ) : null
+const OmimSegments = styled(Segment.Group).attrs({ size: 'tiny', horizontal: true, compact: true })`
+  max-height: 6em;
+  overflow-y: auto;
+  display: inline-flex !important;
+  margin: 0 !important;
+  
+  .segment {
+    border-left: none !important;
+  }
+  
+  .segment:first-child {
+    max-width: 4em;
+  }
+`
 
-      return (<GeneDetailSection
-        key={sectionConfig.label}
-        compact={compact}
-        details={details}
-        label={label}
-        {...sectionConfig}
-        {...labelProps}
-      />)
-    },
-    )}
-    {showLocusLists && <LocusListLabels locusListGuids={gene.locusListGuids} compact={compact} containerStyle={containerStyle} {...labelProps} />}
-  </div>,
+export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists, containerStyle, ...labelProps }) => {
+  const omimDetails = OMIM_SECTION.showDetails(gene) && OMIM_SECTION.detailsDisplay(gene)
+  return (
+    <div style={containerStyle}>
+      {GENE_DETAIL_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) =>
+        <GeneDetailSection
+          key={sectionConfig.label}
+          compact={compact}
+          details={showDetails(gene) && detailsDisplay(gene)}
+          {...sectionConfig}
+          {...labelProps}
+        />,
+      )}
+      {showLocusLists && gene.locusListGuids.length > 0 &&
+        <LocusListLabels locusListGuids={gene.locusListGuids} compact={compact} containerStyle={INLINE_STYLE} {...labelProps} />
+      }
+      {omimDetails && (compact ?
+        <GeneDetailSection compact details={omimDetails} {...OMIM_SECTION} {...labelProps} /> :
+        <OmimSegments>
+          <Segment color={OMIM_SECTION.color}>
+            <Label size="mini" color={OMIM_SECTION.color} content="OMIM" />
+          </Segment>
+          <Segment color={OMIM_SECTION.color}>
+            {omimDetails}
+          </Segment>
+        </OmimSegments>
+      )}
+      {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
+        const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
+        const label = `GENETALE ${allInheritances.join(', ')}`
+        const details = allInheritances.length > 0 ? (
+          <List>
+            {allInheritances.map(h =>
+              <ListItem
+                key={h}
+                content={h}
+              />,
+            )}
+          </List>
+        ) : null
+
+        return (<GeneDetailSection
+          key={sectionConfig.label}
+          compact={compact}
+          details={details}
+          label={label}
+          {...sectionConfig}
+          {...labelProps}
+        />)
+      },
+      )}
+    </div>
+  )
+},
 )
 
 GeneDetails.propTypes = {
@@ -288,9 +321,17 @@ const BaseVariantGene = React.memo(({ geneId, gene, variant, compact, showInline
       <GeneLinks>
         <a href={`https://decipher.sanger.ac.uk/gene/${gene.geneId}/overview/protein-genomic-info`} target="_blank">Decipher</a>
         <HorizontalSpacer width={5} />|<HorizontalSpacer width={5} />
-        <NavLink to={`/summary_data/saved_variants/ALL/${gene.geneId}`} target="_blank">seqr</NavLink>
+        <Popup
+          trigger={<NavLink to={`/summary_data/saved_variants/ALL/${gene.geneId}`} target="_blank">seqr</NavLink>}
+          content="Show all previously saved variants in this gene across all your seqr projects"
+          size="tiny"
+        />
         <HorizontalSpacer width={5} />|<HorizontalSpacer width={5} />
-        <SearchResultsLink location={gene.geneId} familyGuids={variant.familyGuids} />
+        <Popup
+          trigger={<SearchResultsLink location={gene.geneId} familyGuids={variant.familyGuids} inheritanceMode={ANY_AFFECTED} />}
+          content="Search for all variants in this gene present in any affected individual"
+          size="tiny"
+        />
       </GeneLinks>
     )
   }
@@ -385,7 +426,7 @@ class VariantGenes extends React.PureComponent {
         <ButtonLink fontWeight="bold" size="large" onClick={this.showGenes}>{geneIds.length} Genes</ButtonLink>
         <VerticalSpacer height={10} />
         <div>
-          {GENE_DETAIL_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
+          {[OMIM_SECTION, ...GENE_DETAIL_SECTIONS].map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
             const sectionGenes = genes.filter(gene => showDetails(gene))
             return (
               <GeneDetailSection
