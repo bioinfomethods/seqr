@@ -10,7 +10,7 @@ import { configuredField } from 'shared/components/form/ReduxFormWrapper'
 import { Select } from 'shared/components/form/Inputs'
 import Modal from 'shared/components/modal/Modal'
 import VariantSearchFormPanels, {
-  ANALYST_PATHOGENICITY_PANEL, PATHOGENICITY_PANEL, ANNOTATION_PANEL, FREQUENCY_PANEL, LOCATION_PANEL, QUALITY_PANEL,
+  ANALYST_PATHOGENICITY_PANEL, PATHOGENICITY_PANEL, ANNOTATION_PANEL, FREQUENCY_PANEL, QUALITY_PANEL,
   annotationFieldLayout,
 } from 'shared/components/panel/search/VariantSearchFormPanels'
 import {
@@ -21,6 +21,7 @@ import { ALL_INHERITANCE_FILTER, DATASET_TYPE_VARIANT_CALLS, DATASET_TYPE_SV_CAL
 import { SavedSearchDropdown } from './SavedSearch'
 import LocusListSelector from './filters/LocusListSelector'
 import CustomInheritanceFilter from './filters/CustomInheritanceFilter'
+import LocationFilter from './filters/LocationFilter'
 import ProjectFamiliesField from './filters/ProjectFamiliesField'
 import {
   INHERITANCE_FILTER_JSON_OPTIONS,
@@ -108,6 +109,20 @@ const INHERITANCE_PANEL = {
       that differs from the status in the pedigree.
     </span>
   ),
+}
+
+const LOCATION_PANEL = {
+  name: 'locus',
+  headerProps: { title: 'Location' },
+  fields: [
+    {
+      name: 'filter',
+      width: 14,
+      control: LocationFilter,
+      format: val => val || {},
+    },
+  ],
+  helpText: 'Filter by variant location. Entries can be either gene symbols (e.g. CFTR) or intervals in the form <chrom>:<start>-<end> (e.g. 4:6935002-87141054) or separated by tab. Variant entries can be either rsIDs (e.g. rs61753695) or variants in the form <chrom>-<pos>-<ref>-<alt> (e.g. 4-88047328-C-T). Entries can be separated by commas or whitespace.',
 }
 
 const LOCATION_PANEL_WITH_GENE_LIST = {

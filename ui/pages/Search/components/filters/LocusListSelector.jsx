@@ -27,8 +27,8 @@ class BaseLocusListDropdown extends React.Component
 
   componentWillUpdate(nextProps) {
     if (nextProps.locusList.rawItems !== this.props.locusList.rawItems) {
-      const { locusListGuid, rawItems } = nextProps.locusList
-      this.props.onChange({ locusListGuid, rawItems })
+      const { locusListGuid, isPanelAppList, rawItems, rawItemsGreen, rawItemsAmber, rawItemsRed } = nextProps.locusList
+      this.props.onChange({ locusListGuid, filter: { locusListGuid, rawItems, rawItemsGreen, rawItemsAmber, rawItemsRed, isPanelAppList } })
     }
   }
 

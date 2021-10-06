@@ -19,3 +19,10 @@ const TEXT_RENDERERS = Object.keys(markdownRenderers).reduce((acc, k) => ({ ...a
 
 export const stripMarkdown = s =>
   ReactDOMServer.renderToStaticMarkup(<ReactMarkdown renderers={TEXT_RENDERERS}>{s || ''}</ReactMarkdown>).trim()
+
+export const toUniqueCsvString = (...csvStrs) => {
+  const concated = ''.concat(csvStrs)
+  const splitted = concated.split(',').filter(s => s).map(s => s.trim())
+
+  return [...new Set(splitted)].join(',')
+}

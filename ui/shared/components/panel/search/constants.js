@@ -347,6 +347,24 @@ export const FREQUENCIES = [
   },
 ]
 
+export const LOCATION_RAW_VARIANT_ITEMS_FIELD = {
+  name: 'rawVariantItems',
+  label: 'Variants',
+  labelHelp: 'A list of variants. Can be separated by commas or whitespace. Variants can be represented by rsID or in the form <chrom>-<pos>-<ref>-<alt>',
+  component: BaseSemanticInput,
+  inputType: 'TextArea',
+  rows: 8,
+  width: 4,
+}
+
+export const LOCATION_EXCLUDE_LOCATIONS_FIELD = {
+  name: 'excludeLocations',
+  component: BooleanCheckbox,
+  label: 'Exclude locations',
+  labelHelp: 'Search for variants not in the specified genes/ intervals',
+  width: 3,
+}
+
 export const LOCATION_FIELDS = [
   {
     name: LOCUS_LIST_ITEMS_FIELD.name,
@@ -357,22 +375,8 @@ export const LOCATION_FIELDS = [
     rows: 8,
     width: 7,
   },
-  {
-    name: 'rawVariantItems',
-    label: 'Variants',
-    labelHelp: 'A list of variants. Can be separated by commas or whitespace. Variants can be represented by rsID or in the form <chrom>-<pos>-<ref>-<alt>',
-    component: BaseSemanticInput,
-    inputType: 'TextArea',
-    rows: 8,
-    width: 4,
-  },
-  {
-    name: 'excludeLocations',
-    component: BooleanCheckbox,
-    label: 'Exclude locations',
-    labelHelp: 'Search for variants not in the specified genes/ intervals',
-    width: 3,
-  },
+  LOCATION_RAW_VARIANT_ITEMS_FIELD,
+  LOCATION_EXCLUDE_LOCATIONS_FIELD,
 ]
 
 export const QUALITY_FILTER_FIELDS = [
