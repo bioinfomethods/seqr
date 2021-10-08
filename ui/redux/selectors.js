@@ -284,9 +284,9 @@ export const getParsedLocusList = createSelector(
           return acc
         }, {})
         locusList.isPanelAppList = true
-        locusList.rawItemsGreen = grouped['3']?.concat(grouped['4']).join(', ')
-        locusList.rawItemsAmber = grouped['2']?.join(', ')
-        locusList.rawItemsRed = grouped['1']?.join(', ')
+        locusList.rawItemsGreen = grouped['3']?.concat(grouped['4'])?.join(', ') || ''
+        locusList.rawItemsAmber = grouped['2']?.join(', ') || ''
+        locusList.rawItemsRed = grouped['1']?.join(', ') || ''
       }
       else {
         locusList.isPanelAppList = false
