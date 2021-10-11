@@ -20,5 +20,6 @@
 # For more information see the manual pages of crontab(5) and cron(8)
 #
 # m h  dom mon dow   command
-0 * * * * /home/seqr/seqr/mcri_deploy/scripts/create_backup.sh
-0 * * * * /home/seqr/seqr/mcri_deploy/scripts/db_extract.sh "/home/seqr/seqr/mcri_deploy/scripts/users_extract_for_cas.sql" "/home/seqr/backups" users_for_cas
+#* * * * * /usr/local/bin/docker-compose --version >> /home/seqr/logs/cron.log 2>&1
+0 3 * * * /home/seqr/seqr/mcri_deploy/scripts/create_backup.sh >> /home/seqr/logs/cron.log 2>&1
+0 2 * * * /usr/local/bin/docker-compose -f /home/seqr/seqr/docker-compose.yml exec -T seqr python manage.py import_all_panels https://panelapp.agha.umccr.org/api/v1 >> /home/seqr/logs/cron.log 2>&1
