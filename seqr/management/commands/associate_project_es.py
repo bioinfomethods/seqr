@@ -27,10 +27,10 @@ class Command(BaseCommand):
         index = options.get('index')
         given_project = options.get('project')
         mapping_file_path = options.get('mapping')
-        if given_project.startswith('R00'):
-            project = Project.objects.get(guid=given_project)
+        if given_project.upper().startswith('R00'):
+            project = Project.objects.get(guid__iexact=given_project)
         else:
-            project = Project.objects.get(name=given_project)
+            project = Project.objects.get(name__iexact=given_project)
 
         try:
             sample_ids, sample_type = validate_index_metadata_and_get_elasticsearch_index_samples(
