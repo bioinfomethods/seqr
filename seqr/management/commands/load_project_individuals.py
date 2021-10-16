@@ -1,0 +1,67 @@
+import json
+import logging
+
+from django.core.management.base import BaseCommand
+
+from seqr.models import Project
+from seqr.utils.file_utils import file_iter
+from seqr.views.utils.individual_utils import add_or_update_individuals_and_families
+
+logger = logging.getLogger(__name__)
+
+
+class Command(BaseCommand):
+    help = """
+    Admin script to load pedigree file into project, pedigree file must already exist in given path.  Assumes file in
+    format:
+[
+    {
+        "familyId": "fam01",
+        "individualId": "fam01-01",
+        "paternalId": "AA1149-02",
+        "maternalId": "AA1149-03",
+        "sex": "M",
+        "affected": "A"
+    },
+    {
+        "familyId": "fam01",
+        "individualId": "fam01-02",
+        "paternalId": "",
+        "maternalId": "",
+        "sex": "M",
+        "affected": "N"
+    },
+    {
+        "familyId": "fam01",
+        "individualId": "fam01-03",
+        "paternalId": "",
+        "maternalId": "",
+        "sex": "F",
+        "affected": "N"
+    }
+]
+    """
+
+    def add_arguments(self, parser):
+        parser.add_argument('-p', '--project', help='Project guid or name', required=True)
+        parser.add_argument('-d', '--pedigree', help='Path to pedigree file, can be local or gs:// path',
+                            required=True)
+
+    def handle(self, *args, **options):
+        given_project = options.get('project')
+        pedigree_path = options.get('pedigree')
+
+        if given_project.upper().startswith('R00'):
+            project = Project.objects.get(guid__iexact=given_project)
+        else:
+            project = Project.objects.get(name__iexact=given_project)
+
+        file_contents = '\n'.join(file_iter(pedigree_path, user=None))
+        individual_records = json.loads(file_contents)
+        updated_individuals, updated_families, updated_notes = add_or_update_individuals_and_families(
+            project, individual_records, None
+        )
+
+        logger.info(
+            'Successfuly loaded pedigree=%s into project=%s, updated_individuals=%s, updated_families=%s, updated_notes=%s',
+            pedigree_path, given_project, updated_individuals, updated_families, updated_notes)
