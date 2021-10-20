@@ -84,8 +84,13 @@ new File(variantCountPath).splitEachLine(/\t/) { def lineItems ->
 
   Integer indexVariantCount = result.hits.total.value
 
-  if (indexVariantCount < vcfVariantCount || indexVariantCount > vcfVariantCount * 1.1) {
-    errors << "Elasticsearch index variant counts not within range of expected VCF variant counts, index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=${indexVariantCount - vcfVariantCount}"
+  def diff = indexVariantCount - vcfVariantCount
+  def threshold = vcfVariantCount * 1.1
+  if (diff.abs() > threshold) {
+    errors << "Elasticsearch index variant counts not within range of expected VCF variant counts, index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=diff"
+  }
+  if (diff < 0) {
+    println "Index variant count less than VCF variant count, most likely to do with alt=* spanning deletes not supported in Seqr load and they get dropped during loading pipeline.  index=$index, sampleId=$sampleId, vcfVariantCount=$vcfVariantCount, indexVariantCount=$indexVariantCount, diff=diff"
   }
 }
 
