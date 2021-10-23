@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -8,7 +9,6 @@ from seqr.models import Sample, Family
 from seqr.views.utils import variant_utils
 from seqr.views.utils.dataset_utils import match_sample_ids_to_sample_records, update_variant_samples, \
     validate_index_metadata_and_get_elasticsearch_index_samples, load_mapping_file
-from seqr.views.utils.json_utils import create_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,8 @@ class Command(BaseCommand):
             sample_id_to_individual_id_mapping = load_mapping_file(mapping_file_path,
                                                                    None) if mapping_file_path else {}
         except ValueError as e:
-            return create_json_response({'errors': [str(e)]}, status=400)
+            logger.error(str(e), exc_info=e)
+            sys.exit(1)
 
         loaded_date = timezone.now()
         ignore_extra_samples = True
@@ -59,7 +60,8 @@ class Command(BaseCommand):
                 raise_unmatched_error_template=None if ignore_extra_samples else 'Matches not found for ES sample ids: {sample_ids}. Uploading a mapping file for these samples, or select the "Ignore extra samples in callset" checkbox to ignore.'
             )
         except ValueError as e:
-            return create_json_response({'errors': [str(e)]}, status=400)
+            logger.error(str(e), exc_info=e)
+            sys.exit(1)
 
         activated_sample_guids, inactivated_sample_guids = update_variant_samples(
             samples, None, index, loaded_date, DATASET_TYPE, sample_type)
