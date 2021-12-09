@@ -1266,8 +1266,7 @@ class EsUtilsTest(TestCase):
         all_family_variant = deepcopy(PARSED_NO_SORT_VARIANTS[0])
         all_family_variant['familyGuids'] = ['F000002_2', 'F000003_3', 'F000005_5']
         all_family_variant['genotypes']['I000004_hg00731'] = {
-            'ab': 0, 'ad': None, 'gq': 99, 'sampleId': 'HG00731', 'numAlt': 0, 'dp': 88, 'pl': None,
-            'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WES',
+            'ab': 0, 'ad': None, 'gq': 99, 'sampleId': 'HG00731', 'numAlt': 0, 'dp': 88, 'pl': None, 'sampleType': 'WES',
         }
         self.assertDictEqual(variant, all_family_variant)
         self.assertExecutedSearch(
