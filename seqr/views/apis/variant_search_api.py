@@ -23,6 +23,7 @@ from seqr.views.utils.permissions_utils import check_project_permissions, get_pr
     user_is_analyst, login_and_policies_required
 from seqr.views.utils.project_context_utils import get_projects_child_entities
 from seqr.views.utils.variant_utils import get_variant_key, saved_variant_genes
+from settings import DEMO_PROJECT_CATEGORY
 
 
 GENOTYPE_AC_LOOKUP = {
@@ -96,7 +97,7 @@ def _get_or_create_results_model(search_hash, search_context, user):
                 all_families.update(project_family['familyGuids'])
             families = Family.objects.filter(guid__in=all_families)
         elif _is_all_project_family_search(search_context):
-            omit_projects = [p.guid for p in Project.objects.filter(projectcategory__name='Demo').only('guid')]
+            omit_projects = [p.guid for p in Project.objects.filter(projectcategory__name=DEMO_PROJECT_CATEGORY).only('guid')]
             project_guids = [project_guid for project_guid in get_project_guids_user_can_view(user) if project_guid not in omit_projects]
             families = Family.objects.filter(project__guid__in=project_guids)
         elif search_context.get('projectGuids'):
@@ -254,7 +255,7 @@ def export_variants_handler(request, search_hash):
     variants, _ = get_es_variants(results_model, page=1, load_all=True, user=request.user)
     variants = _flatten_variants(variants)
 
-    json, variants_to_saved_variants = _get_saved_variants(variants, families)
+    json_saved_variants, variants_to_saved_variants = _get_saved_variants(variants, families)
 
     max_families_per_variant = max([len(variant['familyGuids']) for variant in variants])
     max_samples_per_variant = max([len(variant['genotypes']) for variant in variants])
@@ -267,8 +268,8 @@ def export_variants_handler(request, search_hash):
             variant_guid = variants_to_saved_variants.get(variant['variantId'], {}).get(family_guid, '')
             family_tags = {
                 'family_id': family_ids_by_guid.get(family_guid),
-                'tags': [tag for tag in json['variantTagsByGuid'].values() if variant_guid in tag['variantGuids']],
-                'notes': [note for note in json['variantNotesByGuid'].values() if variant_guid in note['variantGuids']],
+                'tags': [tag for tag in json_saved_variants['variantTagsByGuid'].values() if variant_guid in tag['variantGuids']],
+                'notes': [note for note in json_saved_variants['variantNotesByGuid'].values() if variant_guid in note['variantGuids']],
             }
             row += [_get_field_value(family_tags, config) for config in VARIANT_FAMILY_EXPORT_DATA]
         genotypes = list(variant['genotypes'].values())
