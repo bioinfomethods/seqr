@@ -8,7 +8,7 @@ import { Label, Popup, List, ListItem, Header, Segment, Divider } from 'semantic
 import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
 import {
   MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED, PANEL_APP_CONFIDENCE_LEVEL_COLORS,
-  PANEL_APP_CONFIDENCE_DESCRIPTION, GENETALE_INHERITANCE_CODES
+  PANEL_APP_CONFIDENCE_DESCRIPTION, GENETALE_INHERITANCE_CODES,
 } from '../../../utils/constants'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { InlineHeader, ButtonLink, ColoredLabel } from '../../StyledComponents'
@@ -86,7 +86,7 @@ const BaseLocusListLabels = React.memo((
       compactLabel="Gene Lists"
       details={
         locusListGuids.length > 0 &&
-          <List bulleted items={locusListGuids.map(locusListGuid => locusListsByGuid[locusListGuid].name)} />
+        <List bulleted items={locusListGuids.map(locusListGuid => locusListsByGuid[locusListGuid].name)} />
       }
     />
   ) : (
@@ -310,29 +310,26 @@ export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists
         )
       )}
       {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
-        const allInheritances = (genetale?.allInheritances || []).filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
+        const allInheritances = (genetale?.allInheritances || [])
+          .filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
         const label = `GENETALE ${allInheritances.join(', ')}`
         const details = allInheritances.length > 0 ? (
           <List>
-            {allInheritances.map(h =>
-              <ListItem
-                key={h}
-                content={h}
-              />,
-            )}
+            {allInheritances.map(h => <ListItem key={h} content={h} />)}
           </List>
         ) : null
 
-        return (<GeneDetailSection
-          key={sectionConfig.label}
-          compact={compact}
-          details={details}
-          label={label}
-          {...sectionConfig}
-          {...labelProps}
-        />)
-      },
-      )}
+        return (
+          <GeneDetailSection
+            key={sectionConfig.label}
+            compact={compact}
+            details={details}
+            label={label}
+            {...sectionConfig}
+            {...labelProps}
+          />
+        )
+      })}
     </div>
   )
 })
