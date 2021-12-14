@@ -75,6 +75,7 @@ services:
       - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-okta-client-id}
       - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-okta-client-secret}
       - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
+      - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
