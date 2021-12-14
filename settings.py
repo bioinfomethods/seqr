@@ -290,6 +290,8 @@ ANALYST_PROJECT_CATEGORY = os.environ.get('ANALYST_PROJECT_CATEGORY')
 ANALYST_USER_GROUP = os.environ.get('ANALYST_USER_GROUP')
 PM_USER_GROUP = os.environ.get('PM_USER_GROUP')
 
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'archie@mcri.edu.au')
+
 # External service settings
 ELASTICSEARCH_SERVICE_HOSTNAME = os.environ.get('ELASTICSEARCH_SERVICE_HOSTNAME', 'localhost')
 ELASTICSEARCH_SERVICE_PORT = os.environ.get('ELASTICSEARCH_SERVICE_PORT', '9200')

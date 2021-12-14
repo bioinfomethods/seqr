@@ -98,6 +98,7 @@ from seqr.views.apis.users_api import \
     get_all_collaborator_options, \
     get_all_analyst_options, \
     create_project_collaborator, \
+    create_project_collaborator_mcri, \
     update_project_collaborator, \
     delete_project_collaborator, \
     set_password, \
@@ -258,6 +259,9 @@ api_endpoints = {
     'project/(?P<project_guid>[^/]+)/collaborators/create': create_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/update': update_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/delete': delete_project_collaborator,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/create': create_project_collaborator_mcri,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/update': update_project_collaborator,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/delete': delete_project_collaborator,
 
     'awesomebar': awesomebar_autocomplete_handler,
 

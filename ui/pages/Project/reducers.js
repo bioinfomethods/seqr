@@ -189,7 +189,7 @@ export const updateLocusLists = values => (dispatch, getState) => {
 }
 
 export const updateCollaborator = values => updateEntity(
-  values, RECEIVE_DATA, null, 'username', null, state => `/api/project/${state.currentProjectGuid}/collaborators`,
+  values, RECEIVE_DATA, null, 'username', null, state => `/api/project/${state.currentProjectGuid}/collaborators_mcri`,
 )
 
 export const updateAnalysisGroup = values => updateEntity(
