@@ -49,12 +49,12 @@ const Footer = React.memo(({ version }) => (
         </TableHeaderCell>
         <TableHeaderCell>
           For bug reports or feature requests please submit  &nbsp;
-          <a href="https://github.com/broadinstitute/seqr/issues">Github Issues</a>
+          <a href="https://git.mcri.edu.au/bioinfomethods/archie-support">MCRI Gitlab Issues</a>
         </TableHeaderCell>
         <TableHeaderCell collapsing textAlign="right">
           If you have questions or feedback, &nbsp;
           <a
-            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=seqr@broadinstitute.org"
+            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=archie@mcri.edu.au"
             target="_blank"
             rel="noreferrer"
           >
