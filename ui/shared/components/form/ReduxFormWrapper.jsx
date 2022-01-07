@@ -55,14 +55,16 @@ renderField.propTypes = {
   submitForm: PropTypes.func,
 }
 
-export const helpLabel = (label, labelHelp, labelIcon = null) => (
+export const helpLabel = (label, labelHelp, labelIcon) => (
   labelHelp ? (
-    <label>
+    <span>
       {labelIcon}
-      {label}
-      &nbsp;
-      <Popup trigger={<Icon name="question circle outline" />} content={labelHelp} size="small" position="top center" />
-    </label>
+      <label>
+        {label}
+        &nbsp;
+        <Popup trigger={<Icon name="question circle outline" />} content={labelHelp} size="small" position="top center" />
+      </label>
+    </span>
   ) : label
 )
 
