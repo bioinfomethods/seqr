@@ -1,4 +1,10 @@
+from django.core.exceptions import PermissionDenied
 from oauth2_provider.middleware import OAuth2TokenMiddleware
+from social_django.middleware import SocialAuthExceptionMiddleware
+
+from seqr.utils.logging_utils import SeqrLogger
+
+log = SeqrLogger(__name__)
 
 
 class DisableCsrfOAuth2TokenMiddleware:
@@ -15,3 +21,14 @@ class DisableCsrfOAuth2TokenMiddleware:
             setattr(request, '_dont_enforce_csrf_checks', True)
 
         return self.oauth2_token_middleware(request)
+
+
+class McriSocialAuthExceptionMiddleware(SocialAuthExceptionMiddleware):
+    def process_exception(self, request, exception):
+        user = None
+        if request.backend and request.backend.id_token:
+            user = request.backend.id_token.get('email', None)
+        error_msg = 'Error authenticating user {} but got exception {}'.format(user, str(exception))
+        log.warning(error_msg, user)
+
+        raise PermissionDenied(error_msg)
