@@ -62,7 +62,6 @@ MIDDLEWARE = [
     'seqr.utils.middleware.CacheControlMiddleware',
     'seqr.utils.middleware.LogRequestMiddleware',
     'seqr.utils.middleware.JsonErrorMiddleware',
-    'mcri_ext.security.security_middleware.McriSocialAuthExceptionMiddleware',
 ]
 
 ALLOWED_HOSTS = ['*']

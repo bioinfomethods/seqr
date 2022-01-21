@@ -21,14 +21,3 @@ class DisableCsrfOAuth2TokenMiddleware:
             setattr(request, '_dont_enforce_csrf_checks', True)
 
         return self.oauth2_token_middleware(request)
-
-
-class McriSocialAuthExceptionMiddleware(SocialAuthExceptionMiddleware):
-    def process_exception(self, request, exception):
-        user = None
-        if hasattr(request, 'backend') and hasattr(request.backend, 'id_token'):
-            user = request.backend.id_token.get('email', None)
-        error_msg = 'Error authenticating user {} but got exception {}'.format(user, str(exception))
-        log.warning(error_msg, user)
-
-        raise PermissionDenied(error_msg)
