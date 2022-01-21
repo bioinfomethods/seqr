@@ -26,7 +26,7 @@ class DisableCsrfOAuth2TokenMiddleware:
 class McriSocialAuthExceptionMiddleware(SocialAuthExceptionMiddleware):
     def process_exception(self, request, exception):
         user = None
-        if request.backend and request.backend.id_token:
+        if hasattr(request, 'backend') and hasattr(request.backend, 'id_token'):
             user = request.backend.id_token.get('email', None)
         error_msg = 'Error authenticating user {} but got exception {}'.format(user, str(exception))
         log.warning(error_msg, user)
