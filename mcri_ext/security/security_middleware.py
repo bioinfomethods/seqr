@@ -1,4 +1,10 @@
+from django.core.exceptions import PermissionDenied
 from oauth2_provider.middleware import OAuth2TokenMiddleware
+from social_django.middleware import SocialAuthExceptionMiddleware
+
+from seqr.utils.logging_utils import SeqrLogger
+
+log = SeqrLogger(__name__)
 
 
 class DisableCsrfOAuth2TokenMiddleware:

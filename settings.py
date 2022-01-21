@@ -379,7 +379,7 @@ SOCIAL_AUTH_PIPELINE_BASE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.social_user',
-    'social_core.pipeline.social_auth.associate_by_email',
+    'mcri_ext.security.social_auth_pipeline.associate_by_email_or_username',
 )
 SOCIAL_AUTH_PIPELINE_USER_EXIST = ('seqr.utils.social_auth_pipeline.validate_user_exist',)
 SOCIAL_AUTH_PIPELINE_ASSOCIATE_USER = ('social_core.pipeline.social_auth.associate_user',)
@@ -417,13 +417,11 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.social_user',
-    'social_core.pipeline.social_auth.associate_by_email',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.create_user',
     'social_core.pipeline.user.user_details',
     'social_core.pipeline.social_auth.associate_user',
     'seqr.utils.social_auth_pipeline.validate_user_exist',
-    'mcri_ext.security.social_auth_pipeline.associate_groups',
     'seqr.utils.social_auth_pipeline.log_signed_in',
 )
 

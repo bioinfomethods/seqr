@@ -27,27 +27,24 @@ class McriOktaOAuth2(McriOktaMixin, OktaOAuth2):
     def auth_html(self):
         pass
 
-    DEFAULT_SCOPE = [
-        'openid', 'profile', 'email', 'groups'
-    ]
+    DEFAULT_SCOPE = ['openid', 'profile', 'email', 'groups']
 
     def get_user_details(self, response):
         """Return user details from Okta account"""
-        return {'username': response.get('preferred_username'),
-                'email': response.get('email') or '',
-                'first_name': response.get('given_name'),
-                'last_name': response.get('family_name'),
-                'idp_groups': response.get('groups'),
-                }
+        return {
+            'username': response.get('preferred_username'),
+            'email': response.get('email') or '',
+            'first_name': response.get('given_name'),
+            'last_name': response.get('family_name'),
+            'idp_groups': response.get('groups'),
+        }
 
     def user_data(self, access_token, *args, **kwargs):
         """Loads user data from Okta"""
-        return self.get_json(
-            self._url('oauth2/v1/userinfo'),
-            headers={
-                'Authorization': 'Bearer {}'.format(access_token),
-            }
-        )
+        return self.get_json(self._url('oauth2/v1/userinfo'),
+                             headers={
+                                 'Authorization': 'Bearer {}'.format(access_token),
+                             })
 
 
 class McriOktaOpenIdConnect(McriOktaOAuth2, OpenIdConnectAuth):
