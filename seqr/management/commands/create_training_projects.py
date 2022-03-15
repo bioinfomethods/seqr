@@ -91,6 +91,7 @@ class Command(BaseCommand):
                             individual_ids, new_family, template_father)
                         new_father = Individual.objects.get(pk=new_father_pk)
                         new_individual.father = new_father
+                        new_individual.save()
                         individual_ids.update({template_father_pk: new_father_pk})
 
                     template_mother: Individual = template_individual.mother
@@ -99,6 +100,7 @@ class Command(BaseCommand):
                             individual_ids, new_family, template_mother)
                         new_mother = Individual.objects.get(pk=new_mother_pk)
                         new_individual.mother = new_mother
+                        new_individual.save()
                         individual_ids.update({template_mother_pk: new_mother_pk})
 
             can_view_users = (collaborators or []) + (managers or [])
