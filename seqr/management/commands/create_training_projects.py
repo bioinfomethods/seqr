@@ -9,6 +9,7 @@ from seqr.models import Project, Family, Individual, ProjectCategory
 
 logger = logging.getLogger(__name__)
 
+PROTECTED_PROJECT_CATEGORIES = ['analyst-projects']
 DEFAULT_TEMPLATE_PROJECT = 'R0029_test_project_grch38'
 DEFAULT_PROJECT_CATEGORY = 'demo_{}'.format(datetime.now().strftime('%Y-%m-%d'))
 
@@ -28,9 +29,9 @@ class Command(BaseCommand):
         parser.add_argument('-u', '--collaborators', nargs='*',
                             help='List of users to be given collaborator access to projects, defaults to none',
                             required=False)
-        parser.add_argument('-e', '--managers', nargs='*',
-                            help='List of users to be given manager access to projects, managers also get collaborator access, defaults to none.  Executor of this script gets manager access regardless if this is provided.',
-                            required=False)
+        parser.add_argument('-e', '--managers', nargs='+',
+                            help='List of users to be given manager access to projects, managers also get collaborator access, must provide at least one.',
+                            required=True)
         parser.add_argument('-n', '--copies', nargs='?', const=1, default=1, type=int, required=False,
                             help='Number of copies of the template project to create')
 
@@ -46,7 +47,12 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def create_projects(self, template_project_guid, category, family_ids, collaborators, managers, num_of_copies):
-        project_category, _ = ProjectCategory.objects.get_or_create(name=category)
+        manager = User.objects.get(email=managers[0])
+        if category in PROTECTED_PROJECT_CATEGORIES:
+            raise RuntimeError('{} cannot be used by this script to create new projects'.format(category))
+
+        project_category, _ = ProjectCategory.objects.get_or_create(name=category, defaults={'created_by': manager})
+
         new_project: Project = Project.objects.filter(guid__iexact=template_project_guid).first()
 
         logger.info(
@@ -55,6 +61,7 @@ class Command(BaseCommand):
 
         for copy_num in range(1, num_of_copies + 1):
             new_project.pk = None
+            new_project.created_by = manager
             new_project.save()
 
             template_project: Project = Project.objects.get(guid__iexact=template_project_guid)
@@ -71,6 +78,7 @@ class Command(BaseCommand):
                 new_family.pk = None
                 new_family.project = new_project
                 new_family.save()
+                new_project.family_set.add(new_family)
 
                 template_family: Family = Family.objects.get(pk=template_family_pk)
 
@@ -110,6 +118,8 @@ class Command(BaseCommand):
             for user in User.objects.filter(email__in=managers or []):
                 logger.info('Assigning user=%s to project=%s as manager', user.email, new_project.guid)
                 new_project.can_edit_group.user_set.add(user)
+
+            new_project.save()
 
     def _get_or_create_individual_from_template(self, individual_ids, family: Family, template: Individual):
         template_individual_pk = template.pk
