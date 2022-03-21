@@ -72,6 +72,10 @@ class Command(BaseCommand):
 
             template_families = template_project.family_set.filter(family_id__in=family_ids) \
                 if family_ids and len(family_ids) > 0 else template_project.family_set.all()
+            if len(template_families) == 0:
+                raise RuntimeError(
+                    'Found no template families using given family_ids=%s.  Please use family ID (case sensitive) and not family guid'.format(
+                        family_ids))
 
             for new_family in template_families:
                 template_family_pk = new_family.pk
