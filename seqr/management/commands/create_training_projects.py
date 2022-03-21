@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
 
+import redis
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from seqr.models import Project, Family, Individual, ProjectCategory
+from settings import REDIS_SERVICE_HOSTNAME
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,21 @@ class Command(BaseCommand):
                 new_project.can_edit_group.user_set.add(user)
 
             new_project.save()
+
+        self._reset_cached_redis_projects_and_index()
+
+    def _reset_cached_redis_projects_and_index(self):
+        try:
+            redis_client = redis.StrictRedis(host=REDIS_SERVICE_HOSTNAME, socket_connect_timeout=3)
+            keys_to_delete = redis_client.keys(pattern='projects*')
+            keys_to_delete += redis_client.keys(pattern='index_metadata__*')
+            if keys_to_delete:
+                redis_client.delete(*keys_to_delete)
+                logger.info('Reset {} cached results'.format(len(keys_to_delete)))
+            else:
+                logger.info('No cached results to reset')
+        except Exception as e:
+            logger.error("Unable to reset cached search results: {}".format(e))
 
     def _get_or_create_individual_from_template(self, individual_ids, family: Family, template: Individual):
         template_individual_pk = template.pk
