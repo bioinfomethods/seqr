@@ -5,6 +5,7 @@ import redis
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 
 from seqr.models import Project, Family, Individual, ProjectCategory
 from settings import REDIS_SERVICE_HOSTNAME
@@ -118,10 +119,10 @@ class Command(BaseCommand):
                         individual_ids.update({template_mother_pk: new_mother_pk})
 
             can_view_users = (collaborators or []) + (managers or [])
-            for user in User.objects.filter(email__in=can_view_users):
+            for user in User.objects.filter(Q(email__in=can_view_users) | Q(username__in=can_view_users)):
                 logger.info('Assigning user=%s to project=%s as collaborator', user.email, new_project.guid)
                 new_project.can_view_group.user_set.add(user)
-            for user in User.objects.filter(email__in=managers or []):
+            for user in User.objects.filter(Q(email__in=managers or []) | Q(username__in=can_view_users)):
                 logger.info('Assigning user=%s to project=%s as manager', user.email, new_project.guid)
                 new_project.can_edit_group.user_set.add(user)
 
