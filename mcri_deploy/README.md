@@ -70,15 +70,15 @@ git tag -a "${SEQR_VERSION}" -m "MCRI seqr version ${SEQR_VERSION}"
 export SEQR_IMAGE_TAG="${SEQR_VERSION}"
 export SEQR_LONG_GIT_TAG=$(git describe --long)
 
-docker tag $(docker images --filter=reference="${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest" --quiet) "${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_IMAGE_TAG}"
-docker tag $(docker images --filter=reference="${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest" --quiet) "${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_LONG_GIT_TAG}"
+docker tag $(docker images --filter=reference="${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest" --quiet) "${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_IMAGE_TAG}"
+docker tag $(docker images --filter=reference="${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest" --quiet) "${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_LONG_GIT_TAG}"
 
 # Optional: Push to container registry
 # This should not be necessary for local development and it'll take a while to upload.
 docker-compose -f $COMPOSE_FILE -f $COMPOSE_BUILD_FILE --env-file=$COMPOSE_ENV_FILE push
-docker push "${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest"
-docker push "${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_IMAGE_TAG}"
-docker push "${SEQR_CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_LONG_GIT_TAG}"
+docker push "${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:latest"
+docker push "${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_IMAGE_TAG}"
+docker push "${CONTAINER_REGISTRY}/${SEQR_IMAGE_NAME}:${SEQR_LONG_GIT_TAG}"
 
 # Optional: Running and stopping the newly built seqr
 docker-compose -f $COMPOSE_FILE -f $COMPOSE_BUILD_FILE --env-file=$COMPOSE_ENV_FILE up -d postgres

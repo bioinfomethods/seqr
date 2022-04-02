@@ -2,8 +2,7 @@ version: '2.4'
 
 services:
   postgres:
-    image: gcr.io/seqr-project/postgres:gcloud-prod
-    container_name: mcri_postgres
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-latest}
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
     environment:
@@ -19,8 +18,7 @@ services:
 
 
   redis:
-    image: gcr.io/seqr-project/redis:gcloud-prod
-    container_name: mcri_redis
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-redis}:${REDIS_IMAGE_TAG:-latest}
     healthcheck:
       test: redis-cli ping
       interval: 3s
@@ -29,8 +27,7 @@ services:
 
 
   kibana:
-    image: gcr.io/seqr-project/kibana:${KIBANA_IMAGE_TAG:-gcloud-prod}
-    container_name: mcri_kibana
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${KIBANA_IMAGE_NAME:-kibana}:${KIBANA_IMAGE_TAG:-latest}
     environment:
       - ELASTICSEARCH_SERVICE_HOSTNAME=${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}
       - ELASTICSEARCH_SERVICE_PORT=${ELASTICSEARCH_SERVICE_PORT:-9200}
@@ -43,8 +40,7 @@ services:
 
 
   seqr:
-    image: "${SEQR_CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-mcri-seqr}:${SEQR_IMAGE_TAG:-latest}"
-    container_name: mcri_seqr
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-seqr}:${SEQR_IMAGE_TAG:-latest}
     ports:
       - ${SEQR_SERVICE_PORT:-80}:8000
     environment:
@@ -90,7 +86,7 @@ services:
 
 
   pipeline-runner:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
     image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
-    container_name: mcri_pipeline-runner
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
