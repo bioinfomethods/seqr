@@ -400,6 +400,7 @@ export const LOCUS_LIST_NAME_FIELD = 'name'
 export const LOCUS_LIST_NUM_ENTRIES_FIELD = 'numEntries'
 export const LOCUS_LIST_DESCRIPTION_FIELD = 'description'
 export const LOCUS_LIST_IS_PUBLIC_FIELD_NAME = 'isPublic'
+export const LOCUS_LIST_CREATED_DATE_FIELD_NAME = 'createdDate'
 export const LOCUS_LIST_LAST_MODIFIED_FIELD_NAME = 'lastModifiedDate'
 export const LOCUS_LIST_CURATOR_FIELD_NAME = 'createdBy'
 
@@ -420,6 +421,12 @@ export const LOCUS_LIST_FIELDS = [
     validate: value => (value ? undefined : 'Description is required'),
     width: 9,
     isEditable: true,
+  },
+  {
+    name: LOCUS_LIST_CREATED_DATE_FIELD_NAME,
+    label: 'Created Date',
+    width: 3,
+    fieldDisplay: createdDate => new Date(createdDate).toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
   },
   {
     name: LOCUS_LIST_LAST_MODIFIED_FIELD_NAME,
@@ -1183,7 +1190,7 @@ export const INHERITANCE_FILTER_OPTIONS = [
   {
     value: DE_NOVO_FILTER,
     text: 'De Novo/ Dominant',
-    detail: 'Finds variants where all affected indivs have at least one alternate allele and all unaffected are homozygous reference.',
+    detail: 'Finds variants where all affected individuals have at least one alternate allele and all unaffected are homozygous reference.',
   },
   {
     value: ANY_AFFECTED,
