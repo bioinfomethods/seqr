@@ -13,7 +13,7 @@ import {
 
 const FilterContainer = styled.span`
   display: inline-block;
-  min-width: 8em;
+  min-width: 14em;
   font-size: 12px;
 `
 
@@ -40,7 +40,7 @@ FilterSelector.propTypes = {
 const mapStateToProps = state => ({
   filter: getProjectFilter(state),
   options: [
-    { value: SHOW_ALL, text: 'All', key: SHOW_ALL },
+    { value: SHOW_ALL, text: 'All project categories', key: SHOW_ALL },
     ...Object.values(getProjectCategoriesByGuid(state)).map(
       projectCategory => ({ value: projectCategory.guid, text: projectCategory.name, key: projectCategory.guid }),
     ),
