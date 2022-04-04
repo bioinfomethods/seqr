@@ -87,6 +87,5 @@ services:
 
   pipeline-runner:
     image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
-    image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
