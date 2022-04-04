@@ -206,7 +206,8 @@ const ProjectsTable = React.memo(({ visibleProjects, loading, load, user, google
         stackable
         fixed
         idField="projectGuid"
-        defaultSortColumn="name"
+        defaultSortColumn="createdDate"
+        defaultSortDescending
         emptyContent="0 projects found"
         loading={loading}
         data={visibleProjects}
