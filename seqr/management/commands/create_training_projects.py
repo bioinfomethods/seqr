@@ -58,6 +58,9 @@ class Command(BaseCommand):
 
         new_project: Project = Project.objects.filter(guid__iexact=template_project_guid).first()
 
+        if new_project is None:
+            raise RuntimeError('Template project={} not found'.format(template_project_guid))
+
         logger.info(
             'Creating projects, template_project=%s, category=%s, family_ids=%s, collaborators=%s, managers=%s, num_of_copies=%s',
             template_project_guid, category, family_ids, collaborators, managers, num_of_copies)
