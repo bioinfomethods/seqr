@@ -24,7 +24,10 @@ import { EditPedigreeImageButton, DeletePedigreeImageButton, SavePedigreeDataset
 
 const PedigreeImg = styled.img.attrs({ alt: 'pedigree' })`
   max-height: ${props => props.maxHeight}px;
-  max-width: 225px;
+  max-width: ${props => props.maxWidth}px;
+  width: 100%;
+  height: 100%;
+  object-fit: scale-down;
   vertical-align: top;
   cursor: ${props => (props.disablePedigreeZoom ? 'auto' : 'zoom-in')};
 `
@@ -323,6 +326,7 @@ const PedigreeImagePanel = React.memo(({ family, isEditable, compact, disablePed
       family={family}
       disablePedigreeZoom={disablePedigreeZoom}
       maxHeight={compact ? '35' : '150'}
+      maxWidth={compact ? '50' : '225'}
     />
   )
   if (disablePedigreeZoom) {
