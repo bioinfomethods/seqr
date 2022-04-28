@@ -171,12 +171,18 @@ class VariantSearchAPITest(object):
         gene_fields.update(GENE_VARIANT_FIELDS)
         self.assertSetEqual(set(response_json['genesById']['ENSG00000268903'].keys()), gene_fields)
         gene_fields.add('locusListConfidence')
+        gene_fields.add('locusListPaAttrs')
         self.assertSetEqual(set(response_json['genesById']['ENSG00000227232'].keys()), gene_fields)
         self.assertListEqual(
             response_json['genesById']['ENSG00000227232']['locusListGuids'], [LOCUS_LIST_GUID]
         )
         self.assertDictEqual(
             response_json['genesById']['ENSG00000227232']['locusListConfidence'], {LOCUS_LIST_GUID: '3'}
+        )
+        self.assertDictEqual(
+            response_json['genesById']['ENSG00000227232']['locusListPaAttrs'], {LOCUS_LIST_GUID: {
+                'locusListConfidence': '3', 'locusListMoi': 'BIALLELIC, autosomal or pseudoautosomal', 'locusListMoiTypes': ['BIALLELIC']
+            }}
         )
         self.assertSetEqual(set(response_json['locusListsByGuid'].keys()), {LOCUS_LIST_GUID})
         intervals = response_json['locusListsByGuid'][LOCUS_LIST_GUID]['intervals']

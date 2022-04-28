@@ -3,7 +3,8 @@ import json
 from collections import defaultdict
 from django.db.models import Q
 
-from seqr.models import SavedVariant, VariantTagType, VariantTag, VariantNote, VariantFunctionalData,\
+from panelapp.panelapp_utils import moi_to_moi_types
+from seqr.models import SavedVariant, VariantTagType, VariantTag, VariantNote, VariantFunctionalData, \
     LocusList, LocusListInterval, LocusListGene, Family, GeneNote
 from seqr.utils.xpos_utils import get_xpos
 from seqr.views.utils.json_to_orm_utils import update_model_from_json, get_or_create_model_from_json, \
@@ -358,6 +359,15 @@ def _add_locus_lists(projects, genes, include_all_lists=False):
             if not gene_json.get('locusListConfidence'):
                 gene_json['locusListConfidence'] = {}
             gene_json['locusListConfidence'][locus_list_guid] = locus_list_gene.palocuslistgene.confidence_level
+
+            moi_types = moi_to_moi_types(locus_list_gene.palocuslistgene.mode_of_inheritance)
+            if not gene_json.get('locusListPaAttrs'):
+                gene_json['locusListPaAttrs'] = {}
+            gene_json['locusListPaAttrs'][locus_list_guid] = {
+                'locusListConfidence': locus_list_gene.palocuslistgene.confidence_level,
+                'locusListMoi': locus_list_gene.palocuslistgene.mode_of_inheritance,
+                'locusListMoiTypes': [t.value for t in moi_types],
+            }
 
     return locus_lists_by_guid
 
