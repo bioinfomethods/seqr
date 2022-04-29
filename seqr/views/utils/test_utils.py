@@ -483,8 +483,9 @@ LOCUS_LIST_FIELDS = {
     'locusListGuid', 'description', 'lastModifiedDate', 'numEntries', 'isPublic', 'createdBy', 'createdDate', 'canEdit',
     'name',
 }
+LOCUS_LIST_PA_FIELDS = {'paLocusList'}
 LOCUS_LIST_DETAIL_FIELDS = {'items', 'intervalGenomeVersion'}
-LOCUS_LIST_DETAIL_FIELDS.update(LOCUS_LIST_FIELDS)
+LOCUS_LIST_DETAIL_FIELDS.update(LOCUS_LIST_FIELDS, LOCUS_LIST_PA_FIELDS)
 
 GENE_FIELDS = {
     'chromGrch37', 'chromGrch38', 'codingRegionSizeGrch37', 'codingRegionSizeGrch38',  'endGrch37', 'endGrch38',

@@ -1,9 +1,9 @@
 import logging
 import json
 from collections import defaultdict
-from django.db.models import Q
-
-from panelapp.panelapp_utils import moi_to_moi_types
+from django.db.models import Q, Prefetch
+from panelapp.panelapp_utils import moi_to_moi_types, PaLocusList
+from panelapp.models import PaLocusListGene
 from seqr.models import SavedVariant, VariantTagType, VariantTag, VariantNote, VariantFunctionalData, \
     LocusList, LocusListInterval, LocusListGene, Family, GeneNote
 from seqr.utils.xpos_utils import get_xpos
@@ -351,23 +351,11 @@ def _add_locus_lists(projects, genes, include_all_lists=False):
     for interval in _get_json_for_models(intervals, nested_fields=[{'fields': ('locus_list', 'guid')}]):
         locus_lists_by_guid[interval['locusListGuid']]['intervals'].append(interval)
 
-    for locus_list_gene in LocusListGene.objects.filter(locus_list__in=locus_lists, gene_id__in=genes.keys()).prefetch_related('locus_list', 'palocuslistgene'):
+    for locus_list_gene in LocusListGene.objects.filter(locus_list__in=locus_lists, gene_id__in=genes.keys()).prefetch_related('locus_list', 'locus_list__palocuslist', 'palocuslistgene'):
         gene_json = genes[locus_list_gene.gene_id]
         locus_list_guid = locus_list_gene.locus_list.guid
         gene_json['locusListGuids'].append(locus_list_guid)
-        if hasattr(locus_list_gene, 'palocuslistgene'):
-            if not gene_json.get('locusListConfidence'):
-                gene_json['locusListConfidence'] = {}
-            gene_json['locusListConfidence'][locus_list_guid] = locus_list_gene.palocuslistgene.confidence_level
-
-            moi_types = moi_to_moi_types(locus_list_gene.palocuslistgene.mode_of_inheritance)
-            if not gene_json.get('locusListPaAttrs'):
-                gene_json['locusListPaAttrs'] = {}
-            gene_json['locusListPaAttrs'][locus_list_guid] = {
-                'locusListConfidence': locus_list_gene.palocuslistgene.confidence_level,
-                'locusListMoi': locus_list_gene.palocuslistgene.mode_of_inheritance,
-                'locusListMoiTypes': [t.value for t in moi_types],
-            }
+        _add_pa_attrs(locus_list_gene, locus_list_guid, gene_json)
 
     return locus_lists_by_guid
 
@@ -379,3 +367,29 @@ def _add_discovery_tags(variants, discovery_tags):
             if not variant.get('discoveryTags'):
                 variant['discoveryTags'] = []
             variant['discoveryTags'] += [tag for tag in tags if tag['savedVariant']['familyGuid'] not in variant['familyGuids']]
+
+
+def _add_pa_attrs(locus_list_gene, locus_list_guid, gene_json):
+    if hasattr(locus_list_gene, 'palocuslistgene'):
+        # Keeping locusListConfidence for backwards compatibility for now
+        if not gene_json.get('locusListConfidence'):
+            gene_json['locusListConfidence'] = {}
+        gene_json['locusListConfidence'][locus_list_guid] = locus_list_gene.palocuslistgene.confidence_level
+
+        if not gene_json.get('locusListPaAttrs'):
+            gene_json['locusListPaAttrs'] = {}
+
+        moi_types = moi_to_moi_types(locus_list_gene.palocuslistgene.mode_of_inheritance)
+
+        locus_list = locus_list_gene.locus_list
+        pagene_url = None
+        if hasattr(locus_list, 'palocuslist'):
+            list_url = locus_list.palocuslist.url
+            pagene_url = '{}/gene/{}'.format(list_url.replace('/api/v1', '').replace('/genes', ''), gene_json['geneSymbol'])
+
+        gene_json['locusListPaAttrs'][locus_list_guid] = {
+            'confidence': locus_list_gene.palocuslistgene.confidence_level,
+            'moi': locus_list_gene.palocuslistgene.mode_of_inheritance,
+            'moiTypes': [t.value for t in moi_types],
+            'url': pagene_url,
+        }
