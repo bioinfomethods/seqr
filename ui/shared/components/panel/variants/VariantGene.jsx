@@ -106,6 +106,13 @@ const BaseLocusListLabels = React.memo((
               <br />
               <b>PanelApp mode of inheritance: </b>
               {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
+              <br />
+              <br />
+              <a href={locusListPaAttrs[locusListGuid].url}>
+                <i className="icon external" />
+                {' '}
+                PanelApp Link
+              </a>
             </div>
           )
         }
