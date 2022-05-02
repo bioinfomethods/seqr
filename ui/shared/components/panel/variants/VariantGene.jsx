@@ -77,7 +77,7 @@ GeneLabel.propTypes = {
 }
 
 const BaseLocusListLabels = React.memo((
-  { locusListGuids, locusListsByGuid, locusListConfidence, compact, containerStyle, ...labelProps },
+  { locusListGuids, locusListsByGuid, locusListConfidence, locusListPaAttrs, compact, containerStyle, ...labelProps },
 ) => (
   compact ? (
     <GeneDetailSection
@@ -102,6 +102,10 @@ const BaseLocusListLabels = React.memo((
               <br />
               <b>PanelApp gene confidence: &nbsp;</b>
               {PANEL_APP_CONFIDENCE_DESCRIPTION[panelAppConfidence]}
+              <br />
+              <br />
+              <b>PanelApp mode of inheritance: </b>
+              {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
             </div>
           )
         }
@@ -126,6 +130,7 @@ const BaseLocusListLabels = React.memo((
 BaseLocusListLabels.propTypes = {
   locusListGuids: PropTypes.arrayOf(PropTypes.string).isRequired,
   locusListConfidence: PropTypes.object,
+  locusListPaAttrs: PropTypes.object,
   compact: PropTypes.bool,
   locusListsByGuid: PropTypes.object.isRequired,
   containerStyle: PropTypes.object,
@@ -291,6 +296,7 @@ export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists
           <LocusListLabels
             locusListGuids={gene.locusListGuids}
             locusListConfidence={gene.locusListConfidence}
+            locusListPaAttrs={gene.locusListPaAttrs}
             compact={compact}
             containerStyle={showDivider ? PADDED_INLINE_STYLE : INLINE_STYLE}
             {...labelProps}
