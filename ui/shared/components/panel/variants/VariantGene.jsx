@@ -179,6 +179,34 @@ GeneDetailSection.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
+const PANEL_APP_SECTION = {
+  color: 'teal',
+  description: 'PanelApp Gene Lists',
+  label: 'In PanelApp',
+  compactLabel: 'PanelApp Curated Genes',
+  showDetails: true,
+  detailsDisplay: gene => (
+    <List>
+      {gene.locusListGuids.map((locusListGuid) => {
+        const paAttrs = gene.locusListPaAttrs[locusListGuid]
+        return (
+          <ListItemLink
+            key={locusListGuid}
+            content={
+              <span>
+                {locusListGuid}
+                {paAttrs?.moi ? (<i>{` (${paAttrs?.moi})`}</i>) : ''}
+              </span>
+            }
+            target="_blank"
+            href={paAttrs?.url || '#locusListGuid'}
+          />
+        )
+      })}
+    </List>
+  ),
+}
+
 const OMIM_SECTION = {
   color: 'orange',
   description: 'Disease Phenotypes',
@@ -294,22 +322,31 @@ export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists
   const showDivider = geneDetails.length > 0 && hasLocusLists
   const omimDetails = OMIM_SECTION.showDetails(gene) && OMIM_SECTION.detailsDisplay(gene)
 
+  const panelAppDetails = PANEL_APP_SECTION.detailsDisplay(gene)
+
   return (
     <div style={containerStyle}>
       {geneDetails}
       {showDivider && <Divider fitted />}
-      {
-        hasLocusLists && (
-          <LocusListLabels
-            locusListGuids={gene.locusListGuids}
-            locusListConfidence={gene.locusListConfidence}
-            locusListPaAttrs={gene.locusListPaAttrs}
-            compact={compact}
-            containerStyle={showDivider ? PADDED_INLINE_STYLE : INLINE_STYLE}
-            {...labelProps}
-          />
-        )
-      }
+      { hasLocusLists && (compact ? (
+        <LocusListLabels
+          locusListGuids={gene.locusListGuids}
+          locusListConfidence={gene.locusListConfidence}
+          locusListPaAttrs={gene.locusListPaAttrs}
+          compact={compact}
+          containerStyle={showDivider ? PADDED_INLINE_STYLE : INLINE_STYLE}
+          {...labelProps}
+        />
+      ) : (
+        <OmimSegments>
+          <Segment color="teal">
+            <Label size="mini" color="teal" content="PanelApp" />
+          </Segment>
+          <Segment color="teal">
+            {panelAppDetails}
+          </Segment>
+        </OmimSegments>
+      ))}
       {omimDetails && (compact ?
         <GeneDetailSection compact details={omimDetails} {...OMIM_SECTION} {...labelProps} /> : (
           <OmimSegments>
