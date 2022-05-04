@@ -28,18 +28,12 @@ class Command(BaseCommand):
 
         deleteable_categories = [p.guid for p in
                                  ProjectCategory.objects.exclude(name__in=PROTECTED_PROJECT_CATEGORIES)]
-        project_category = ProjectCategory.objects.filter(Q(guid=category) | Q(name=category))
-        project_category_guids = [pc.guid for pc in project_category]
-        if len(project_category) == 0:
-            raise RuntimeError(
-                'Found no project_category guids={} for given category={}, deleteable project categories are {}'.format(
-                    project_category_guids, category, deleteable_categories))
-        if len(project_category) > 1:
-            raise RuntimeError(
-                'Found multiple project_category guids={} for given category={}, please specify unique project_category guid instead'.format(
-                    project_category_guids, category))
+        project_category = ProjectCategory.objects.filter(Q(guid=category) | Q(name=category)).first()
+        if project_category is None:
+            raise RuntimeError('project_category={} not found, deleteable project categories are {}'.format(category,
+                                                                                                            deleteable_categories))
 
-        for project in project_category.first().projects.all():
+        for project in project_category.projects.all():
             for family in project.family_set.all():
                 family.savedvariant_set.all().delete()
                 family.familyanalysedby_set.all().delete()

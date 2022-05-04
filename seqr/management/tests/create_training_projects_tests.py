@@ -17,9 +17,10 @@ class CreateTrainingProjectsTest(TestCase):
          'demo_training',
          None, None, ['manager@mcri.edu.au'], 1),
         (
-        'project_families', ['-p=template_002', '-f', 'FAM-SRR1301932', 'FAM-SRR1301936', '-e', 'manager@mcri.edu.au'],
-        'template_002',
-        DEFAULT_PROJECT_CATEGORY, ['FAM-SRR1301932', 'FAM-SRR1301936'], None, ['manager@mcri.edu.au'], 1),
+                'project_families',
+                ['-p=template_002', '-f', 'FAM-SRR1301932', 'FAM-SRR1301936', '-e', 'manager@mcri.edu.au'],
+                'template_002',
+                DEFAULT_PROJECT_CATEGORY, ['FAM-SRR1301932', 'FAM-SRR1301936'], None, ['manager@mcri.edu.au'], 1),
         ('project_users',
          ['-p=template_002', '-u', 'lester.tester@mcri.edu.au', 'alice@mcri.edu.au', '-e', 'manager@mcri.edu.au'],
          'template_002',
@@ -107,3 +108,38 @@ class CreateTrainingProjectsTest(TestCase):
         self.assertFalse(Sample.objects.filter(
             individual__in=[ind_NA19675_1.pk, ind_NA19679.pk, ind_NA19678.pk, ind_HG00731.pk, ind_HG00732.pk,
                             ind_HG00733.pk]).exists())
+
+    def test_error_command_missing_template(self):
+        with self.assertRaisesMessage(RuntimeError, 'Template project=not_exists_project_guid not found'):
+            given_args_create = ['-p', 'not_exists_project_guid', '-c', 'demo_category', '-f', '1', '2', '-u',
+                                 'test_user_collaborator@test.com', '-e', 'test_user_manager@test.com', '-n', 2]
+
+            call_command('create_training_projects', *given_args_create)
+
+    def test_error_command_no_families(self):
+        with self.assertRaisesMessage(RuntimeError,
+                                      "Found no template families using given family_ids=['none_fam1', 'none_fam2'].  Please use family ID (case sensitive) and not family guid"):
+            given_args_create = ['-p', 'R0001_1kg', '-c', 'demo_category', '-f', 'none_fam1', 'none_fam2', '-u',
+                                 'test_user_collaborator@test.com', '-e', 'test_user_manager@test.com', '-n', 2]
+
+            call_command('create_training_projects', *given_args_create)
+
+    def test_error_delete_protected_projects(self):
+        with self.assertRaisesMessage(RuntimeError,
+                                      "analyst-projects cannot be deleted using this script"):
+            given_args_create = ['-p', 'R0001_1kg', '-c', 'demo_category', '-f', '1', '2', '-u',
+                                 'test_user_collaborator@test.com', '-e', 'test_user_manager@test.com', '-n', 2]
+            call_command('create_training_projects', *given_args_create)
+
+            given_args_delete = ['-c', 'analyst-projects']
+            call_command('delete_training_projects', *given_args_delete)
+
+    def test_error_delete_project_category_not_exists(self):
+        with self.assertRaisesRegex(RuntimeError,
+                                    'project_category=not_exists_category not found, deleteable project categories are.*'):
+            given_args_create = ['-p', 'R0001_1kg', '-c', 'demo_category', '-f', '1', '2', '-u',
+                                 'test_user_collaborator@test.com', '-e', 'test_user_manager@test.com', '-n', 2]
+            call_command('create_training_projects', *given_args_create)
+
+            given_args_delete = ['-c', 'not_exists_category']
+            call_command('delete_training_projects', *given_args_delete)
