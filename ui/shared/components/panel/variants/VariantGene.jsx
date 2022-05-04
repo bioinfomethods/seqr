@@ -194,7 +194,15 @@ const PANEL_APP_SECTION = {
             key={locusListGuid}
             content={
               <span>
-                {locusListGuid}
+                { <GeneDetailSection
+                  key={locusListGuid}
+                  color="teal"
+                  customColor={paAttrs && PANEL_APP_CONFIDENCE_LEVEL_COLORS[paAttrs.confidence]}
+                  maxWidth="7em"
+                  showEmpty
+                  label={locusListGuid}
+                  // label={locusListsByGuid[locusListGuid] || {}).name}
+                /> }
                 {paAttrs?.moi ? (<i>{` (${paAttrs?.moi})`}</i>) : ''}
               </span>
             }
