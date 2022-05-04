@@ -76,6 +76,58 @@ GeneLabel.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
+const BaseLocusListLabel = React.memo((
+  { locusListGuid, locusListConfidence, locusListsByGuid, locusListPaAttrs, containerStyle, ...labelProps },
+) => {
+  const panelAppConfidence = locusListConfidence && locusListConfidence[locusListGuid]
+  let { description } = locusListsByGuid[locusListGuid] || {}
+  if (panelAppConfidence) {
+    description = (
+      <div>
+        {description}
+        <br />
+        <br />
+        <b>PanelApp gene confidence: &nbsp;</b>
+        {PANEL_APP_CONFIDENCE_DESCRIPTION[panelAppConfidence]}
+        <br />
+        <br />
+        <b>PanelApp mode of inheritance: </b>
+        {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
+        <br />
+        <br />
+        <a href={locusListPaAttrs[locusListGuid].url}>
+          <i className="icon external" />
+          {' '}
+          PanelApp Link
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <GeneDetailSection
+      compact
+      color="teal"
+      customColor={panelAppConfidence && PANEL_APP_CONFIDENCE_LEVEL_COLORS[panelAppConfidence]}
+      maxWidth="7em"
+      showEmpty
+      label={(locusListsByGuid[locusListGuid] || {}).name}
+      description={(locusListsByGuid[locusListGuid] || {}).name}
+      details={description}
+      containerStyle={containerStyle}
+      {...labelProps}
+    />
+  )
+})
+
+BaseLocusListLabel.propTypes = {
+  locusListGuid: PropTypes.string.isRequired,
+  locusListConfidence: PropTypes.object,
+  locusListsByGuid: PropTypes.object,
+  locusListPaAttrs: PropTypes.object,
+  containerStyle: PropTypes.object,
+}
+
 const BaseLocusListLabels = React.memo((
   { locusListGuids, locusListsByGuid, locusListConfidence, locusListPaAttrs, compact, containerStyle, ...labelProps },
 ) => (
@@ -92,42 +144,15 @@ const BaseLocusListLabels = React.memo((
   ) : (
     <div style={containerStyle}>
       {locusListGuids.map((locusListGuid) => {
-        const panelAppConfidence = locusListConfidence && locusListConfidence[locusListGuid]
-        let { description } = locusListsByGuid[locusListGuid] || {}
-        if (panelAppConfidence) {
-          description = (
-            <div>
-              {description}
-              <br />
-              <br />
-              <b>PanelApp gene confidence: &nbsp;</b>
-              {PANEL_APP_CONFIDENCE_DESCRIPTION[panelAppConfidence]}
-              <br />
-              <br />
-              <b>PanelApp mode of inheritance: </b>
-              {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
-              <br />
-              <br />
-              <a href={locusListPaAttrs[locusListGuid].url}>
-                <i className="icon external" />
-                {' '}
-                PanelApp Link
-              </a>
-            </div>
-          )
-        }
+        // eslint-disable-next-line no-console
+        console.info('LocusList labelProps:', labelProps)
         return (
-          <GeneDetailSection
-            key={locusListGuid}
-            color="teal"
-            customColor={panelAppConfidence && PANEL_APP_CONFIDENCE_LEVEL_COLORS[panelAppConfidence]}
-            maxWidth="7em"
-            showEmpty
-            label={(locusListsByGuid[locusListGuid] || {}).name}
-            description={(locusListsByGuid[locusListGuid] || {}).name}
-            details={description}
+          <LocusListLabel
+            locusListConfidence={locusListConfidence}
+            locusListGuid={locusListGuid}
+            locusListsByGuid={locusListsByGuid}
+            locusListPaAttrs={locusListPaAttrs}
             containerStyle={containerStyle}
-            {...labelProps}
           />
         )
       })}
@@ -152,6 +177,7 @@ const mapLocusListStateToProps = state => ({
   locusListsByGuid: getLocusListsByGuid(state),
 })
 
+const LocusListLabel = connect(mapLocusListStateToProps)(BaseLocusListLabel)
 export const LocusListLabels = connect(mapLocusListStateToProps)(BaseLocusListLabels)
 
 const GeneDetailSection = React.memo(({ details, compact, description, compactLabel, showEmpty, ...labelProps }) => {
