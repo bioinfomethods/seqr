@@ -128,6 +128,10 @@ BaseLocusListLabel.propTypes = {
   containerStyle: PropTypes.object,
 }
 
+BaseLocusListLabel.defaultProps = {
+  containerStyle: null,
+}
+
 const BaseLocusListLabels = React.memo((
   { locusListGuids, locusListsByGuid, locusListConfidence, locusListPaAttrs, compact, containerStyle, ...labelProps },
 ) => (
@@ -177,7 +181,7 @@ const mapLocusListStateToProps = state => ({
   locusListsByGuid: getLocusListsByGuid(state),
 })
 
-const LocusListLabel = connect(mapLocusListStateToProps)(BaseLocusListLabel)
+export const LocusListLabel = connect(mapLocusListStateToProps)(BaseLocusListLabel)
 export const LocusListLabels = connect(mapLocusListStateToProps)(BaseLocusListLabels)
 
 const GeneDetailSection = React.memo(({ details, compact, description, compactLabel, showEmpty, ...labelProps }) => {
@@ -220,7 +224,20 @@ const PANEL_APP_SECTION = {
             key={locusListGuid}
             content={
               <span>
-                { <GeneDetailSection
+                {
+                  <LocusListLabel
+                    locusListGuid={locusListGuid}
+                    locusListConfidence={gene.locusListConfidence}
+                    locusListPaAttrs={gene.locusListPaAttrs}
+                  />
+                  // <LocusListLabel
+                  //   locusListConfidence={gene.locusListConfidence}
+                  //   locusListGuid={locusListGuid}
+                  //   locusListsByGuid={gene.locusListsByGuid}
+                  //   locusListPaAttrs={gene.locusListPaAttrs}
+                  //   containerStyle={{ display: 'inline-block' }}
+                  // />
+                /* { <GeneDetailSection
                   key={locusListGuid}
                   color="teal"
                   customColor={paAttrs && PANEL_APP_CONFIDENCE_LEVEL_COLORS[paAttrs.confidence]}
@@ -228,7 +245,7 @@ const PANEL_APP_SECTION = {
                   showEmpty
                   label={locusListGuid}
                   // label={locusListsByGuid[locusListGuid] || {}).name}
-                /> }
+                /> } */}
                 {paAttrs?.moi ? (<i>{` (${paAttrs?.moi})`}</i>) : ''}
               </span>
             }
