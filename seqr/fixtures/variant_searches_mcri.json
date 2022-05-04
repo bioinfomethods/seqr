@@ -70,7 +70,8 @@
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ]
+                    ],
+                    "splice_ai": 0.2
                 },
                 "inheritance": {
                     "filter": {
@@ -153,7 +154,8 @@
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ]
+                    ],
+                    "splice_ai": 0.2
                 },
                 "inheritance": {
                     "filter": {
@@ -254,7 +256,8 @@
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ]
+                    ],
+                    "splice_ai": 0.1
                 },
                 "inheritance": {
                     "filter": {
