@@ -8,7 +8,8 @@ import { Label, Popup, List, ListItem, Header, Segment, Divider } from 'semantic
 import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
 import {
   MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED, PANEL_APP_CONFIDENCE_LEVEL_COLORS,
-  PANEL_APP_CONFIDENCE_DESCRIPTION, GENETALE_INHERITANCE_CODES,
+  PANEL_APP_CONFIDENCE_DESCRIPTION, PANEL_APP_MODE_OF_INHERITANCE_INITIALS,
+  GENETALE_INHERITANCE_CODES,
 } from '../../../utils/constants'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { InlineHeader, ButtonLink, ColoredLabel } from '../../StyledComponents'
@@ -94,10 +95,13 @@ const BaseLocusListLabels = React.memo((
       {locusListGuids.map((locusListGuid) => {
         const panelAppConfidence = locusListConfidence && locusListConfidence[locusListGuid]
         let { description } = locusListsByGuid[locusListGuid] || {}
+        let initials = ''
         if (panelAppConfidence) {
+          initials = `(${locusListPaAttrs[locusListGuid].moiTypes.map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType]).join(', ')}) `
+
           description = (
             <div>
-              {description}
+              <a href={locusListPaAttrs[locusListGuid].url}>{description}</a>
               <br />
               <br />
               <b>PanelApp gene confidence: &nbsp;</b>
@@ -105,14 +109,8 @@ const BaseLocusListLabels = React.memo((
               <br />
               <br />
               <b>PanelApp mode of inheritance: </b>
+              {initials}
               {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
-              <br />
-              <br />
-              <a href={locusListPaAttrs[locusListGuid].url}>
-                <i className="icon external" />
-                {' '}
-                PanelApp Link
-              </a>
             </div>
           )
         }
@@ -121,9 +119,9 @@ const BaseLocusListLabels = React.memo((
             key={locusListGuid}
             color="teal"
             customColor={panelAppConfidence && PANEL_APP_CONFIDENCE_LEVEL_COLORS[panelAppConfidence]}
-            maxWidth="7em"
+            maxWidth="12em"
             showEmpty
-            label={(locusListsByGuid[locusListGuid] || {}).name}
+            label={initials + (locusListsByGuid[locusListGuid] || {}).name}
             description={(locusListsByGuid[locusListGuid] || {}).name}
             details={description}
             containerStyle={containerStyle}
