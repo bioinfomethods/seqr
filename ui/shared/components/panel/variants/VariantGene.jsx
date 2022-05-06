@@ -29,7 +29,10 @@ const PADDED_INLINE_STYLE = {
   ...INLINE_STYLE,
 }
 
-const BaseGeneLabelContent = styled(({ color, customColor, label, maxWidth, containerStyle, dispatch, ...props }) => {
+const BaseGeneLabelContent = styled(({
+  color, customColor, label, maxWidth, minWidth,
+  containerStyle, dispatch, ...props
+}) => {
   const labelProps = {
     ...props,
     size: 'mini',
@@ -43,6 +46,7 @@ const BaseGeneLabelContent = styled(({ color, customColor, label, maxWidth, cont
    text-overflow: ellipsis;
    white-space: nowrap;
    max-width: ${props => props.maxWidth || 'none'};
+   min-width: ${props => props.minWidth || 'none'};
 `
 const GeneLabelContent = props => <BaseGeneLabelContent {...props} />
 
@@ -97,7 +101,11 @@ const BaseLocusListLabels = React.memo((
         let { description } = locusListsByGuid[locusListGuid] || {}
         let initials = ''
         if (panelAppConfidence) {
-          initials = `(${locusListPaAttrs[locusListGuid].moiTypes.map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType]).join(', ')}) `
+          const initialArray = locusListPaAttrs[locusListGuid].moiTypes
+            .map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType])
+            .filter(moiType => moiType)
+
+          initials = initialArray.length !== 0 ? ` (${initialArray.join(', ')})` : ''
 
           description = (
             <div>
@@ -109,19 +117,36 @@ const BaseLocusListLabels = React.memo((
               <br />
               <br />
               <b>PanelApp mode of inheritance: </b>
-              {initials}
+              {`${initials} `}
               {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
             </div>
           )
         }
+
+        let label = (locusListsByGuid[locusListGuid] || {}).name
+        let space = 20
+        if (initials.length > 0) {
+          space = 11
+          if (initials.length < 7) {
+            space = 14
+          }
+        }
+
+        if (label.length > space) {
+          label = `${label.substring(0, space)}...${initials}`
+        } else {
+          label = `${label}${initials}`
+        }
+
         return (
           <GeneDetailSection
             key={locusListGuid}
             color="teal"
             customColor={panelAppConfidence && PANEL_APP_CONFIDENCE_LEVEL_COLORS[panelAppConfidence]}
             maxWidth="12em"
+            minWidth="12em"
             showEmpty
-            label={initials + (locusListsByGuid[locusListGuid] || {}).name}
+            label={label}
             description={(locusListsByGuid[locusListGuid] || {}).name}
             details={description}
             containerStyle={containerStyle}
