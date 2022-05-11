@@ -7,34 +7,36 @@ export const moiToMoiTypes = (rawMoi) => {
 
   if (moi.startsWith('MONOALLELIC')) {
     if (moi.includes('PATERNALLY IMPRINTED')) {
-      return 'IMPRINTED_PATERNALY_EXPRESSED'
+      return ['IMPRINTED_PATERNALY_EXPRESSED']
     }
     if (moi.includes('MATERNALLY IMPRINTED')) {
-      return 'IMPRINTED_MATERNALY_EXPRESSED'
+      return ['IMPRINTED_MATERNALY_EXPRESSED']
     }
-
-    return 'MONOALLELIC'
+    return ['MONOALLELIC']
+  }
+  if (moi.startsWith('BOTH')) {
+    return ['MONOALLELIC', 'BIALLELIC']
   }
   if (moi.startsWith('X-LINKED')) {
     if (moi.includes('BIALLELIC MUTATIONS')) {
-      return 'X_LINKED_RECESSIVE'
+      return ['X_LINKED_RECESSIVE']
     }
-    return 'X_LINKED_DOMINANT'
+    return ['X_LINKED_DOMINANT']
   }
   if (moi.startsWith('BIALLELIC')) {
-    return 'BIALLELIC'
+    return ['BIALLELIC']
   }
   if (moi.startsWith('MITOCHONDRIAL')) {
-    return 'MITOCHONDRIAL'
+    return ['MITOCHONDRIAL']
   }
   if (moi.startsWith('OTHER')) {
-    return 'OTHER'
+    return ['OTHER']
   }
   if (moi.startsWith('UNKNOWN')) {
-    return 'UNKNOWN'
+    return ['UNKNOWN']
   }
 
-  return 'OTHER'
+  return ['OTHER']
 }
 
 export const panelAppUrl = (panelId, gene) => {
