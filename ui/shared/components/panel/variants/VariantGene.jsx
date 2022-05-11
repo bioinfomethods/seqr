@@ -6,6 +6,7 @@ import { NavLink } from 'react-router-dom'
 import { Label, Popup, List, ListItem, Header, Segment, Divider } from 'semantic-ui-react'
 
 import { getGenesById, getLocusListsByGuid } from 'redux/selectors'
+import { panelAppUrl, moiToMoiTypes } from '../../../utils/panelAppUtils'
 import {
   MISSENSE_THRESHHOLD, LOF_THRESHHOLD, ANY_AFFECTED, PANEL_APP_CONFIDENCE_LEVEL_COLORS,
   PANEL_APP_CONFIDENCE_DESCRIPTION, PANEL_APP_MODE_OF_INHERITANCE_INITIALS,
@@ -78,7 +79,10 @@ GeneLabel.propTypes = {
 }
 
 const BaseLocusListLabels = React.memo((
-  { locusListGuids, locusListsByGuid, locusListConfidence, locusListPaAttrs, compact, containerStyle, ...labelProps },
+  {
+    locusListGuids, locusListsByGuid, locusListConfidence, locusListPaAttrs,
+    geneSymbol, compact, containerStyle, ...labelProps
+  },
 ) => (
   compact ? (
     <GeneDetailSection
@@ -97,11 +101,15 @@ const BaseLocusListLabels = React.memo((
         let { description } = locusListsByGuid[locusListGuid] || {}
         let initials = ''
         if (panelAppConfidence) {
-          initials = `(${locusListPaAttrs[locusListGuid].moiTypes.map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType]).join(', ')}) `
+          const { panelAppId } = locusListsByGuid[locusListGuid].paLocusList
+          const url = panelAppUrl(panelAppId, geneSymbol)
+          const moiType = moiToMoiTypes(locusListPaAttrs[locusListGuid].moi)
+
+          initials = `(${PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType]}) `
 
           description = (
             <div>
-              <a href={locusListPaAttrs[locusListGuid].url}>{description}</a>
+              <a href={url}>{description}</a>
               <br />
               <br />
               <b>PanelApp gene confidence: &nbsp;</b>
@@ -136,6 +144,7 @@ BaseLocusListLabels.propTypes = {
   locusListGuids: PropTypes.arrayOf(PropTypes.string).isRequired,
   locusListConfidence: PropTypes.object,
   locusListPaAttrs: PropTypes.object,
+  geneSymbol: PropTypes.string,
   compact: PropTypes.bool,
   locusListsByGuid: PropTypes.object.isRequired,
   containerStyle: PropTypes.object,
@@ -299,6 +308,7 @@ export const GeneDetails = React.memo(({ gene, genetale, compact, showLocusLists
       {
         hasLocusLists && (
           <LocusListLabels
+            geneSymbol={gene.geneSymbol}
             locusListGuids={gene.locusListGuids}
             locusListConfidence={gene.locusListConfidence}
             locusListPaAttrs={gene.locusListPaAttrs}
