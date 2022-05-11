@@ -126,16 +126,13 @@ const BaseLocusListLabels = React.memo((
         let label = (locusListsByGuid[locusListGuid] || {}).name
         let space = 20
         if (initials.length > 0) {
-          space = 11
-          if (initials.length < 7) {
-            space = 14
-          }
+          space = 16
         }
 
         if (label.length > space) {
-          label = `${label.substring(0, space)}...${initials}`
+          label = `${label.substring(0, space)}...`
         } else {
-          label = `${label}${initials}`
+          label = `${label}`
         }
 
         return (
