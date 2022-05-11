@@ -100,6 +100,7 @@ const BaseLocusListLabels = React.memo((
         const panelAppConfidence = locusListConfidence && locusListConfidence[locusListGuid]
         let { description } = locusListsByGuid[locusListGuid] || {}
         let initials = ''
+        let label = (locusListsByGuid[locusListGuid] || {}).name
         if (panelAppConfidence) {
           const { panelAppId } = locusListsByGuid[locusListGuid].paLocusList
           const url = panelAppUrl(panelAppId, geneSymbol)
@@ -108,7 +109,19 @@ const BaseLocusListLabels = React.memo((
             .filter(moiType => moiType)
 
           if (initialArray.length > 0) {
-            initials = `(${initialArray.join(', ')}) `
+            initials = ` (${initialArray.join(', ')})`
+            let allowedLabelSpace = 14
+            if (initialArray.length === 1) {
+              if (label.length > allowedLabelSpace) {
+                label = `${label.substring(0, allowedLabelSpace)}...`
+              }
+            } else if (initialArray.length === 2) {
+              allowedLabelSpace = 11
+              if (label.length > allowedLabelSpace) {
+                label = `${label.substring(0, allowedLabelSpace)}...`
+              }
+            }
+            label = `${label} ${initials}`
           }
 
           description = (
@@ -122,6 +135,7 @@ const BaseLocusListLabels = React.memo((
               <br />
               <b>PanelApp mode of inheritance: </b>
               {initials}
+              {' '}
               {locusListPaAttrs[locusListGuid].moi || 'Unknown'}
             </div>
           )
@@ -133,7 +147,7 @@ const BaseLocusListLabels = React.memo((
             customColor={panelAppConfidence && PANEL_APP_CONFIDENCE_LEVEL_COLORS[panelAppConfidence]}
             maxWidth="12em"
             showEmpty
-            label={initials + (locusListsByGuid[locusListGuid] || {}).name}
+            label={label}
             description={(locusListsByGuid[locusListGuid] || {}).name}
             details={description}
             containerStyle={containerStyle}
