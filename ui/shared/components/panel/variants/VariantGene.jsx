@@ -109,7 +109,7 @@ const BaseLocusListLabels = React.memo((
             .filter(moiType => moiType)
 
           if (initialArray.length > 0) {
-            initials = ` (${initialArray.join(', ')})`
+            initials = `(${initialArray.join(', ')})`
             let allowedLabelSpace = 14
             if (initialArray.length === 1) {
               if (label.length > allowedLabelSpace) {
