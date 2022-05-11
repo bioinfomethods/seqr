@@ -181,7 +181,7 @@ class VariantSearchAPITest(object):
         )
         self.assertDictEqual(
             response_json['genesById']['ENSG00000227232']['locusListPaAttrs'], {LOCUS_LIST_GUID: {
-                'confidence': '3', 'moi': 'BIALLELIC, autosomal or pseudoautosomal', 'moiTypes': ['BIALLELIC'], 'url': 'https://panelapp.agha.umccr.org/panels/254/gene/WASH7P'
+                'confidence': '3', 'moi': 'BIALLELIC, autosomal or pseudoautosomal',
             }}
         )
         self.assertSetEqual(set(response_json['locusListsByGuid'].keys()), {LOCUS_LIST_GUID})

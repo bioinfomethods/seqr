@@ -379,17 +379,7 @@ def _add_pa_attrs(locus_list_gene, locus_list_guid, gene_json):
         if not gene_json.get('locusListPaAttrs'):
             gene_json['locusListPaAttrs'] = {}
 
-        moi_types = moi_to_moi_types(locus_list_gene.palocuslistgene.mode_of_inheritance)
-
-        locus_list = locus_list_gene.locus_list
-        pagene_url = None
-        if hasattr(locus_list, 'palocuslist'):
-            list_url = locus_list.palocuslist.url
-            pagene_url = '{}/gene/{}'.format(list_url.replace('/api/v1', '').replace('/genes', ''), gene_json['geneSymbol'])
-
         gene_json['locusListPaAttrs'][locus_list_guid] = {
             'confidence': locus_list_gene.palocuslistgene.confidence_level,
             'moi': locus_list_gene.palocuslistgene.mode_of_inheritance,
-            'moiTypes': [t.value for t in moi_types],
-            'url': pagene_url,
         }
