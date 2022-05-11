@@ -103,9 +103,13 @@ const BaseLocusListLabels = React.memo((
         if (panelAppConfidence) {
           const { panelAppId } = locusListsByGuid[locusListGuid].paLocusList
           const url = panelAppUrl(panelAppId, geneSymbol)
-          const moiTypes = moiToMoiTypes(locusListPaAttrs[locusListGuid].moi)
+          const initialArray = moiToMoiTypes(locusListPaAttrs[locusListGuid].moi)
+            .map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType])
+            .filter(moiType => moiType)
 
-          initials = `(${moiTypes.map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType]).join(', ')}) `
+          if (initialArray.length > 0) {
+            initials = `(${initialArray.join(', ')}) `
+          }
 
           description = (
             <div>
