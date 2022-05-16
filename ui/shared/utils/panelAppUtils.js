@@ -14,7 +14,7 @@ export const moiToMoiTypes = (rawMoi) => {
     }
     return ['MONOALLELIC']
   }
-  if (moi.startsWith('X-LINKED')) {
+  if (moi.startsWith('X-LINKED') || moi.startsWith('X LINKED')) {
     if (moi.includes('BIALLELIC MUTATIONS')) {
       return ['X_LINKED_RECESSIVE']
     }
@@ -32,6 +32,9 @@ export const moiToMoiTypes = (rawMoi) => {
     return ['MITOCHONDRIAL']
   }
   if (moi.startsWith('OTHER')) {
+    if (moi.includes('EVALUATION COMMENTS')) {
+      return ['UNKNOWN']
+    }
     return ['OTHER']
   }
   if (moi.startsWith('UNKNOWN')) {
@@ -41,9 +44,8 @@ export const moiToMoiTypes = (rawMoi) => {
   return ['OTHER']
 }
 
-export const panelAppUrl = (panelId, gene) => {
-  // `https://panelapp.agha.umccr.org/panels/3531/gene/SLC2A1`
-  const baseUrl = 'https://panelapp.agha.umccr.org'
-  // console.log(moi)
+export const panelAppUrl = (apiUrl, panelId, gene) => {
+  const baseUrl = apiUrl.split('/api')[0]
+
   return `${baseUrl}/panels/${panelId}/gene/${gene}`
 }

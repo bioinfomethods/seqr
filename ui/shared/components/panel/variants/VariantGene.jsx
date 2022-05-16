@@ -102,8 +102,8 @@ const BaseLocusListLabels = React.memo((
         let initials = ''
         let label = (locusListsByGuid[locusListGuid] || {}).name
         if (panelAppConfidence) {
-          const { panelAppId } = locusListsByGuid[locusListGuid].paLocusList
-          const url = panelAppUrl(panelAppId, geneSymbol)
+          const { panelAppId, url } = locusListsByGuid[locusListGuid].paLocusList
+          const fullUrl = panelAppUrl(url, panelAppId, geneSymbol)
           const initialArray = moiToMoiTypes(locusListPaAttrs[locusListGuid].moi)
             .map(moiType => PANEL_APP_MODE_OF_INHERITANCE_INITIALS[moiType])
             .filter(moiType => moiType)
@@ -126,7 +126,7 @@ const BaseLocusListLabels = React.memo((
 
           description = (
             <div>
-              <a href={url}>{description}</a>
+              <a target="_blank" href={fullUrl} rel="noreferrer">{description}</a>
               <br />
               <br />
               <b>PanelApp gene confidence: &nbsp;</b>
