@@ -2,7 +2,7 @@ version: '2.4'
 
 services:
   postgres:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-12.6}
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
     environment:
