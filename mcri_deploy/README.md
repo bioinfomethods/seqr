@@ -38,8 +38,7 @@ how they're used.
 
 ## Building Seqr Application
 
-Make sure you're on the correct branch!  Note `SEQR_GIT_BRANCH` also needs to be set to the branch you're building Seqr
-for.
+Make sure you're on the correct branch!
 
 ```bash
 COMPOSE_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.yml"
@@ -49,18 +48,13 @@ COMPOSE_BUILD_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.build
 COMPOSE_ENV_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/seqr.template.env"
 source $COMPOSE_ENV_FILE
 
-# Change this to override SEQR_GIT_BRANCH in seqr.template.env for a different branch
-SEQR_GIT_BRANCH="mcri/master"
-
 # Build image and adds latest Docker tag by default
 docker-compose --verbose \
   -f $COMPOSE_FILE \
   -f $COMPOSE_BUILD_FILE \
   --env-file=$COMPOSE_ENV_FILE \
   build \
-  --build-arg "DISABLE_CACHE=2" \
-  --build-arg "SEQR_REPO=$SEQR_REPO" \
-  --build-arg "SEQR_GIT_BRANCH=$SEQR_GIT_BRANCH"
+  --build-arg "DISABLE_CACHE=2"
 
 # After build successful, tag Git repo and Docker repo
 # MCRI Seqr follows CalVer, change number after _ (underscore) if deploying multiple times
