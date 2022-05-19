@@ -9,7 +9,7 @@ import { getGenesById, getLocusListsByGuid, getFamiliesByGuid } from 'redux/sele
 import { panelAppUrl, moiToMoiInitials } from '../../../utils/panelAppUtils'
 import {
   MISSENSE_THRESHHOLD, LOF_THRESHHOLD, PANEL_APP_CONFIDENCE_LEVEL_COLORS, PANEL_APP_CONFIDENCE_DESCRIPTION,
-  GENETALE_INHERITANCE_CODES
+  GENETALE_INHERITANCE_CODES,
 } from '../../../utils/constants'
 import { camelcaseToTitlecase } from '../../../utils/stringUtils'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
@@ -150,7 +150,7 @@ const BaseLocusListLabels = React.memo((
       compactLabel="Gene Lists"
       details={
         locusListGuids.length > 0 &&
-          <List bulleted items={locusListGuids.map(locusListGuid => locusListsByGuid[locusListGuid].name)} />
+        <List bulleted items={locusListGuids.map(locusListGuid => locusListsByGuid[locusListGuid].name)} />
       }
     />
   ) : (
