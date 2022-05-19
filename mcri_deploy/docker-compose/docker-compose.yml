@@ -1,0 +1,91 @@
+version: '2.4'
+
+services:
+  postgres:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-12.6}
+    ports:
+      - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
+    environment:
+      - PGPORT=${POSTGRES_SERVICE_PORT:-5433}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docker-compose-postgres-password}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -h postgres -U postgres
+      interval: 5s
+      timeout: 10s
+      retries: 100
+
+
+  redis:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-redis}:${REDIS_IMAGE_TAG:-latest}
+    healthcheck:
+      test: redis-cli ping
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+
+  kibana:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${KIBANA_IMAGE_NAME:-kibana}:${KIBANA_IMAGE_TAG:-latest}
+    environment:
+      - ELASTICSEARCH_SERVICE_HOSTNAME=${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}
+      - ELASTICSEARCH_SERVICE_PORT=${ELASTICSEARCH_SERVICE_PORT:-9200}
+      - ELASTICSEARCH_HOSTS="http://${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}:${ELASTICSEARCH_SERVICE_PORT:-9200}"
+    healthcheck:
+      test: bash -c "curl -s -L kibana:5601 | grep kibana"
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+
+  seqr:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-seqr}:${SEQR_IMAGE_TAG:-latest}
+    ports:
+      - ${SEQR_SERVICE_PORT:-80}:8000
+    environment:
+      - SEQR_GIT_BRANCH=${SEQR_GIT_BRANCH:?err}
+      - SEQR_PRIVACY_VERSION=${SEQR_PRIVACY_VERSION:--1.00}
+      - SEQR_TOS_VERSION=${SEQR_TOS_VERSION:--1.00}
+      - PYTHONPATH=/seqr
+      - BASE_URL=${BASE_URL:?err}
+      - EMAIL_BACKEND=${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      - SMTP_EMAIL_HOST=${SMTP_EMAIL_HOST:-host.docker.internal}
+      - SMTP_EMAIL_PORT=${SMTP_EMAIL_PORT:-25}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-seqr@seqr.mcri.edu.au}
+      - STATIC_MEDIA_DIR=/seqr_static_files
+      - POSTGRES_SERVICE_HOSTNAME=postgres
+      - POSTGRES_SERVICE_PORT=${POSTGRES_SERVICE_PORT:-5433}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docker-compose-postgres-password}
+      - ELASTICSEARCH_SERVICE_HOSTNAME=${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}
+      - ELASTICSEARCH_SERVICE_PORT=${ELASTICSEARCH_SERVICE_PORT:-9200}
+      - REDIS_SERVICE_HOSTNAME=redis
+      - KIBANA_SERVICE_HOSTNAME=kibana
+      - PGHOST=postgres
+      - PGPORT=${POSTGRES_SERVICE_PORT:-5433}
+      - PGUSER=postgres
+      - GUNICORN_WORKER_THREADS=4
+      - SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID=${SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID}
+      - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-okta-openidconnect}
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://dev-000000.okta.com/oauth2/default}
+      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-okta-client-id}
+      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-okta-client-secret}
+      - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
+      - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
+      - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud
+      # - /mnt/disks/seqr_static:/seqr_static_files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: bash -c "curl -s 'http://localhost:8000' | grep html"
+
+
+  pipeline-runner:
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud

@@ -1,0 +1,175 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-master-test-0
+  labels:
+    name: pv-es-master-test-0
+    env: test
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-master-node-0
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-master-test-0
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-master-test-1
+  labels:
+    name: pv-es-master-test-1
+    env: test
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-master-node-1
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-master-test-1
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-master-test-2
+  labels:
+    name: pv-es-master-test-2
+    env: test
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-master-node-2
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-master-test-2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-test-0
+  labels:
+    name: pv-es-data-test-0
+    env: test
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-0
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-test-0
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-test-1
+  labels:
+    name: pv-es-data-test-1
+    env: test
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-1
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-test-1
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-test-2
+  labels:
+    name: pv-es-data-test-2
+    env: test
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-2
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-test-2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-loading-test-0
+  labels:
+    name: pv-es-data-loading-test-0
+    env: test
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-loading-node-0
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-loading-test-0
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-loading-test-1
+  labels:
+    name: pv-es-data-loading-test-1
+    env: test
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-loading-node-1
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-loading-test-1

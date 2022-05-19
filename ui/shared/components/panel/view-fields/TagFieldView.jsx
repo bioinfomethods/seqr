@@ -41,7 +41,7 @@ const METADATA_FIELD_PROPS = {
     fluid: true,
     allowAdditions: true,
     addValueOptions: true,
-    options: ['Sanger', 'Segregation', 'SV', 'Splicing'].map(value => ({ value })),
+    options: ['Sanger', 'Segregation', 'SV', 'Splicing', 'ddPCR'].map(value => ({ value })),
     placeholder: 'Select test types or add your own',
     format: val => (val || '').split(', ').filter(v => v),
     parse: val => (val || []).join(', '),

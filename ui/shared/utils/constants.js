@@ -17,7 +17,7 @@ import { stripMarkdown } from './stringUtils'
 import { ColoredIcon } from '../components/StyledComponents'
 
 export const ANVIL_URL = 'https://anvil.terra.bio'
-export const GOOGLE_LOGIN_URL = '/login/google-oauth2'
+export const GOOGLE_LOGIN_URL = '/login/okta-openidconnect'
 export const LOCAL_LOGIN_URL = '/login'
 
 export const GENOME_VERSION_37 = '37'
@@ -932,6 +932,7 @@ const SORT_BY_GNOMAD_EXOMES = 'GNOMAD_EXOMES'
 const SORT_BY_CALLSET_AF = 'CALLSET_AF'
 const SORT_BY_1KG = '1KG'
 const SORT_BY_CONSTRAINT = 'CONSTRAINT'
+const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
 const SORT_BY_CADD = 'CADD'
 const SORT_BY_REVEL = 'REVEL'
 const SORT_BY_SPLICE_AI = 'SPLICE_AI'
@@ -997,6 +998,7 @@ const VARIANT_SORT_OPTONS = [
   { value: SORT_BY_GNOMAD_EXOMES, text: 'gnomAD Exomes Frequency', comparator: populationComparator('gnomad_exomes') },
   { value: SORT_BY_CALLSET_AF, text: 'Callset AF', comparator: populationComparator('callset') },
   { value: SORT_BY_1KG, text: '1kg  Frequency', comparator: populationComparator('g1k') },
+  { value: SORT_BY_GENETALE_VAR_CLASS_NUM, text: 'Genetale Variant Class', comparator: predictionComparator('genetale_var_class_num') },
   { value: SORT_BY_CADD, text: 'Cadd', comparator: predictionComparator('cadd') },
   { value: SORT_BY_REVEL, text: 'Revel', comparator: predictionComparator('revel') },
   { value: SORT_BY_EIGEN, text: 'Eigen', comparator: predictionComparator('eigen') },
@@ -1127,6 +1129,8 @@ const MUTTASTER_MAP = {
   P: { color: 'green', value: 'polymorphism automatic' },
 }
 
+export const GENETALE_INHERITANCE_CODES = ['AR', 'AD', 'XLR', 'XLD']
+
 const MISSENSE_IN_SILICO_GROUP = 'Missense'
 const CODING_IN_SILICO_GROUP = 'Coding/Noncoding'
 const SPLICING_IN_SILICO_GROUP = 'Splicing'
@@ -1135,6 +1139,7 @@ export const NO_SV_IN_SILICO_GROUPS = [MISSENSE_IN_SILICO_GROUP, CODING_IN_SILIC
 export const SPLICE_AI_FIELD = 'splice_ai'
 
 export const PREDICTOR_FIELDS = [
+  { field: 'genetale_var_class_num', warningThreshold: 5, dangerThreshold: 6, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
   { field: 'cadd', group: CODING_IN_SILICO_GROUP, warningThreshold: 10, dangerThreshold: 20, min: 1, max: 99 },
   { field: 'revel', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.75 },
   { field: 'primate_ai', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.7 },
@@ -1194,6 +1199,7 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'gnomad_genomes_freq', getVal: getPopAf('gnomad_genomes') },
   { header: 'gnomad_exomes_freq', getVal: getPopAf('gnomad_exomes') },
   { header: 'topmed_freq', getVal: getPopAf('topmed') },
+  { header: 'genetale_var_class_num', getVal: variant => (variant.predictions || {}).genetale_var_class_num },
   { header: 'cadd', getVal: variant => (variant.predictions || {}).cadd },
   { header: 'revel', getVal: variant => (variant.predictions || {}).revel },
   { header: 'eigen', getVal: variant => (variant.predictions || {}).eigen },
@@ -1270,6 +1276,18 @@ const VARIANT_ICON_COLORS = {
   red: '#eaa8a8',
   amber: '#f5d55c',
   green: '#21a926',
+}
+
+export const PANEL_APP_MODE_OF_INHERITANCE_INITIALS = {
+  BIALLELIC: 'AR',
+  IMPRINTED_MATERNALY_EXPRESSED: null,
+  IMPRINTED_PATERNALY_EXPRESSED: null,
+  MITOCHONDRIAL: null,
+  MONOALLELIC: 'AD',
+  OTHER: null,
+  UNKNOWN: null,
+  X_LINKED_DOMINANT: 'XD',
+  X_LINKED_RECESSIVE: 'XR',
 }
 
 export const PANEL_APP_CONFIDENCE_DESCRIPTION = {

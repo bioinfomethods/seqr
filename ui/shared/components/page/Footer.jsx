@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { Table, Modal, Header } from 'semantic-ui-react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
 
 import { getVersion } from 'redux/selectors'
 import { ButtonLink } from '../StyledComponents'
@@ -49,16 +48,14 @@ const Footer = React.memo(({ version }) => (
             }
           />
         </TableHeaderCell>
-        <TableHeaderCell collapsing><Link to="/privacy_policy">Privacy Policy</Link></TableHeaderCell>
-        <TableHeaderCell collapsing><Link to="/terms_of_service">Terms of Service</Link></TableHeaderCell>
         <TableHeaderCell>
           For bug reports or feature requests please submit  &nbsp;
-          <a href="https://github.com/broadinstitute/seqr/issues">Github Issues</a>
+          <a href="https://git.mcri.edu.au/bioinfomethods/archie-support">MCRI Gitlab Issues</a>
         </TableHeaderCell>
         <TableHeaderCell collapsing textAlign="right">
           If you have questions or feedback, &nbsp;
           <a
-            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=seqr@broadinstitute.org"
+            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=archie@mcri.edu.au"
             target="_blank"
             rel="noreferrer"
           >

@@ -1,7 +1,7 @@
 import React from 'react'
 import Cookies from 'js-cookie'
 import { Modal } from 'semantic-ui-react'
-import { Route, Switch, Link } from 'react-router-dom'
+import { Route, Switch } from 'react-router-dom'
 
 const COOKIE_ACTIONS = [{
   primary: true,
@@ -22,10 +22,8 @@ const AcceptCookies = () => (
       header="This website uses cookies"
       content={
         <Modal.Content>
-          seqr collects cookies to improve our user experience and ensure the secure functioning of our site. For more
-          details, see our &npsp;
-          <Link target="_blank" to="/privacy_policy">Privacy Policy</Link>
-          . By clicking &quot;Accept&quot;, you consent to the use of these cookies.
+          seqr collects cookies to improve our user experience and ensure the secure functioning of our site.  By
+          clicking &quot;Accept&quot;, you consent to the use of these cookies.
         </Modal.Content>
       }
       actions={COOKIE_ACTIONS}

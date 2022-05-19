@@ -11,10 +11,17 @@ ui/jest*
 .ipynb_checkpoints
 
 deploy/secrets/gcloud*/*
-deploy/secrets/gcloud*/*
 deploy/*.tar.gz
 
 pedigree_images/*
 seqr_settings
 
 django_key
+
+data
+docker-compose.*.env
+.coverage
+generated_files
+seqr.*.env
+!seqr.template.env
+tmp

@@ -1,3 +1,6 @@
+import re
+from enum import Enum
+
 import requests
 from django.db import transaction
 from django.utils import timezone
@@ -9,6 +12,18 @@ from seqr.utils.logging_utils import SeqrLogger
 from seqr.views.utils.json_to_orm_utils import update_model_from_json, create_model_from_json
 
 logger = SeqrLogger(__name__)
+
+
+class MoiType(Enum):
+    BIALLELIC = 'BIALLELIC'
+    IMPRINTED_MATERNALY_EXPRESSED = 'IMPRINTED_MATERNALY_EXPRESSED'
+    IMPRINTED_PATERNALY_EXPRESSED = 'IMPRINTED_PATERNALY_EXPRESSED'
+    MITOCHONDRIAL = 'MITOCHONDRIAL'
+    MONOALLELIC = 'MONOALLELIC'
+    OTHER = 'OTHER'
+    UNKNOWN = 'UNKNOWN'
+    X_LINKED_DOMINANT = 'X_LINKED_DOMINANT'
+    X_LINKED_RECESSIVE = 'X_LINKED_RECESSIVE'
 
 
 def import_all_panels(user, panel_app_api_url, label=None):
@@ -44,6 +59,34 @@ def import_all_panels(user, panel_app_api_url, label=None):
                 _update_locus_list_genes_bulk(pa_locus_list, genes_by_id, panel_genes_by_id, user)
         except Exception as e:
             logger.error('Error occurred when importing gene panel_app_id={}, error={}'.format(panel_app_id, e), user)
+
+
+def moi_to_moi_types(moi):
+    if not moi:
+        return [MoiType.UNKNOWN]
+
+    if re.match(r'MONOALLELIC.*PATERNALLY IMPRINTED.*', moi.upper()):
+        return [MoiType.IMPRINTED_PATERNALY_EXPRESSED]
+    elif re.match(r'MONOALLELIC.*MATERNALLY IMPRINTED.*', moi.upper()):
+        return [MoiType.IMPRINTED_MATERNALY_EXPRESSED]
+    elif re.match(r'X-LINKED:.*BIALLELIC MUTATIONS.*', moi.upper()):
+        return [MoiType.X_LINKED_RECESSIVE]
+    elif re.match(r'X-LINKED:.*MONOALLELIC MUTATIONS.*', moi.upper()):
+        return [MoiType.X_LINKED_RECESSIVE, MoiType.X_LINKED_DOMINANT]
+    elif moi.upper().startswith('BIALLELIC'):
+        return [MoiType.BIALLELIC]
+    elif moi.upper().startswith('MONOALLELIC'):
+        return [MoiType.MONOALLELIC]
+    elif moi.upper().startswith('BOTH'):
+        return [MoiType.BIALLELIC, MoiType.MONOALLELIC]
+    elif moi.upper().startswith('MITOCHONDRIAL'):
+        return [MoiType.MITOCHONDRIAL]
+    elif moi.upper() == 'OTHER':
+        return [MoiType.OTHER]
+    elif moi.upper() == 'UNKNOWN':
+        return [MoiType.UNKNOWN]
+    else:
+        return [MoiType.OTHER]
 
 
 def delete_all_panels(user, panel_app_api_url):

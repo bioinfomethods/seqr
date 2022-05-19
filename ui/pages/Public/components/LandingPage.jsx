@@ -27,6 +27,7 @@ const LandingPage = ({ googleLoginEnabled }) => (
   <Segment.Group>
     <PageSegment textAlign="center" size="massive" secondary>
       <Header size="huge" content={<i>seqr</i>} />
+      <Header size="small" content={<i>MCRI Instance</i>} />
       <VerticalSpacer height={20} />
       An open source software platform for rare disease genomics
       <VerticalSpacer height={40} />
@@ -91,12 +92,13 @@ const LandingPage = ({ googleLoginEnabled }) => (
     <PageSegment secondary>
       <List bulleted>
         <List.Item>
-          If you are interested in collaborating with our group, please &nbsp;
-          <Anchor href="mailto:seqr@broadinstitute.org">contact us</Anchor>
+          The MCRI instance of seqr is maintained by the Bioinfomethods Group in collaboration with the Broad Institute.
+          For any enquiries, please &nbsp;
+          <Anchor href="mailto:archie@mcri.edu.au">contact us</Anchor>
         </List.Item>
         <List.Item>
           Please use the &nbsp;
-          <Anchor href="http://github.com/broadinstitute/seqr/issues">github issues page</Anchor>
+          <Anchor href="https://git.mcri.edu.au/bioinfomethods/archie-support">MCRI Gitlab issues page</Anchor>
           &nbsp; to submit bug reports or feature requests
         </List.Item>
         <List.Item>

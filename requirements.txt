@@ -325,3 +325,7 @@ yarl==1.7.2
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
+
+django-oauth-toolkit==1.5.0      # Enable API access from non browswer clients using access tokens
+environs==9.3.2                  # Conveniently manage environment variables with types
+social-auth-core[openidconnect]  # Extra, required for openid

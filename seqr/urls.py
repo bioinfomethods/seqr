@@ -11,6 +11,8 @@ from settings import ENABLE_DJANGO_DEBUG_TOOLBAR, MEDIA_ROOT, API_LOGIN_REQUIRED
 from django.conf.urls import url, include
 from django.contrib import admin
 from django.views.generic.base import RedirectView
+from mcri_ext.views.echo import echo
+
 import django.views.static
 
 from seqr.views.apis.family_api import \
@@ -102,6 +104,7 @@ from seqr.views.apis.users_api import \
     get_all_collaborator_options, \
     get_project_collaborator_options, \
     create_project_collaborator, \
+    create_project_collaborator_mcri, \
     update_project_collaborator, \
     delete_project_collaborator, \
     set_password, \
@@ -278,6 +281,9 @@ api_endpoints = {
     'project/(?P<project_guid>[^/]+)/collaborators/create': create_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/update': update_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/delete': delete_project_collaborator,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/create': create_project_collaborator_mcri,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/update': update_project_collaborator,
+    'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/delete': delete_project_collaborator,
 
     'awesomebar': awesomebar_autocomplete_handler,
 
@@ -308,6 +314,8 @@ api_endpoints = {
     'matchmaker/v1/metrics': external_api.mme_metrics_proxy,
 
     'create_project_from_workspace/submit/(?P<namespace>[^/]+)/(?P<name>[^/]+)': create_project_from_workspace,
+
+    'echo': echo,
 }
 
 urlpatterns = [url('^status', status_view)]

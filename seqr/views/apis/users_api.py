@@ -16,7 +16,7 @@ from seqr.views.utils.orm_to_json_utils import _get_json_for_user, get_json_for_
 from seqr.views.utils.permissions_utils import get_local_access_projects, get_project_and_check_permissions, \
     login_and_policies_required, login_active_required
 from seqr.views.utils.terra_api_utils import google_auth_enabled
-from settings import BASE_URL, SEQR_TOS_VERSION, SEQR_PRIVACY_VERSION
+from settings import BASE_URL, SEQR_TOS_VERSION, SEQR_PRIVACY_VERSION, SUPPORT_EMAIL
 
 logger = SeqrLogger(__name__)
 
@@ -141,6 +141,13 @@ def create_project_collaborator(request, project_guid):
         first_name=request_json.get('firstName') or '',
         last_name=request_json.get('lastName') or '',
     )
+
+    get_or_create_model_from_json(
+        UserPolicy, {'user': user}, update_json={
+            'privacy_version': SEQR_PRIVACY_VERSION,
+            'tos_version': SEQR_TOS_VERSION,
+        }, user=user)
+
     logger.info('Created user {} (local)'.format(request_json['email']), request.user)
 
     send_welcome_email(user, request.user)
@@ -150,6 +157,25 @@ def create_project_collaborator(request, project_guid):
     return create_json_response({
         'projectsByGuid': {project_guid: {'collaborators': get_json_for_project_collaborator_list(request.user, project)}}
     })
+
+
+@login_and_policies_required
+def create_project_collaborator_mcri(request, project_guid):
+    project = get_project_and_check_permissions(project_guid, request.user, can_edit=True)
+    if project.workspace_name:
+        raise PermissionDenied(
+            'Adding collaborators directly in seqr is disabled. Users can be managed from the associated AnVIL workspace')
+
+    request_json = json.loads(request.body)
+    if not request_json.get('email'):
+        return create_json_response({'error': 'Email is required'}, status=400)
+
+    existing_user = User.objects.filter(email__iexact=request_json['email']).first()
+    if existing_user:
+        return _update_existing_user(existing_user, project, request_json)
+    else:
+        raise PermissionDenied(
+            f'Adding new collaborators directly in Seqr is disabled.  Please send email to {SUPPORT_EMAIL} for requesting access.')
 
 
 def _update_user_from_json(user, request_json, **kwargs):
