@@ -93,6 +93,12 @@ zipp==3.7.0
     #   importlib-metadata
     #   pep517
 
+#############
+# MCRI deps #
+#############
+parameterized==0.8.1
+    # https://github.com/wolever/parameterized
+
 # The following packages are considered to be unsafe in a requirements file:
 # pip
 # setuptools
