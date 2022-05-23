@@ -44,8 +44,9 @@ Make sure you're on the correct branch!
 COMPOSE_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.yml"
 COMPOSE_BUILD_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/docker-compose.build.yml"
 
-# Use seqr.template.env or create your own (if changing build ENV vars) 
-COMPOSE_ENV_FILE="$PROJECT_DIR/mcri_deploy/docker-compose/seqr.template.env"
+# Use seqr.template.env as .env, update ENV vars if necessary
+cp "$PROJECT_DIR/mcri_deploy/docker-compose/seqr.template.env" "$PROJECT_DIR/.env" 
+COMPOSE_ENV_FILE="$PROJECT_DIR/.env"
 source $COMPOSE_ENV_FILE
 
 # Build image and adds latest Docker tag by default
@@ -53,8 +54,7 @@ docker-compose --verbose \
   -f $COMPOSE_FILE \
   -f $COMPOSE_BUILD_FILE \
   --env-file=$COMPOSE_ENV_FILE \
-  build \
-  --build-arg "DISABLE_CACHE=2"
+  build
 
 # After build successful, tag Git repo and Docker repo
 # MCRI Seqr follows CalVer, change number after _ (underscore) if deploying multiple times
