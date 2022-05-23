@@ -1,7 +1,20 @@
-version: '2.4'
+version: '3.4'
 
 services:
 
+  postgres:
+    build:
+      context: ../../mcri_deploy/docker/postgres
+
+  redis:
+    build:
+      context: ../../mcri_deploy/docker/redis
+
   seqr:
     build:
-      context: ../../deploy/docker/seqr
+      dockerfile: deploy/docker/seqr/Dockerfile
+      context: ../../
+
+  pipeline-runner:
+    build:
+      context: ../../deploy/docker/pipeline-runner
