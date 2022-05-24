@@ -21,7 +21,9 @@ function error() {
     echo "[$(date +'%Y-%m-%dT%H:%M:%S%z') ERROR $(basename "$0")] $*" >&2
 }
 
-set -euo pipefail
+function usage() {
+    info "usage: build_seqr.sh {test|prod|info}"
+}
 
 check_command() {
     if ! command -v "$1" &> /dev/null
@@ -34,6 +36,13 @@ check_command() {
 check_command "git"
 check_command "docker"
 check_command "docker-compose"
+
+if [ -z "$1" ]; then
+    usage
+    exit 3
+fi
+
+set -euo pipefail
 
 build() {
     PROJECT_DIR="$HOME/$1"
@@ -113,7 +122,7 @@ prod)
     build "seqr"
     ;;
 *)
-    info "usage: build_seqr.sh {test|prod|info}"
+    usage
     exit 3
     ;;
 esac
