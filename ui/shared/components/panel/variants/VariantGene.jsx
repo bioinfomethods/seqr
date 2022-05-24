@@ -13,7 +13,7 @@ import {
 } from '../../../utils/constants'
 import { camelcaseToTitlecase } from '../../../utils/stringUtils'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
-import { InlineHeader, NoBorderTable, ButtonLink, ColoredLabel, FlexLabel } from '../../StyledComponents'
+import { InlineHeader, NoBorderTable, ButtonLink, ColoredLabel } from '../../StyledComponents'
 import { GeneSearchLink } from '../../buttons/SearchResultsLink'
 import ShowGeneModal from '../../buttons/ShowGeneModal'
 import Modal from '../../modal/Modal'
@@ -36,26 +36,37 @@ const PADDED_INLINE_STYLE = {
 }
 
 const BaseGeneLabelContent = styled(({
-  color, customColor, hint, label, maxWidth, containerStyle, dispatch, ...props
+  color, customColor, label, maxWidth, containerStyle, dispatch, ...props
 }) => {
   const labelProps = {
     ...props,
     size: 'mini',
-    content: label,
-  }
-
-  if (hint && customColor) {
-    return <FlexLabel {...labelProps} color={customColor} label={label} hint={hint} />
+    content: <span>{label}</span>,
   }
 
   return customColor ?
     <ColoredLabel {...labelProps} color={customColor} /> : <Label {...labelProps} color={color || 'grey'} />
 })`
-   margin: ${props => props.margin || '0px .5em .8em 0px'} !important;
-   overflow: hidden;
-   text-overflow: ellipsis;
-   white-space: nowrap;
-   max-width: ${props => props.maxWidth || 'none'};
+  margin: ${props => props.margin || '0px .5em .8em 0px'} !important;
+  white-space: nowrap;
+
+  span {
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: ${props => props.maxWidth || 'none'};
+  }
+
+  .detail {
+    margin-left: 0.5em !important;
+
+    &::before {
+      content: "(";
+    }
+    &::after {
+      content: ")";
+    }
+  }
 `
 const GeneLabelContent = props => <BaseGeneLabelContent {...props} />
 
@@ -90,9 +101,9 @@ GeneLabel.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
-const PanelAppHoverOver = ({ url, panelAppPanel, confidence, initials, moi }) => (
+const PanelAppHoverOver = ({ url, locusListDescription, confidence, initials, moi }) => (
   <div>
-    <a target="_blank" href={url} rel="noreferrer">{panelAppPanel}</a>
+    <a target="_blank" href={url} rel="noreferrer">{locusListDescription}</a>
     <br />
     <br />
     <b>PanelApp gene confidence: &nbsp;</b>
@@ -108,22 +119,30 @@ const PanelAppHoverOver = ({ url, panelAppPanel, confidence, initials, moi }) =>
 
 PanelAppHoverOver.propTypes = {
   url: PropTypes.string.isRequired,
-  panelAppPanel: PropTypes.string.isRequired,
+  locusListDescription: PropTypes.string.isRequired,
   confidence: PropTypes.string.isRequired,
   initials: PropTypes.string.isRequired,
   moi: PropTypes.string.isRequired,
 }
 
-function getPaProps({ panelAppDetails, panelAppPanel, paLocusList, geneSymbol }) {
+function getPaProps({ panelAppDetails, locusListDescription, paLocusList, geneSymbol }) {
+  if (!panelAppDetails || !paLocusList || !geneSymbol) {
+    return {
+      initials: null,
+      description: locusListDescription,
+      customColor: false,
+    }
+  }
+
   const { url, panelAppId } = paLocusList
   const fullUrl = panelAppUrl(url, panelAppId, geneSymbol)
   const moi = panelAppDetails.moi || 'Unknown'
   const confidence = panelAppDetails.confidence || 'Unknown'
-  const initials = moiToMoiInitials(moi).join(', ')
+  const initials = moiToMoiInitials(moi).join(', ') || null
 
   const description = PanelAppHoverOver({
     url: fullUrl,
-    panelAppPanel,
+    locusListDescription,
     confidence,
     initials,
     moi,
@@ -156,15 +175,17 @@ const BaseLocusListLabels = React.memo((
     <div style={containerStyle}>
       {locusListGuids.map((locusListGuid) => {
         const locusList = locusListsByGuid[locusListGuid]
-        const panelAppDetails = panelAppDetail[locusListGuid]
+        const panelAppDetails = panelAppDetail && panelAppDetail[locusListGuid]
         const { name: label, description: locusListDescription, paLocusList } = locusList
-        const { description, initials, customColor } = panelAppDetails && paLocusList ? getPaProps({
+        const { description, initials, customColor } = (panelAppDetails && paLocusList) ? getPaProps({
           panelAppDetails,
-          panelAppPanel: locusListDescription || '',
+          locusListDescription,
           paLocusList,
           geneSymbol,
         }) : {
           description: label,
+          initials: false,
+          customColor: false,
         }
 
         return (
@@ -172,8 +193,8 @@ const BaseLocusListLabels = React.memo((
             key={locusListGuid}
             color="teal"
             customColor={customColor}
-            hint={initials}
-            maxWidth="12em"
+            detail={initials}
+            maxWidth="8em"
             showEmpty
             label={label}
             description={label}
