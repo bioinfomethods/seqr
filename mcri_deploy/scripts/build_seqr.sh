@@ -22,7 +22,7 @@ function error() {
 }
 
 function usage() {
-    info "usage: build_seqr.sh {test|prod|info}"
+    info "usage: build_seqr.sh {test|prod|info} <all>"
 }
 
 check_command() {
