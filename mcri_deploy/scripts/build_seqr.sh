@@ -42,6 +42,12 @@ if [ -z "$1" ]; then
     exit 3
 fi
 
+if [[ "$2" == "all" ]]; then
+    BUILD_ALL=1
+else
+    BUILD_ALL=0
+fi
+
 set -euo pipefail
 
 build() {
@@ -66,17 +72,53 @@ build() {
         eval "$line"
     done
 
-    # Build image and adds latest Docker tag by default
+    # Tagging
+    SEQR_GIT_BRANCH_NAME=$(git branch --format='%(refname:short)')
+    SEQR_GIT_BRANCH_TAG=${SEQR_GIT_BRANCH_NAME/\//_}
+    SEQR_LONG_GIT_TAG=$(git describe --long)
+
+    if [ "$BUILD_ALL" -eq 1 ]; then
+        build_all "$@"
+    else
+        build_seqr "$@"
+    fi
+}
+
+build_seqr() {
+    info "Building seqr component only"
+    docker-compose --verbose \
+      -f "$COMPOSE_FILE" \
+      -f "$COMPOSE_BUILD_FILE" \
+      --env-file="$COMPOSE_ENV_FILE" \
+      build seqr
+
+    docker-compose --verbose \
+      -f "$COMPOSE_FILE" \
+      -f "$COMPOSE_BUILD_FILE" \
+      --env-file="$COMPOSE_ENV_FILE" \
+      push seqr
+
+    docker tag "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_IMAGE_TAG" "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_GIT_BRANCH_TAG"
+    docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_GIT_BRANCH_TAG"
+
+    docker tag "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_IMAGE_TAG" "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_LONG_GIT_TAG"
+    docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_LONG_GIT_TAG"
+
+    if [[ "$1" == "seqr" ]]; then
+        SEQR_VERSION="v$(date +"%Y.%m.%d")_00"
+        docker tag "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_IMAGE_TAG" "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
+        docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
+    fi
+}
+
+build_all() {
+    info "Building all components"
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
       build
 
-    # Tagging
-    SEQR_GIT_BRANCH_NAME=$(git branch --format='%(refname:short)')
-    SEQR_GIT_BRANCH_TAG=${SEQR_GIT_BRANCH_NAME/\//_}
-    SEQR_LONG_GIT_TAG=$(git describe --long)
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
