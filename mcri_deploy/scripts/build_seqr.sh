@@ -22,7 +22,7 @@ function error() {
 }
 
 function usage() {
-    info "usage: build_seqr.sh {test|prod|info} <all>"
+    info "usage: build_seqr.sh {test|prod|info} <seqr|pipeline-runner|all>"
 }
 
 check_command() {
@@ -42,10 +42,10 @@ if [ -z "$1" ]; then
     exit 3
 fi
 
-if [[ "$2" == "all" ]]; then
-    BUILD_ALL=1
+if [ -z "$2" ]; then
+    BUILD_COMPONENT="all"
 else
-    BUILD_ALL=0
+    BUILD_COMPONENT="$2"
 fi
 
 set -euo pipefail
@@ -77,10 +77,15 @@ build() {
     SEQR_GIT_BRANCH_TAG=${SEQR_GIT_BRANCH_NAME/\//_}
     SEQR_LONG_GIT_TAG=$(git describe --long)
 
-    if [ "$BUILD_ALL" -eq 1 ]; then
+    if [ "$BUILD_COMPONENT" == "all" ]; then
         build_all "$@"
-    else
+    elif [ "$BUILD_COMPONENT" == "seqr" ]; then
         build_seqr "$@"
+    elif [ "$BUILD_COMPONENT" == "pipeline-runner" ]; then
+        build_pr "$@"
+    else
+        usage
+        exit 3
     fi
 }
 
@@ -108,6 +113,33 @@ build_seqr() {
         SEQR_VERSION="v$(date +"%Y.%m.%d")_00"
         docker tag "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_IMAGE_TAG" "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
         docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
+    fi
+}
+
+build_pr() {
+    info "Building pipeline-runner component only"
+    docker-compose --verbose \
+      -f "$COMPOSE_FILE" \
+      -f "$COMPOSE_BUILD_FILE" \
+      --env-file="$COMPOSE_ENV_FILE" \
+      build pipeline-runner
+
+    docker-compose --verbose \
+      -f "$COMPOSE_FILE" \
+      -f "$COMPOSE_BUILD_FILE" \
+      --env-file="$COMPOSE_ENV_FILE" \
+      push pipeline-runner
+
+    docker tag "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$PIPELINE_RUNNER_IMAGE_TAG" "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_GIT_BRANCH_TAG"
+    docker push "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_GIT_BRANCH_TAG"
+
+    docker tag "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$PIPELINE_RUNNER_IMAGE_TAG" "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_LONG_GIT_TAG"
+    docker push "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_LONG_GIT_TAG"
+
+    if [[ "$1" == "seqr" ]]; then
+        SEQR_VERSION="v$(date +"%Y.%m.%d")_00"
+        docker tag "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$PIPELINE_RUNNER_IMAGE_TAG" "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_VERSION"
+        docker push "$CONTAINER_REGISTRY/$PIPELINE_RUNNER_IMAGE_NAME:$SEQR_VERSION"
     fi
 }
 
