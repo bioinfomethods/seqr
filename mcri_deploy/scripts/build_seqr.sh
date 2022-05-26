@@ -48,6 +48,12 @@ else
     BUILD_COMPONENT="$2"
 fi
 
+if [ -z "$3" ]; then
+    BUILD_OPTS="--progress auto"
+else
+    BUILD_OPTS="--progress auto $3"
+fi
+
 set -euo pipefail
 
 build() {
@@ -91,11 +97,12 @@ build() {
 
 build_seqr() {
     info "Building seqr component only"
+    set -x
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
-      build seqr
+      build $BUILD_OPTS seqr
 
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
@@ -118,11 +125,12 @@ build_seqr() {
 
 build_pr() {
     info "Building pipeline-runner component only"
+    set -x
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
-      build pipeline-runner
+      build $BUILD_OPTS pipeline-runner
 
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
@@ -145,11 +153,12 @@ build_pr() {
 
 build_all() {
     info "Building all components"
+    set -x
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
-      build
+      build $BUILD_OPTS
 
     docker-compose --verbose \
       -f "$COMPOSE_FILE" \
