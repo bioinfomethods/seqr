@@ -3,13 +3,12 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
 import { NavLink } from 'react-router-dom'
-import { Label, Popup, List, ListItem, Header, Segment, Divider, Table, Button, Loader } from 'semantic-ui-react'
+import { Label, Popup, List, Header, Segment, Divider, Table, Button, Loader } from 'semantic-ui-react'
 
 import { getGenesById, getLocusListsByGuid, getFamiliesByGuid } from 'redux/selectors'
 import { panelAppUrl, moiToMoiInitials } from '../../../utils/panelAppUtils'
 import {
   MISSENSE_THRESHHOLD, LOF_THRESHHOLD, PANEL_APP_CONFIDENCE_LEVEL_COLORS, PANEL_APP_CONFIDENCE_DESCRIPTION,
-  GENETALE_INHERITANCE_CODES,
 } from '../../../utils/constants'
 import { compareObjects } from '../../../utils/sortUtils'
 import { camelcaseToTitlecase } from '../../../utils/stringUtils'
@@ -400,13 +399,6 @@ const GENE_DETAIL_SECTIONS = [
   },
 ]
 
-const GENETALE_SECTIONS = [
-  {
-    color: 'orange',
-    description: 'Genetale All Inheritances',
-  },
-]
-
 const OmimSegments = styled(Segment.Group).attrs({ size: 'tiny', horizontal: true, compact: true })`
   width: 100%;
   max-height: 6em;
@@ -454,7 +446,7 @@ const getDetailSections = (configs, gene, compact, labelProps, rnaSeqData) => co
 ))
 
 export const GeneDetails = React.memo((
-  { gene, genetale, compact, showLocusLists, showInlineDetails, rnaSeqData, ...labelProps },
+  { gene, compact, showLocusLists, showInlineDetails, rnaSeqData, ...labelProps },
 ) => {
   const geneDetails = getDetailSections(GENE_DETAIL_SECTIONS, gene, compact, labelProps, rnaSeqData)
   const geneDiseaseDetails = getDetailSections(GENE_DISEASE_DETAIL_SECTIONS, gene, compact, labelProps)
@@ -477,35 +469,11 @@ export const GeneDetails = React.memo((
     ),
     ...geneDiseaseDetails,
     !showInlineDetails && geneDiseaseDetails.length > 0 && <br key="br" />,
-    <div>
-      {GENETALE_SECTIONS.map(({ showDetails, detailsDisplay, ...sectionConfig }) => {
-        const allInheritances = (genetale?.allInheritances || [])
-          .filter(v => GENETALE_INHERITANCE_CODES.includes(v.toUpperCase()))
-        const label = `GENETALE ${allInheritances.join(', ')}`
-        const details = allInheritances.length > 0 ? (
-          <List>
-            {allInheritances.map(h => <ListItem key={h} content={h} />)}
-          </List>
-        ) : null
-
-        return (
-          <GeneDetailSection
-            key={sectionConfig.label}
-            compact={compact}
-            details={details}
-            label={label}
-            {...sectionConfig}
-            {...labelProps}
-          />
-        )
-      })}
-    </div>,
   ]
 })
 
 GeneDetails.propTypes = {
   gene: PropTypes.object,
-  genetale: PropTypes.object,
   compact: PropTypes.bool,
   showLocusLists: PropTypes.bool,
   showInlineDetails: PropTypes.bool,
@@ -542,7 +510,6 @@ const BaseVariantGene = React.memo((
   const geneDetails = (
     <GeneDetails
       gene={gene}
-      genetale={variant.genetale}
       compact={compactDetails}
       showInlineDetails={showInlineDetails}
       margin={showInlineDetails ? '1em .5em 0px 0px' : null}
