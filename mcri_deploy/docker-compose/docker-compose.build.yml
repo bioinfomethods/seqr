@@ -14,7 +14,3 @@ services:
     build:
       dockerfile: deploy/docker/seqr/Dockerfile
       context: ../../
-
-  pipeline-runner:
-    build:
-      context: ../../deploy/docker/pipeline-runner
