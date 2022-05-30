@@ -253,6 +253,17 @@ SORT_FIELDS.update({
     for sort, sort_field in PREDICTOR_SORT_FIELDS.items()
 })
 
+GENETALE_FIELDS = {
+    'all_diseases': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'all_inheritances': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'alt_res_flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'gene_class': {},
+    'gene_class_info': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'previous': {'format_value': lambda values: [v for v in values], 'default_value': []},
+    'var_class_num': {}
+}
+
 CLINVAR_KEY = 'clinvar'
 CLINVAR_FIELDS = ['clinical_significance', 'variation_id', 'allele_id', 'gold_stars']
 HGMD_KEY = 'hgmd'
@@ -312,6 +323,12 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
+    'genetale_var_class_num': {'response_key': 'genetale_var_class_num'},
+    'genetale_gene_class_info': {
+        'response_key': 'genetale_gene_class_info',
+        'format_value': lambda values: [v for v in values],
+        'default_value': []
+    },
 }
 
 def get_prediction_response_key(key):

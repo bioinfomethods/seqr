@@ -150,6 +150,36 @@ ES_VARIANTS = [
           'gnomad_exomes_AF': 0.00006505916317651364,
           'gnomad_genomes_AF': 0.00012925741614425127,
           'gnomad_genomes_AC': 4,
+          'genetale_all_diseases': [
+            '(3)',
+            'AD',
+            'OMIM:Robinowsyndrome',
+            'autosomaldominant2',
+          ],
+          'genetale_all_inheritances': [
+            'AD',
+            'none',
+          ],
+          'genetale_alt_res_flag': [
+            'none',
+            'none'
+          ],
+          'genetale_flag': [
+            'none',
+            'none',
+            'none'
+          ],
+          'genetale_gene_class': '0',
+          'genetale_gene_class_info': [
+            'NOC2L(26155):0-3B',
+            'SAMD11(148398):0-3B',
+          ],
+          'genetale_previous': [
+            'none',
+            'none',
+            'none'
+          ],
+          'genetale_var_class_num': 4,
           'genotypes': [
             {
               'num_alt': 2,
@@ -299,6 +329,18 @@ ES_VARIANTS = [
           'gnomad_exomes_AF': 0.000024418633044922146,
           'gnomad_genomes_AF': None,
           'gnomad_genomes_AC': None,
+          'genetale_all_diseases': [],
+          'genetale_all_inheritances': None,
+          'genetale_alt_res_flag': [
+            'none',
+            'none',
+            'none'
+          ],
+          'genetale_flag': None,
+          'genetale_gene_class': None,
+          'genetale_gene_class_info': None,
+          'genetale_previous': None,
+          'genetale_var_class_num': None,
           'genotypes': [
             {
                 'num_alt': 1,
@@ -734,6 +776,16 @@ SV_MAPPING_FIELDS = [
     'gnomad_svs_ID',
     'bothsides_support',
 ]
+GENETALE_FIELDS = [
+    'genetale_all_diseases',
+    'genetale_all_inheritances',
+    'genetale_alt_res_flag',
+    'genetale_flag',
+    'genetale_gene_class',
+    'genetale_gene_class_info',
+    'genetale_previous',
+    'genetale_var_class_num',
+]
 
 SOURCE_FIELDS = {
     'callset_Hom', 'callset_Hemi', 'callset_Het', 'callset_ID', 'sv_callset_Hemi',
@@ -741,6 +793,7 @@ SOURCE_FIELDS = {
 }
 SOURCE_FIELDS.update(MAPPING_FIELDS)
 SOURCE_FIELDS.update(SV_MAPPING_FIELDS)
+SOURCE_FIELDS.update(GENETALE_FIELDS)
 SOURCE_FIELDS -= {
     'samples_no_call', 'samples_cn_0', 'samples_cn_1', 'samples_cn_2', 'samples_cn_3', 'samples_cn_gte_4', 'topmed_Het',
     'gnomad_genomes_FAF_AF',
