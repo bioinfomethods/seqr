@@ -22,7 +22,7 @@ function error() {
 }
 
 function usage() {
-    info "usage: build_seqr.sh {test|prod|info} <seqr|pipeline-runner|all>"
+    info "usage: build_seqr.sh {test|prod|info} <seqr|all>"
 }
 
 check_command() {
@@ -87,8 +87,6 @@ build() {
         build_all "$@"
     elif [ "$BUILD_COMPONENT" == "seqr" ]; then
         build_seqr "$@"
-    elif [ "$BUILD_COMPONENT" == "pipeline-runner" ]; then
-        build_pr "$@"
     else
         usage
         exit 3
