@@ -17,8 +17,8 @@ PROJECT_GUID = 'R0001_1kg'
 ES_CAT_ALLOCATION=[{
     'node': 'node-1',
     'shards': '113',
-    'disk.used': '67.2gb',
-    'disk.avail': '188.6gb',
+    'disk.used': '67200000000',
+    'disk.avail': '188600000000',
     'disk.percent': '26'
 },
     {'node': 'UNASSIGNED',
@@ -39,8 +39,8 @@ ES_CAT_NODES=[{
 EXPECTED_DISK_ALLOCATION = [{
     'node': 'node-1',
     'shards': '113',
-    'diskUsed': '67.2gb',
-    'diskAvail': '188.6gb',
+    'diskUsed': '67200000000',
+    'diskAvail': '188600000000',
     'diskPercent': '26',
     'heapPercent': '57',
 },
@@ -56,37 +56,37 @@ EXPECTED_NODE_STATS = [{'name': 'no-disk-node', 'heapPercent': '83'}]
 ES_CAT_INDICES = [{
     "index": "test_index",
     "docs.count": "122674997",
-    "store.size": "14.9gb",
+    "store.size": "14900000000",
     "creation.date.string": "2019-11-04T19:33:47.522Z"
 },
     {
         "index": "test_index_alias_1",
         "docs.count": "672312",
-        "store.size": "233.4mb",
+        "store.size": "233400000",
         "creation.date.string": "2019-10-03T19:53:53.846Z"
     },
     {
         "index": "test_index_alias_2",
         "docs.count": "672312",
-        "store.size": "233.4mb",
+        "store.size": "233400000",
         "creation.date.string": "2019-10-03T19:53:53.846Z"
     },
     {
         "index": "test_index_no_project",
         "docs.count": "672312",
-        "store.size": "233.4mb",
+        "store.size": "233400000",
         "creation.date.string": "2019-10-03T19:53:53.846Z"
     },
     {
         "index": "test_index_sv",
         "docs.count": "672312",
-        "store.size": "233.4mb",
+        "store.size": "233400000",
         "creation.date.string": "2019-10-03T19:53:53.846Z"
     },
     {
         "index": "test_index_sv_wgs",
         "docs.count": "672312",
-        "store.size": "233.4mb",
+        "store.size": "233400000",
         "creation.date.string": "2019-10-03T19:53:53.846Z"
     },
 ]
@@ -187,7 +187,7 @@ TEST_INDEX_EXPECTED_DICT = {
     "genomeVersion": "38",
     "sourceFilePath": "test_index_file_path",
     "docsCount": "122674997",
-    "storeSize": "14.9gb",
+    "storeSize": "14900000000",
     "creationDateString": "2019-11-04T19:33:47.522Z",
     "gencodeVersion": "25",
     "projects": [{'projectName': '1kg project n\xe5me with uni\xe7\xf8de', 'projectGuid': 'R0001_1kg'}]
@@ -199,7 +199,7 @@ TEST_SV_INDEX_EXPECTED_DICT = {
     "genomeVersion": "38",
     "sourceFilePath": "test_sv_index_path",
     "docsCount": "672312",
-    "storeSize": "233.4mb",
+    "storeSize": "233400000",
     "creationDateString": "2019-10-03T19:53:53.846Z",
     "gencodeVersion": "29",
     "datasetType": "SV",
@@ -212,7 +212,7 @@ TEST_INDEX_NO_PROJECT_EXPECTED_DICT = {
     "genomeVersion": "37",
     "sourceFilePath": "test_index_no_project_path",
     "docsCount": "672312",
-    "storeSize": "233.4mb",
+    "storeSize": "233400000",
     "creationDateString": "2019-10-03T19:53:53.846Z",
     "datasetType": "VARIANTS",
     "gencodeVersion": "19",
@@ -289,11 +289,11 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.check_data_manager_login(url)
 
         urllib3_responses.add_json(
-            '/_cat/allocation?format=json&h=node,shards,disk.avail,disk.used,disk.percent', ES_CAT_ALLOCATION)
+            '/_cat/allocation?bytes=b&format=json&h=node,shards,disk.avail,disk.used,disk.percent', ES_CAT_ALLOCATION)
         urllib3_responses.add_json(
             '/_cat/nodes?format=json&h=name,heap.percent', ES_CAT_NODES)
         urllib3_responses.add_json(
-           '/_cat/indices?format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
+           '/_cat/indices?bytes=b&format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
         urllib3_responses.add_json('/_cat/aliases?format=json&h=alias,index', ES_CAT_ALIAS)
         urllib3_responses.add_json('/_all/_mapping', ES_INDEX_MAPPING)
 
@@ -324,7 +324,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertEqual(len(urllib3_responses.calls), 0)
 
         urllib3_responses.add_json(
-            '/_cat/indices?format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
+            '/_cat/indices?bytes=b&format=json&h=index,docs.count,store.size,creation.date.string', ES_CAT_INDICES)
         urllib3_responses.add_json('/_cat/aliases?format=json&h=alias,index', ES_CAT_ALIAS)
         urllib3_responses.add_json('/_all/_mapping', ES_INDEX_MAPPING)
         urllib3_responses.add(urllib3_responses.DELETE, '/unused_index')
