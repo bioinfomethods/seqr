@@ -9,25 +9,26 @@ import DataTable from 'shared/components/table/DataTable'
 import DataLoader from 'shared/components/DataLoader'
 import { getElasticsearchStatusLoading, getElasticsearchStatusData } from '../selectors'
 import { loadElasticsearchStatus, deleteEsIndex } from '../reducers'
+import { formatBytes } from '../../../shared/utils/stringUtils'
 
 const DISK_STAT_COLUMNS = [
   { name: 'node', content: 'Node name' },
-  { name: 'shards', content: 'Shards' },
-  { name: 'diskAvail', content: 'Disk available' },
-  { name: 'diskUsed', content: 'Disk used' },
-  { name: 'diskPercent', content: 'Disk %' },
-  { name: 'heapPercent', content: 'Heap %' },
+  { name: 'shards', content: 'Shards', textAlign: 'right' },
+  { name: 'diskAvail', content: 'Disk available', textAlign: 'right', format: diskStatus => formatBytes(diskStatus.diskAvail) },
+  { name: 'diskUsed', content: 'Disk used', textAlign: 'right', format: diskStatus => formatBytes(diskStatus.diskUsed) },
+  { name: 'diskPercent', content: 'Disk %', textAlign: 'right' },
+  { name: 'heapPercent', content: 'Heap %', textAlign: 'right' },
 ]
 
 const NODE_STAT_COLUMNS = [
   { name: 'name', content: 'Node name' },
-  { name: 'heapPercent', content: 'Heap %' },
+  { name: 'heapPercent', content: 'Heap %', textAlign: 'right' },
 ]
 
 const INDEX_COLUMNS = [
   { name: 'index', content: 'Index' },
   {
-    name: 'projects',
+    name: 'projectsSort',
     content: 'Project(s)',
     format: row => ((row.projects && row.projects.length) ? row.projects.map(project => (
       <div key={project.projectGuid}>
@@ -39,8 +40,8 @@ const INDEX_COLUMNS = [
   { name: 'sampleType', content: 'Data Type' },
   { name: 'genomeVersion', content: 'Genome Version' },
   { name: 'creationDateString', content: 'Created Date', format: row => row.creationDateString.split('T')[0] },
-  { name: 'docsCount', content: '# Records' },
-  { name: 'storeSize', content: 'Size' },
+  { name: 'docsCount', content: '# Records', textAlign: 'right' },
+  { name: 'storeSize', content: 'Size', textAlign: 'right', format: row => formatBytes(row.storeSize) },
   { name: 'sourceFilePath', content: 'File Path' },
 ]
 
@@ -61,49 +62,72 @@ const mapDeleteIndexDispatchToProps = (dispatch, ownProps) => ({
 
 const DeleteIndexButton = connect(null, mapDeleteIndexDispatchToProps)(BaseDeleteIndexButton)
 
-const ElasticsearchStatus = React.memo(({ data, loading, load }) => (
-  <DataLoader load={load} content={Object.keys(data).length} loading={loading}>
-    <Grid columns={2}>
-      <Grid.Column>
-        <Header size="medium" content="Disk Status:" />
-        <DataTable
-          striped
-          collapsing
-          singleLine
-          idField="node"
-          defaultSortColumn="node"
-          data={data.diskStats}
-          columns={DISK_STAT_COLUMNS}
-        />
-      </Grid.Column>
-      <Grid.Column>
-        <Header size="medium" content="Node Status:" />
-        <DataTable
-          striped
-          collapsing
-          singleLine
-          idField="name"
-          defaultSortColumn="name"
-          data={data.nodeStats}
-          columns={NODE_STAT_COLUMNS}
-        />
-      </Grid.Column>
-    </Grid>
+const ElasticsearchStatus = React.memo(({ data, loading, load }) => {
+  const diskStats = data.diskStats?.map(diskStat => ({
+    ...diskStat,
+    shards: parseInt(diskStat.shards, 10),
+    diskPercent: parseInt(diskStat.diskPercent, 10) || '',
+    heapPercent: parseInt(diskStat.heapPercent, 10) || '',
+    diskAvail: parseInt(diskStat.diskAvail, 10) || '',
+    diskUsed: parseInt(diskStat.diskUsed, 10) || '',
+  })) || []
 
-    <Header size="medium" content="Loaded Indices:" />
-    {data.errors && data.errors.length > 0 && <Message error list={data.errors} />}
-    <DataTable
-      striped
-      collapsing
-      horizontalScroll
-      idField="index"
-      defaultSortColumn="creationDateString"
-      defaultSortDescending
-      data={data.indices}
-      columns={INDEX_COLUMNS}
-    />
-  </DataLoader>
-))
+  const nodeStats = data.nodeStats?.map(nodeStat => ({
+    ...nodeStat,
+    heapPercent: parseInt(nodeStat.heapPercent, 10) || '',
+  })) || []
+
+  const indices = data.indices?.map(index => ({
+    ...index,
+    docsCount: parseInt(index.docsCount, 10),
+    storeSize: parseInt(index.storeSize, 10),
+    projectsSort: index.projects?.map(project => `000${index.projects.length}`.slice(-3) + project.projectName)[0],
+  })) || []
+
+  return (
+    <DataLoader load={load} content={Object.keys(data).length} loading={loading}>
+      <Grid columns={2}>
+        <Grid.Column>
+          <Header size="medium" content="Disk Status:" />
+          <DataTable
+            striped
+            collapsing
+            singleLine
+            idField="node"
+            defaultSortColumn="node"
+            data={diskStats}
+            columns={DISK_STAT_COLUMNS}
+          />
+        </Grid.Column>
+        <Grid.Column>
+          <Header size="medium" content="Node Status:" />
+          <DataTable
+            striped
+            collapsing
+            singleLine
+            idField="name"
+            defaultSortColumn="name"
+            data={nodeStats}
+            columns={NODE_STAT_COLUMNS}
+          />
+        </Grid.Column>
+      </Grid>
+
+      <Header size="medium" content="Loaded Indices:" />
+      {data.errors && data.errors.length > 0 && <Message error list={data.errors} />}
+      <DataTable
+        striped
+        collapsing
+        horizontalScroll
+        idField="index"
+        defaultSortColumn="creationDateString"
+        defaultSortDescending
+        data={indices}
+        columns={INDEX_COLUMNS}
+      />
+    </DataLoader>
+  )
+})
 
 ElasticsearchStatus.propTypes = {
   data: PropTypes.object,

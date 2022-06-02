@@ -36,7 +36,7 @@ def elasticsearch_status(request):
 
     disk_status = {
         disk['node']: disk for disk in
-        _get_es_meta(client, 'allocation', ['node', 'shards', 'disk.avail', 'disk.used', 'disk.percent'])
+        _get_es_meta(client, 'allocation', ['node', 'shards', 'disk.avail', 'disk.used', 'disk.percent'], {'bytes':"b"})
     }
 
     node_stats = {}
@@ -60,15 +60,15 @@ def elasticsearch_status(request):
     })
 
 
-def _get_es_meta(client, meta_type, fields, filter_rows=None):
+def _get_es_meta(client, meta_type, fields, options={}, filter_rows=None):
     return [{
         _to_camel_case(field.replace('.', '_')): o[field] for field in fields
-    } for o in getattr(client.cat, meta_type)(format="json", h=','.join(fields))
+    } for o in getattr(client.cat, meta_type)(**options, format="json", h=','.join(fields))
         if filter_rows is None or filter_rows(o)]
 
 def _get_es_indices(client):
     indices = _get_es_meta(
-        client, 'indices', ['index', 'docs.count', 'store.size', 'creation.date.string'],
+        client, 'indices', ['index', 'docs.count', 'store.size', 'creation.date.string'], {'bytes':"b"},
         filter_rows=lambda index: all(
             not index['index'].startswith(omit_prefix) for omit_prefix in ['.', 'index_operations_log']))
 
