@@ -217,7 +217,7 @@ spec:
             storageClassName: pd-standard-expandable-storage-class
             resources:
               requests:
-                storage: 50Gi
+                storage: 150Gi
 ---
 apiVersion: v1
 kind: Service
