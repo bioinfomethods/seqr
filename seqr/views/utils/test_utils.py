@@ -210,7 +210,7 @@ ANVIL_WORKSPACES = [{
     'workspace_name': TEST_WORKSPACE_NAME,
     'public': False,
     'acl': {
-        'test_user_manager@test.com': {
+        'Test_User_Manager@test.com': {
             "accessLevel": "WRITER",
             "pending": False,
             "canShare": True,
@@ -296,7 +296,13 @@ ANVIL_WORKSPACES = [{
             "pending": False,
             "canShare": True,
             "canCompute": True
-        }
+        },
+        'test_pm_user@test.com': {
+            "accessLevel": "WRITER",
+            "pending": False,
+            "canShare": False,
+            "canCompute": False
+        },
     },
     'workspace': {
         'bucketName': 'test_bucket'
@@ -323,10 +329,11 @@ def get_ws_al_side_effect(user, workspace_namespace, workspace_name, meta_fields
     wss = filter(lambda x: x['workspace_namespace'] == workspace_namespace and x['workspace_name'] == workspace_name, ANVIL_WORKSPACES)
     wss = list(wss)
     acl = wss[0]['acl'] if wss else {}
+    user_acl = next((v for k, v in acl.items() if user.email.lower() == k.lower()), None)
     access_level = {
-        'accessLevel': acl[user.email]['accessLevel'],
-        'canShare': acl[user.email]['canShare'],
-    } if user.email in acl.keys() else {}
+        'accessLevel': user_acl['accessLevel'],
+        'canShare': user_acl['canShare'],
+    } if user_acl else {}
     if meta_fields and 'workspace.bucketName' in meta_fields:
         access_level['workspace'] = {'bucketName': wss[0]['workspace']['bucketName']}
     return access_level
@@ -340,7 +347,7 @@ def get_workspaces_side_effect(user):
                 'namespace': ws['workspace_namespace'],
                 'name': ws['workspace_name']
             }
-        } for ws in ANVIL_WORKSPACES if user.email in ws['acl'].keys()
+        } for ws in ANVIL_WORKSPACES if any(user.email.lower() == k.lower() for k in ws['acl'].keys())
     ]
 
 
@@ -420,8 +427,11 @@ USER_FIELDS = {
 PROJECT_FIELDS = {
     'projectGuid', 'projectCategoryGuids', 'canEdit', 'name', 'description', 'createdDate', 'lastModifiedDate',
     'lastAccessedDate',  'mmeContactUrl', 'genomeVersion', 'mmePrimaryDataOwner', 'mmeContactInstitution',
-    'isMmeEnabled', 'workspaceName', 'workspaceNamespace', 'hasCaseReview', 'enableHgmd',
+    'isMmeEnabled', 'workspaceName', 'workspaceNamespace', 'hasCaseReview', 'enableHgmd', 'isDemo', 'allUserDemo',
+    'userIsCreator',
 }
+
+ANALYSIS_GROUP_FIELDS = {'analysisGroupGuid', 'description', 'name', 'projectGuid', 'familyGuids'}
 
 FAMILY_FIELDS = {
     'projectGuid', 'familyGuid', 'analysedBy', 'pedigreeImage', 'familyId', 'displayName', 'description',
@@ -457,12 +467,12 @@ INTERNAL_INDIVIDUAL_FIELDS = {
 INTERNAL_INDIVIDUAL_FIELDS.update(INDIVIDUAL_FIELDS)
 
 SAMPLE_FIELDS = {
-    'projectGuid', 'individualGuid', 'sampleGuid', 'createdDate', 'sampleType', 'sampleId', 'isActive',
-    'loadedDate', 'datasetType',
+    'projectGuid', 'familyGuid', 'individualGuid', 'sampleGuid', 'createdDate', 'sampleType', 'sampleId', 'isActive',
+    'loadedDate', 'datasetType', 'elasticsearchIndex',
 }
 
 IGV_SAMPLE_FIELDS = {
-    'projectGuid', 'individualGuid', 'sampleGuid', 'filePath', 'sampleId', 'sampleType',
+    'projectGuid', 'familyGuid', 'individualGuid', 'sampleGuid', 'filePath', 'sampleId', 'sampleType',
 }
 
 SAVED_VARIANT_FIELDS = {'variantGuid', 'variantId', 'familyGuids', 'xpos', 'ref', 'alt', 'selectedMainTranscriptId', 'acmgClassification'}
@@ -477,24 +487,36 @@ FUNCTIONAL_FIELDS = {
     'tagGuid', 'name', 'color', 'metadata', 'metadataTitle', 'lastModifiedDate', 'createdBy', 'variantGuids',
 }
 
-SAVED_SEARCH_FIELDS = {'savedSearchGuid', 'name', 'search', 'createdById'}
+SAVED_SEARCH_FIELDS = {'savedSearchGuid', 'name', 'order', 'search', 'createdById'}
 
 LOCUS_LIST_FIELDS = {
     'locusListGuid', 'description', 'lastModifiedDate', 'numEntries', 'isPublic', 'createdBy', 'createdDate', 'canEdit',
     'name',
 }
+PA_LOCUS_LIST_FIELDS = {'paLocusList'}
 LOCUS_LIST_DETAIL_FIELDS = {'items', 'intervalGenomeVersion'}
 LOCUS_LIST_DETAIL_FIELDS.update(LOCUS_LIST_FIELDS)
+
+MATCHMAKER_SUBMISSION_FIELDS = {
+    'submissionGuid', 'individualGuid', 'createdDate', 'lastModifiedDate', 'deletedDate',
+}
+
+TAG_TYPE_FIELDS = {
+    'variantTagTypeGuid', 'name', 'category', 'description', 'color', 'order', 'metadataTitle',
+}
 
 GENE_FIELDS = {
     'chromGrch37', 'chromGrch38', 'codingRegionSizeGrch37', 'codingRegionSizeGrch38',  'endGrch37', 'endGrch38',
     'gencodeGeneType', 'geneId', 'geneSymbol', 'startGrch37', 'startGrch38',
 }
-GENE_VARIANT_FIELDS = {
-    'constraints', 'diseaseDesc', 'functionDesc', 'omimPhenotypes', 'mimNumber', 'geneNames', 'primateAi',
-    'cnSensitivity',
+GENE_VARIANT_DISPLAY_FIELDS = {
+    'constraints', 'omimPhenotypes', 'mimNumber', 'cnSensitivity', 'genCc', 'clinGen',
 }
-GENE_VARIANT_FIELDS.update(GENE_FIELDS)
+GENE_VARIANT_DISPLAY_FIELDS.update(GENE_FIELDS)
+GENE_VARIANT_FIELDS = {
+    'diseaseDesc', 'functionDesc', 'geneNames', 'primateAi',
+}
+GENE_VARIANT_FIELDS.update(GENE_VARIANT_DISPLAY_FIELDS)
 
 GENE_DETAIL_FIELDS = {'notes', 'mgiMarkerId'}
 GENE_DETAIL_FIELDS.update(GENE_VARIANT_FIELDS)
@@ -719,19 +741,10 @@ PARSED_VARIANTS = [
     {
         'alt': 'T',
         'chrom': '1',
-        'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
+        'bothsidesSupport': None,
+        'clinvar': {'clinicalSignificance': 'Pathogenic/Likely_pathogenic', 'alleleId': None, 'variationId': None, 'goldStars': None},
         'familyGuids': ['F000003_3'],
         'cpxIntervals': None,
-        'genetale': {
-            'allDiseases': ['(3)', 'AD', 'OMIM:Robinowsyndrome', 'autosomaldominant2'],
-            'allInheritances': ['AD', 'none'],
-            'altResFlag': ['none', 'none'],
-            'flag': ['none', 'none', 'none'],
-            'geneClass': '0',
-            'geneClassInfo': ['NOC2L(26155):0-3B', 'SAMD11(148398):0-3B'],
-            'previous': ['none', 'none', 'none'],
-            'varClassNum': 4,
-        },
         'algorithms': None,
         'genotypes': {
             'I000007_na20870': {
@@ -746,6 +759,7 @@ PARSED_VARIANTS = [
         'liftedOverGenomeVersion': None,
         'liftedOverPos': None,
         'mainTranscriptId': TRANSCRIPT_3['transcriptId'],
+        'selectedMainTranscriptId': None,
         'originalAltAlleles': ['T'],
         'populations': {
             'callset': {'an': 32, 'ac': 2, 'hom': None, 'af': 0.063, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
@@ -759,8 +773,7 @@ PARSED_VARIANTS = [
         },
         'pos': 248367227,
         'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
-                        'polyphen': None, 'dann': None, 'sift': None, 'genetale_var_class_num': 4,
-                        'genetale_gene_class_info': ['NOC2L(26155):0-3B', 'SAMD11(148398):0-3B'],
+                        'polyphen': None, 'dann': None, 'sift': None,
                         'cadd': '25.9', 'metasvm': None, 'primate_ai': None,
                         'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None,
                         'splice_ai_consequence': None},
@@ -776,36 +789,28 @@ PARSED_VARIANTS = [
         'svType': None,
         'svTypeDetail': None,
         'numExon': None,
+        'rg37LocusEnd': None,
         '_sort': [1248367227],
     },
     {
         'alt': 'G',
         'chrom': '2',
+        'bothsidesSupport': None,
         'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
         'familyGuids': ['F000002_2', 'F000003_3'],
         'cpxIntervals': None,
-        'genetale': {
-            'allDiseases': [],
-            'allInheritances': [],
-            'altResFlag': ['none', 'none', 'none'],
-            'flag': [],
-            'geneClass': None,
-            'geneClassInfo': [],
-            'previous': [],
-            'varClassNum': None,
-        },
         'algorithms': None,
         'genotypes': {
             'I000004_hg00731': {
-                'ab': 0, 'ad': None, 'gq': 99, 'sampleId': 'HG00731', 'numAlt': 0, 'dp': 67, 'pl': None,
+                'ab': 0, 'ad': None, 'gq': 99, 'sampleId': 'HG00731', 'numAlt': 2, 'dp': 67, 'pl': None,
                 'sampleType': 'WES',
             },
             'I000005_hg00732': {
-                'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00732', 'numAlt': 2, 'dp': 42, 'pl': None,
+                'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00732', 'numAlt': 1, 'dp': 42, 'pl': None,
                 'sampleType': 'WES',
             },
             'I000006_hg00733': {
-                'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00733', 'numAlt': 1, 'dp': 42, 'pl': None,
+                'ab': 0, 'ad': None, 'gq': 96, 'sampleId': 'HG00733', 'numAlt': 0, 'dp': 42, 'pl': None,
                 'sampleType': 'WES',
             },
             'I000007_na20870': {
@@ -820,6 +825,7 @@ PARSED_VARIANTS = [
         'liftedOverChrom': None,
         'liftedOverPos': None,
         'mainTranscriptId': TRANSCRIPT_1['transcriptId'],
+        'selectedMainTranscriptId': TRANSCRIPT_2['transcriptId'],
         'originalAltAlleles': ['G'],
         'populations': {
             'callset': {'an': 32, 'ac': 1, 'hom': None, 'af': 0.031, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
@@ -834,8 +840,7 @@ PARSED_VARIANTS = [
         'pos': 103343353,
         'predictions': {
             'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None, 'polyphen': None,
-            'dann': None, 'sift': None, 'genetale_var_class_num': None,
-            'genetale_gene_class_info': [],
+            'dann': None, 'sift': None,
             'cadd': None, 'metasvm': None, 'primate_ai': 1, 'gerp_rs': None,
             'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None, 'splice_ai_consequence': None,
         },
@@ -851,6 +856,7 @@ PARSED_VARIANTS = [
         'svType': None,
         'svTypeDetail': None,
         'numExon': None,
+        'rg37LocusEnd': None,
         '_sort': [2103343353],
     },
 ]
@@ -858,6 +864,7 @@ PARSED_VARIANTS = [
 PARSED_SV_VARIANT = {
     'alt': None,
     'chrom': '1',
+    'bothsidesSupport': True,
     'familyGuids': ['F000002_2'],
     'cpxIntervals': None,
     'algorithms': None,
@@ -865,26 +872,28 @@ PARSED_SV_VARIANT = {
         'I000004_hg00731': {
             'sampleId': 'HG00731', 'sampleType': 'WES', 'numAlt': -1, 'geneIds': ['ENSG00000228198'],
             'cn': 1, 'end': None, 'start': None, 'numExon': None, 'defragged': False, 'qs': 33, 'gq': None,
+            'prevCall': False, 'prevOverlap': False, 'newCall': True,
         },
         'I000005_hg00732': {
             'sampleId': 'HG00732', 'numAlt': -1, 'sampleType': None,  'geneIds': None, 'gq': None,
             'cn': 2, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'isRef': True,
+            'prevCall': None, 'prevOverlap': None, 'newCall': None,
         },
         'I000006_hg00733': {
             'sampleId': 'HG00733', 'sampleType': 'WES', 'numAlt': -1,  'geneIds': None, 'gq': None,
             'cn': 2, 'end': 49045890, 'start': 49045987, 'numExon': 1, 'defragged': False, 'qs': 80,
+            'prevCall': False, 'prevOverlap': True, 'newCall': False,
         },
     },
     'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
     'hgmd': {'accession': None, 'class': None},
-    'genetale': {'allDiseases': [], 'allInheritances': [], 'altResFlag': [], 'flag': [], 'geneClass': None,
-                 'geneClassInfo': [], 'previous': [], 'varClassNum': None},
     'genomeVersion': '37',
     'genotypeFilters': '',
     'liftedOverChrom': None,
     'liftedOverGenomeVersion': None,
     'liftedOverPos': None,
     'mainTranscriptId': None,
+    'selectedMainTranscriptId': None,
     'originalAltAlleles': [],
     'populations': {
         'callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
@@ -898,8 +907,7 @@ PARSED_SV_VARIANT = {
     },
     'pos': 49045487,
     'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
-                    'polyphen': None, 'dann': None, 'sift': None, 'genetale_var_class_num': None,
-                    'genetale_gene_class_info': [], 'cadd': None, 'metasvm': None, 'primate_ai': None,
+                    'polyphen': None, 'dann': None, 'sift': None, 'cadd': None, 'metasvm': None, 'primate_ai': None,
                     'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': 0.374,
                     'splice_ai_consequence': None},
     'ref': None,
@@ -919,15 +927,18 @@ PARSED_SV_VARIANT = {
     'variantId': 'prefix_19107_DEL',
     'xpos': 1049045487,
     'end': 49045899,
-    'svType': 'DEL',
+    'svType': 'INS',
     'svTypeDetail': None,
+    'svSourceDetail': {'chrom': '9'},
     'numExon': 2,
+    'rg37LocusEnd': None,
     '_sort': [1049045387],
 }
 
 PARSED_SV_WGS_VARIANT = {
     'alt': None,
     'chrom': '2',
+    'bothsidesSupport': None,
     'familyGuids': ['F000014_14'],
     'cpxIntervals': [{'chrom': '2', 'end': 3000, 'start': 1000, 'type': 'DUP'},
                      {'chrom': '20', 'end': 13000, 'start': 11000, 'type': 'INV'}],
@@ -935,19 +946,19 @@ PARSED_SV_WGS_VARIANT = {
     'genotypes': {
         'I000018_na21234': {
             'gq': 33, 'sampleId': 'NA21234', 'numAlt': 1, 'geneIds': None,
-            'cn': 1, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WGS',
+            'cn': -1, 'end': None, 'start': None, 'numExon': None, 'defragged': None, 'qs': None, 'sampleType': 'WGS',
+            'prevCall': None, 'prevOverlap': None, 'newCall': None,
         },
     },
     'clinvar': {'clinicalSignificance': None, 'alleleId': None, 'variationId': None, 'goldStars': None},
     'hgmd': {'accession': None, 'class': None},
-    'genetale': {'allDiseases': [], 'allInheritances': [], 'altResFlag': [], 'flag': [], 'geneClass': None,
-                 'geneClassInfo': [], 'previous': [], 'varClassNum': None},
     'genomeVersion': '37',
     'genotypeFilters': '',
     'liftedOverChrom': None,
     'liftedOverGenomeVersion': None,
     'liftedOverPos': None,
     'mainTranscriptId': None,
+    'selectedMainTranscriptId': None,
     'originalAltAlleles': [],
     'populations': {
         'callset': {'an': None, 'ac': None, 'hom': None, 'af': None, 'hemi': None, 'filter_af': None, 'het': None, 'id': None},
@@ -961,8 +972,7 @@ PARSED_SV_WGS_VARIANT = {
     },
     'pos': 49045387,
     'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
-                    'polyphen': None, 'dann': None, 'sift': None, 'genetale_var_class_num': None,
-                    'genetale_gene_class_info': [], 'cadd': None, 'metasvm': None, 'primate_ai': None,
+                    'polyphen': None, 'dann': None, 'sift': None, 'cadd': None, 'metasvm': None, 'primate_ai': None,
                     'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None,
                     'splice_ai_consequence': None},
     'ref': None,
@@ -978,10 +988,12 @@ PARSED_SV_WGS_VARIANT = {
     },
     'variantId': 'prefix_19107_CPX',
     'xpos': 2049045387,
-    'end': 49045898,
+    'end': 12345678,
+    'endChrom': '20',
     'svType': 'CPX',
     'svTypeDetail': 'dupINV',
     'numExon': None,
+    'rg37LocusEnd': {'contig': '20', 'position': 12326326},
     '_sort': [2049045387],
 }
 

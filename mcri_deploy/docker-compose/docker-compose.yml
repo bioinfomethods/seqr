@@ -2,7 +2,7 @@ version: '2.4'
 
 services:
   postgres:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-12.6}
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
     environment:
@@ -44,7 +44,6 @@ services:
     ports:
       - ${SEQR_SERVICE_PORT:-80}:8000
     environment:
-      - SEQR_GIT_BRANCH=${SEQR_GIT_BRANCH:?err}
       - SEQR_PRIVACY_VERSION=${SEQR_PRIVACY_VERSION:--1.00}
       - SEQR_TOS_VERSION=${SEQR_TOS_VERSION:--1.00}
       - PYTHONPATH=/seqr

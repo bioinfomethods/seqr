@@ -1,3 +1,5 @@
+from enum import Enum
+
 import requests
 from django.db import transaction
 from django.utils import timezone
@@ -9,6 +11,18 @@ from seqr.utils.logging_utils import SeqrLogger
 from seqr.views.utils.json_to_orm_utils import update_model_from_json, create_model_from_json
 
 logger = SeqrLogger(__name__)
+
+
+class MoiType(Enum):
+    BIALLELIC = 'BIALLELIC'
+    IMPRINTED_MATERNALY_EXPRESSED = 'IMPRINTED_MATERNALY_EXPRESSED'
+    IMPRINTED_PATERNALY_EXPRESSED = 'IMPRINTED_PATERNALY_EXPRESSED'
+    MITOCHONDRIAL = 'MITOCHONDRIAL'
+    MONOALLELIC = 'MONOALLELIC'
+    OTHER = 'OTHER'
+    UNKNOWN = 'UNKNOWN'
+    X_LINKED_DOMINANT = 'X_LINKED_DOMINANT'
+    X_LINKED_RECESSIVE = 'X_LINKED_RECESSIVE'
 
 
 def import_all_panels(user, panel_app_api_url, label=None):

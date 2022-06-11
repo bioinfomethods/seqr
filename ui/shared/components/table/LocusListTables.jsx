@@ -7,18 +7,16 @@ import { Header } from 'semantic-ui-react'
 
 import { getLocusListTableData, getLocusListsIsLoading } from 'redux/selectors'
 import { UpdateLocusListButton, DeleteLocusListButton } from '../buttons/LocusListButtons'
-import DataTable from './DataTable'
+import { SelectableTableFormInput } from './DataTable'
 import { VerticalSpacer } from '../Spacers'
 import {
-  LOCUS_LIST_FIELDS, LOCUS_LIST_NAME_FIELD, LOCUS_LIST_NUM_ENTRIES_FIELD, LOCUS_LIST_CREATED_DATE_FIELD_NAME,
-  LOCUS_LIST_LAST_MODIFIED_FIELD_NAME, LOCUS_LIST_DESCRIPTION_FIELD, LOCUS_LIST_IS_PUBLIC_FIELD_NAME,
-  LOCUS_LIST_CURATOR_FIELD_NAME,
+  LOCUS_LIST_FIELDS, LOCUS_LIST_NAME_FIELD, LOCUS_LIST_NUM_ENTRIES_FIELD, LOCUS_LIST_LAST_MODIFIED_FIELD_NAME,
+  LOCUS_LIST_DESCRIPTION_FIELD, LOCUS_LIST_IS_PUBLIC_FIELD_NAME, LOCUS_LIST_CURATOR_FIELD_NAME,
+  LOCUS_LIST_CREATED_DATE_FIELD_NAME,
 } from '../../utils/constants'
 
 const FilterContainer = styled.div`
   position: relative;
-  top: -60px;
-  margin-bottom: -60px;
   text-align: right;
 `
 
@@ -34,12 +32,8 @@ const FIELD_LOOKUP = LOCUS_LIST_FIELDS.reduce(
   }), {},
 )
 
-const BASIC_FIELDS = [
-  LOCUS_LIST_NAME_FIELD,
-  LOCUS_LIST_DESCRIPTION_FIELD,
-  LOCUS_LIST_CREATED_DATE_FIELD_NAME,
-  LOCUS_LIST_NUM_ENTRIES_FIELD,
-].map(
+const BASIC_FIELDS = [LOCUS_LIST_NAME_FIELD, LOCUS_LIST_DESCRIPTION_FIELD, LOCUS_LIST_CREATED_DATE_FIELD_NAME,
+  LOCUS_LIST_NUM_ENTRIES_FIELD].map(
   field => FIELD_LOOKUP[field],
 )
 
@@ -50,12 +44,8 @@ const NAME_WITH_LINK_FIELD = {
 
 const CORE_FIELDS = [
   NAME_WITH_LINK_FIELD,
-  ...[
-    LOCUS_LIST_NUM_ENTRIES_FIELD,
-    LOCUS_LIST_DESCRIPTION_FIELD,
-    LOCUS_LIST_CREATED_DATE_FIELD_NAME,
-    LOCUS_LIST_LAST_MODIFIED_FIELD_NAME,
-  ].map(
+  ...[LOCUS_LIST_NUM_ENTRIES_FIELD, LOCUS_LIST_DESCRIPTION_FIELD, LOCUS_LIST_CREATED_DATE_FIELD_NAME,
+    LOCUS_LIST_LAST_MODIFIED_FIELD_NAME].map(
     field => FIELD_LOOKUP[field],
   ), { name: 'numProjects', content: 'Projects', width: 1, format: null },
 ]
@@ -87,14 +77,12 @@ const getLocusListFilterVal = list => [
   )].join()
 
 const LocusListTables = React.memo(
-  ({ tableData, basicFields, omitLocusLists, tableButtons, dispatch, ...tableProps }) => TABLES.map(
+  ({ tableData, basicFields, tableButtons, dispatch, ...tableProps }) => TABLES.map(
     ({ name, tableFields }) => (
       <div key={name}>
         <VerticalSpacer height={5} />
         <Header size="large" dividing content={`${name} Gene Lists`} />
-        <DataTable
-          basic="very"
-          fixed
+        <SelectableTableFormInput
           idField="locusListGuid"
           defaultSortColumn="createdDate"
           defaultSortDescending
@@ -113,7 +101,6 @@ const LocusListTables = React.memo(
 LocusListTables.propTypes = {
   tableData: PropTypes.object,
   basicFields: PropTypes.bool,
-  omitLocusLists: PropTypes.arrayOf(PropTypes.string),
   tableButtons: PropTypes.object,
   dispatch: PropTypes.func,
 }

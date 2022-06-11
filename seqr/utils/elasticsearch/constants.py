@@ -52,9 +52,6 @@ INHERITANCE_FILTERS = {
 
 PATH_FREQ_OVERRIDE_CUTOFF = 0.05
 
-CLINVAR_PATH_FILTER = 'pathogenic'
-CLINVAR_LIKELY_PATH_FILTER = 'likely_pathogenic'
-
 CLINVAR_SIGNFICANCE_MAP = {
     'pathogenic': ['Pathogenic', 'Pathogenic/Likely_pathogenic'],
     'likely_pathogenic': ['Likely_pathogenic', 'Pathogenic/Likely_pathogenic'],
@@ -67,6 +64,8 @@ CLINVAR_SIGNFICANCE_MAP = {
         'other'
     ],
 }
+CLINVAR_PATH_SIGNIFICANCES = set(CLINVAR_SIGNFICANCE_MAP['pathogenic'])
+CLINVAR_PATH_SIGNIFICANCES.update(CLINVAR_SIGNFICANCE_MAP['likely_pathogenic'])
 
 HGMD_CLASS_MAP = {
     'disease_causing': ['DM'],
@@ -220,6 +219,14 @@ SORT_FIELDS = {
             }
         },
     }],
+    'size': [{
+        '_script': {
+            'type': 'number',
+            'script': {
+               'source': "(doc.containsKey('svType') && (doc['svType'].value == 'BND' || doc['svType'].value == 'CTX')) ? -50 : doc['start'].value - doc['end'].value"
+            }
+        }
+    }],
     XPOS_SORT_KEY: ['xpos'],
 }
 POPULATION_SORTS = {
@@ -246,31 +253,24 @@ SORT_FIELDS.update({
     for sort, sort_field in PREDICTOR_SORT_FIELDS.items()
 })
 
-CLINVAR_FIELDS = {'clinical_significance': {}, 'variation_id': {}, 'allele_id': {}, 'gold_stars': {}}
-HGMD_FIELDS = {'accession': {}, 'class': {}}
-GENETALE_FIELDS = {
-    'all_diseases': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'all_inheritances': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'alt_res_flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'flag': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'gene_class': {},
-    'gene_class_info': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'previous': {'format_value': lambda values: [v for v in values], 'default_value': []},
-    'var_class_num': {}
-}
+CLINVAR_KEY = 'clinvar'
+CLINVAR_FIELDS = ['clinical_significance', 'variation_id', 'allele_id', 'gold_stars']
+HGMD_KEY = 'hgmd'
+HGMD_FIELDS = ['accession', 'class']
 GENOTYPES_FIELD_KEY = 'genotypes'
 HAS_ALT_FIELD_KEYS = ['samples_num_alt_1', 'samples_num_alt_2', 'samples']
 SORTED_TRANSCRIPTS_FIELD_KEY = 'sortedTranscriptConsequences'
 NESTED_FIELDS = {
-    field_name: nested_fields for field_name, nested_fields in {
-        'clinvar': CLINVAR_FIELDS,
-        'hgmd': HGMD_FIELDS,
-        'genetale': GENETALE_FIELDS,
+    field_name: {field: {} for field in fields} for field_name, fields in {
+        CLINVAR_KEY: CLINVAR_FIELDS,
+        HGMD_KEY: HGMD_FIELDS,
     }.items()
 }
 
 GRCH38_LOCUS_FIELD = 'rg37_locus'
+XSTOP_FIELD = 'xstop'
 SPLICE_AI_FIELD = 'splice_ai'
+NEW_SV_FIELD = 'new_structural_variants'
 CORE_FIELDS_CONFIG = {
     'alt': {},
     'contig': {'response_key': 'chrom'},
@@ -285,12 +285,15 @@ CORE_FIELDS_CONFIG = {
     'variantId': {},
     'xpos': {'format_value': int},
     GRCH38_LOCUS_FIELD: {},
+    XSTOP_FIELD:  {'format_value': int},
+    'rg37_locus_end': {'response_key': 'rg37LocusEnd', 'format_value': lambda locus: locus.to_dict()},
     'sv_type_detail': {'response_key': 'svTypeDetail'},
     'cpx_intervals': {
       'response_key': 'cpxIntervals',
       'format_value': lambda intervals:  [interval.to_dict() for interval in (intervals or [])],
     },
-    'algorithms': {'format_value': ', '.join}
+    'algorithms': {'format_value': ', '.join},
+    'bothsides_support': {'response_key': 'bothsidesSupport'},
 }
 PREDICTION_FIELDS_CONFIG = {
     'cadd_PHRED': {'response_key': 'cadd'},
@@ -309,12 +312,6 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
-    'genetale_var_class_num': {'response_key': 'genetale_var_class_num'},
-    'genetale_gene_class_info': {
-        'response_key': 'genetale_gene_class_info',
-        'format_value': lambda values: [v for v in values],
-        'default_value': []
-    },
 }
 
 def get_prediction_response_key(key):
@@ -347,12 +344,15 @@ GENOTYPE_FIELDS_CONFIG = {
 GENOTYPE_FIELDS_CONFIG.update(BASE_GENOTYPE_FIELDS_CONFIG)
 GENOTYPE_FIELDS_CONFIG.update({field: {} for field in SNP_QUALITY_FIELDS.keys()})
 SV_GENOTYPE_FIELDS_CONFIG = {
-    'cn': {'format_value': int, 'default_value': 2},
+    'cn': {'format_value': int, 'default_value': -1},
     'end': {},
     'start': {},
     'num_exon': {},
-    'geneIds': {'response_key': 'geneIds'},
+    'geneIds': {'response_key': 'geneIds', 'format_value': list},
     'defragged': {'format_value': bool},
+    'prev_call': {'format_value': bool},
+    'prev_overlap': {'format_value': bool},
+    'new_call': {'format_value': bool},
 }
 SV_GENOTYPE_FIELDS_CONFIG.update(BASE_GENOTYPE_FIELDS_CONFIG)
 SV_GENOTYPE_FIELDS_CONFIG.update({field: {} for field in SV_QUALITY_FIELDS.keys()})
@@ -369,9 +369,9 @@ for pop_config in POPULATIONS.values():
             QUERY_FIELD_NAMES.append(pop_field)
 
 SV_SAMPLE_OVERRIDE_FIELD_CONFIGS = {
-    'start': {'select_val': min},
+    'pos': {'select_val': min, 'genotype_field': 'start'},
     'end': {'select_val': max},
-    'num_exon':{'select_val': max, 'genotype_field': 'numExon'},
+    'numExon':{'select_val': max},
     'geneIds': {
         'select_val': lambda gene_lists: set([gene_id for gene_list in gene_lists for gene_id in (gene_list or [])]),
         'equal': lambda a, b: set(a or []) == set(b or [])
