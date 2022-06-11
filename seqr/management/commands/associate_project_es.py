@@ -2,12 +2,12 @@ import logging
 import sys
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 from django.utils import timezone
 
 from seqr.models import Project
-from seqr.models import Sample, Family
 from seqr.views.utils import variant_utils
-from seqr.views.utils.dataset_utils import match_sample_ids_to_sample_records, update_variant_samples, \
+from seqr.views.utils.dataset_utils import match_and_update_samples, \
     validate_index_metadata_and_get_elasticsearch_index_samples, load_mapping_file
 
 logger = logging.getLogger(__name__)
@@ -27,14 +27,13 @@ class Command(BaseCommand):
         index = options.get('index')
         given_project = options.get('project')
         mapping_file_path = options.get('mapping')
-        if given_project.upper().startswith('R00'):
-            project = Project.objects.get(guid__iexact=given_project)
-        else:
-            project = Project.objects.get(name__iexact=given_project)
+        project = Project.objects.filter(Q(guid__iexact=given_project) | Q(name__iexact=given_project)).first()
 
         try:
             sample_ids, sample_type = validate_index_metadata_and_get_elasticsearch_index_samples(
                 index, project=project, dataset_type=DATASET_TYPE)
+            logger.info('Validated index=%s, project=%s, sample_ids=%s, sample_type=%s', index, project.guid,
+                        sample_ids, sample_type)
             if not sample_ids:
                 raise ValueError('No samples found in the index. Make sure the specified caller type is correct')
 
@@ -44,18 +43,18 @@ class Command(BaseCommand):
             logger.error(str(e), exc_info=e)
             sys.exit(1)
 
-        loaded_date = timezone.now()
-        ignore_extra_samples = True
+        data_source = 'archie'
+        ignore_extra_samples = False
         try:
-            samples, included_families, matched_individual_ids = match_sample_ids_to_sample_records(
-                project=project,
+            samples, matched_individual_ids, activated_sample_guids, inactivated_sample_guids, updated_family_guids, remaining_sample_ids = match_and_update_samples(
+                projects=[project],
                 user=None,
                 sample_ids=sample_ids,
                 elasticsearch_index=index,
                 sample_type=sample_type,
+                data_source=data_source,
                 dataset_type=DATASET_TYPE,
                 sample_id_to_individual_id_mapping=sample_id_to_individual_id_mapping,
-                loaded_date=loaded_date,
                 raise_no_match_error=ignore_extra_samples,
                 raise_unmatched_error_template=None if ignore_extra_samples else 'Matches not found for ES sample ids: {sample_ids}. Uploading a mapping file for these samples, or select the "Ignore extra samples in callset" checkbox to ignore.'
             )
@@ -63,19 +62,8 @@ class Command(BaseCommand):
             logger.error(str(e), exc_info=e)
             sys.exit(1)
 
-        activated_sample_guids, inactivated_sample_guids = update_variant_samples(
-            samples, None, index, loaded_date, DATASET_TYPE, sample_type)
-        updated_samples = Sample.objects.filter(guid__in=activated_sample_guids)
-
-        family_guids_to_update = [
-            family.guid for family in included_families if
-            family.analysis_status == Family.ANALYSIS_STATUS_WAITING_FOR_DATA
-        ]
-
-        Family.bulk_update(
-            None, {'analysis_status': Family.ANALYSIS_STATUS_ANALYSIS_IN_PROGRESS},
-            guid__in=family_guids_to_update)
-
         variant_utils.reset_cached_search_results(project)
-        logger.info('Successfully associated ES index=%s with project=%s and %d samples were updated',
-                    index, project, updated_samples.count())
+        logger.info(
+            'Successfully associated ES index=%s with project=%s.  samples=%s, matched_individual_ids=%s, activated_sample_guids=%s, inactivated_sample_guids=%s, updated_family_guids=%s, remaining_sample_ids=%s',
+            index, project, [s.sample_id for s in samples], matched_individual_ids, activated_sample_guids,
+            inactivated_sample_guids, updated_family_guids, remaining_sample_ids)

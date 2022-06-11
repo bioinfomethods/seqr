@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import subprocess # nosec
 import sys
 from io import StringIO
 
@@ -13,7 +13,7 @@ def run(command,
         ignore_all_errors=False,
         print_command=True,
         verbose=True,
-        env={},
+        env=None,
         is_interactive=False, **kwargs):
 
     """Runs the given command in a shell.
@@ -33,7 +33,8 @@ def run(command,
         string: command output (combined stdout and stderr), or if return_subprocess_obj=True the return 2-tuple: (output, subprocess Popen object)
     """
     full_env = dict(os.environ)  # copy external environment
-    full_env.update({key: str(value) for key, value in env.items()})  # make sure all values are strings
+    if env:
+        full_env.update({key: str(value) for key, value in env.items()})  # make sure all values are strings
 
     if print_command:
         logger.info("==> %(command)s" % locals())
@@ -73,8 +74,18 @@ def run(command,
     p.wait()
 
     output = log_buffer.getvalue()
+
     if p.returncode not in ok_return_codes:
-        if ignore_all_errors or (errors_to_ignore and any([error_to_ignore in str(output) for error_to_ignore in errors_to_ignore])):
+        should_ignore = False
+        if ignore_all_errors:
+            should_ignore = True
+        elif errors_to_ignore:
+            should_ignore = all(
+                any([error_to_ignore in error for error_to_ignore in errors_to_ignore])
+                for error in  str(output.strip()).split('\n')
+            )
+
+        if should_ignore:
             return None
         else:
             raise RuntimeError(output)

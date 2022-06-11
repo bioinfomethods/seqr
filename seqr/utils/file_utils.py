@@ -1,5 +1,6 @@
+import gzip
 import os
-import subprocess
+import subprocess # nosec
 
 from seqr.utils.logging_utils import SeqrLogger
 
@@ -8,7 +9,7 @@ logger = SeqrLogger(__name__)
 
 def run_command(command, user=None):
     logger.info('==> {}'.format(command), user)
-    return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+    return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True) # nosec
 
 
 def _run_gsutil_command(command, gs_path, gunzip=False, user=None):
@@ -54,7 +55,8 @@ def file_iter(file_path, byte_range=None, raw_content=False, user=None):
             yield line
     else:
         mode = 'rb' if raw_content else 'r'
-        with open(file_path, mode) as f:
+        open_func = gzip.open if file_path.endswith("gz") else open
+        with open_func(file_path, mode) as f:
             for line in f:
                 yield line
 

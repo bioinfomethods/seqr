@@ -2,7 +2,7 @@ import React from 'react'
 import { Form } from 'semantic-ui-react'
 import flatten from 'lodash/flatten'
 
-import { validators } from '../components/form/ReduxFormWrapper'
+import { validators } from '../components/form/FormHelpers'
 import {
   BooleanCheckbox,
   RadioGroup,
@@ -51,9 +51,23 @@ export const EDITABLE_PROJECT_FIELDS = [
   PROJECT_DESC_FIELD,
 ]
 
-export const PROJECT_FIELDS = [
-  ...EDITABLE_PROJECT_FIELDS,
-  GENOME_VERSION_FIELD,
+export const ANVIL_FIELDS = [
+  {
+    name: 'workspaceNamespace',
+    label: 'Workspace Namespace',
+    placeholder: 'AnVIL workspace name before the /',
+    validate: validators.required,
+    width: 8,
+    inline: true,
+  },
+  {
+    name: 'workspaceName',
+    label: 'Workspace Name',
+    placeholder: 'AnVIL workspace name after the /',
+    validate: validators.required,
+    width: 8,
+    inline: true,
+  },
 ]
 
 export const FILE_FORMATS = [
@@ -81,6 +95,8 @@ export const MATCHMAKER_CONTACT_URL_FIELD = {
 
 export const DATASET_TYPE_VARIANT_CALLS = 'VARIANTS'
 export const DATASET_TYPE_SV_CALLS = 'SV'
+
+export const DATASET_TITLE_LOOKUP = { [DATASET_TYPE_SV_CALLS]: ' SV' }
 
 export const SAMPLE_TYPE_EXOME = 'WES'
 export const SAMPLE_TYPE_GENOME = 'WGS'
@@ -114,9 +130,12 @@ export const FAMILY_STATUS_REVIEWED_NO_CLEAR_CANDIDATE = 'Rncc'
 export const FAMILY_STATUS_CLOSED = 'C'
 export const FAMILY_STATUS_ANALYSIS_IN_PROGRESS = 'I'
 const FAMILY_STATUS_WAITING_FOR_DATA = 'Q'
+const FAMILY_STATUS_NO_DATA = 'N'
 
-export const FAMILY_ANALYSIS_STATUS_OPTIONS = [
+const DEPRECATED_FAMILY_ANALYSIS_STATUS_OPTIONS = [
   { value: FAMILY_STATUS_SOLVED, color: '#4CAF50', name: 'Solved' },
+]
+export const SELECTABLE_FAMILY_ANALYSIS_STATUS_OPTIONS = [
   { value: FAMILY_STATUS_SOLVED_KNOWN_GENE_KNOWN_PHENOTYPE, color: '#4CAF50', name: 'Solved - known gene for phenotype' },
   { value: FAMILY_STATUS_SOLVED_KNOWN_GENE_DIFFERENT_PHENOTYPE, color: '#4CAF50', name: 'Solved - gene linked to different phenotype' },
   { value: FAMILY_STATUS_SOLVED_NOVEL_GENE, color: '#4CAF50', name: 'Solved - novel gene' },
@@ -124,16 +143,29 @@ export const FAMILY_ANALYSIS_STATUS_OPTIONS = [
   { value: FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_KNOWN_PHENOTYPE, color: '#CDDC39', name: 'Strong candidate - known gene for phenotype' },
   { value: FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_DIFFERENT_PHENOTYPE, color: '#CDDC39', name: 'Strong candidate - gene linked to different phenotype' },
   { value: FAMILY_STATUS_STRONG_CANDIDATE_NOVEL_GENE, color: '#CDDC39', name: 'Strong candidate - novel gene' },
-  { value: FAMILY_STATUS_REVIEWED_PURSUING_CANDIDATES, color: '#CDDC39', name: 'Reviewed, currently pursuing candidates' },
+  { value: FAMILY_STATUS_REVIEWED_PURSUING_CANDIDATES, color: '#EB9F38', name: 'Reviewed, currently pursuing candidates' },
   { value: FAMILY_STATUS_REVIEWED_NO_CLEAR_CANDIDATE, color: '#EF5350', name: 'Reviewed, no clear candidate' },
   { value: FAMILY_STATUS_CLOSED, color: '#9c0502', name: 'Closed, no longer under analysis' },
   { value: FAMILY_STATUS_ANALYSIS_IN_PROGRESS, color: '#4682B4', name: 'Analysis in Progress' },
   { value: FAMILY_STATUS_WAITING_FOR_DATA, color: '#FFC107', name: 'Waiting for data' },
+  { value: FAMILY_STATUS_NO_DATA, color: '#646464', name: 'No data expected' },
+]
+export const ALL_FAMILY_ANALYSIS_STATUS_OPTIONS = [
+  ...DEPRECATED_FAMILY_ANALYSIS_STATUS_OPTIONS, ...SELECTABLE_FAMILY_ANALYSIS_STATUS_OPTIONS,
 ]
 
-export const FAMILY_ANALYSIS_STATUS_LOOKUP = FAMILY_ANALYSIS_STATUS_OPTIONS.reduce(
+export const FAMILY_ANALYSIS_STATUS_LOOKUP = ALL_FAMILY_ANALYSIS_STATUS_OPTIONS.reduce(
   (acc, tag) => ({ [tag.value]: tag, ...acc }), {},
 )
+
+export const SNP_DATA_TYPE = 'SNP'
+export const FAMILY_ANALYSED_BY_DATA_TYPES = [
+  [SNP_DATA_TYPE, 'WES/WGS'],
+  ['SV', 'gCNV/SV'],
+  ['RNA', 'RNAseq'],
+  ['MT', 'Mitochondrial'],
+  ['STR', 'STR'],
+]
 
 // SUCCESS STORY
 
@@ -185,9 +217,11 @@ export const FAMILY_FIELD_OMIM_NUMBER = 'postDiscoveryOmimNumber'
 export const FAMILY_FIELD_PMIDS = 'pubmedIds'
 export const FAMILY_FIELD_PEDIGREE = 'pedigreeImage'
 export const FAMILY_FIELD_CREATED_DATE = 'createdDate'
+export const FAMILY_FIELD_ANALYSIS_GROUPS = 'analysisGroups'
 
 export const FAMILY_FIELD_NAME_LOOKUP = {
   [FAMILY_FIELD_DESCRIPTION]: 'Family Description',
+  [FAMILY_FIELD_ANALYSIS_GROUPS]: 'Analysis Groups',
   [FAMILY_FIELD_ANALYSIS_STATUS]: 'Analysis Status',
   [FAMILY_FIELD_ASSIGNED_ANALYST]: 'Assigned Analyst',
   [FAMILY_FIELD_ANALYSED_BY]: 'Analysed By',
@@ -210,10 +244,15 @@ export const FAMILY_NOTES_FIELDS = [
   { id: FAMILY_FIELD_MME_NOTES, noteType: 'M' },
 ]
 
-export const FAMILY_DETAIL_FIELDS = [
+export const FAMILY_MAIN_FIELDS = [
+  { id: FAMILY_FIELD_ANALYSIS_GROUPS },
   { id: FAMILY_FIELD_DESCRIPTION },
   { id: FAMILY_FIELD_ANALYSIS_STATUS },
   { id: FAMILY_FIELD_ASSIGNED_ANALYST },
+]
+
+export const FAMILY_DETAIL_FIELDS = [
+  ...FAMILY_MAIN_FIELDS,
   { id: FAMILY_FIELD_ANALYSED_BY },
   { id: FAMILY_FIELD_SUCCESS_STORY_TYPE },
   { id: FAMILY_FIELD_SUCCESS_STORY },
@@ -486,22 +525,33 @@ export const VEP_GROUP_SYNONYMOUS = 'synonymous'
 export const VEP_GROUP_OTHER = 'other'
 export const VEP_GROUP_SV = 'structural'
 export const VEP_GROUP_SV_CONSEQUENCES = 'structural_consequence'
+export const VEP_GROUP_SV_NEW = 'new_structural_variants'
 
 const VEP_SV_TYPES = [
   {
-    description: 'A large deletion',
+    description: 'A deletion called from exome data',
+    text: 'Exome Deletion',
+    value: 'gCNV_DEL',
+  },
+  {
+    description: 'A duplication called from exome data',
+    text: 'Exome Duplication',
+    value: 'gCNV_DUP',
+  },
+  {
+    description: 'A deletion called from genome data',
     text: 'Deletion',
     value: 'DEL',
   },
   {
-    description: 'A large duplication',
+    description: 'A duplication called from genome data',
     text: 'Duplication',
     value: 'DUP',
   },
   {
-    description: 'A translocation variant',
+    description: 'A chromosomal translocation',
     text: 'Translocation',
-    value: 'BND',
+    value: 'CTX',
   },
   {
     description: 'A copy number polymorphism variant',
@@ -514,11 +564,6 @@ const VEP_SV_TYPES = [
     value: 'CPX',
   },
   {
-    description: 'A reciprocal chromosomal translocation',
-    text: 'Reciprocal Translocation',
-    value: 'CTX',
-  },
-  {
     description: 'A large insertion',
     text: 'Insertion',
     value: 'INS',
@@ -527,6 +572,11 @@ const VEP_SV_TYPES = [
     description: 'A large inversion',
     text: 'Inversion',
     value: 'INV',
+  },
+  {
+    description: 'An unresolved structural event',
+    text: 'Breakend',
+    value: 'BND',
   },
 ]
 
@@ -580,6 +630,14 @@ const VEP_SV_CONSEQUENCES = [
     description: 'An SV which disrupts a promoter sequence (within 1kb)',
     text: 'Promoter',
     value: 'PROMOTER',
+  },
+]
+
+const SV_NEW_OPTIONS = [
+  {
+    description: 'An SV with no overlap in a previous callset',
+    text: 'New Calls Only',
+    value: 'NEW',
   },
 ]
 
@@ -824,7 +882,7 @@ export const GROUPED_VEP_CONSEQUENCES = ORDERED_VEP_CONSEQUENCES.reduce((acc, co
   const group = consequence.group || VEP_GROUP_OTHER
   acc[group] = [...(acc[group] || []), consequence]
   return acc
-}, {})
+}, { [VEP_GROUP_SV_NEW]: SV_NEW_OPTIONS })
 
 export const VEP_CONSEQUENCE_ORDER_LOOKUP = ORDERED_VEP_CONSEQUENCES.reduce(
   (acc, consequence, i) => ({ ...acc, [consequence.value]: i }), {},
@@ -874,7 +932,6 @@ const SORT_BY_GNOMAD_EXOMES = 'GNOMAD_EXOMES'
 const SORT_BY_CALLSET_AF = 'CALLSET_AF'
 const SORT_BY_1KG = '1KG'
 const SORT_BY_CONSTRAINT = 'CONSTRAINT'
-const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
 const SORT_BY_CADD = 'CADD'
 const SORT_BY_REVEL = 'REVEL'
 const SORT_BY_SPLICE_AI = 'SPLICE_AI'
@@ -882,6 +939,7 @@ const SORT_BY_EIGEN = 'EIGEN'
 const SORT_BY_MPC = 'MPC'
 const SORT_BY_PRIMATE_AI = 'PRIMATE_AI'
 const SORT_BY_TAGGED_DATE = 'TAGGED_DATE'
+const SORT_BY_SIZE = 'SIZE'
 
 export const getPermissionedHgmdClass = (variant, user, familiesByGuid, projectByGuid) => (
   user.isAnalyst || variant.familyGuids.some(
@@ -939,12 +997,11 @@ const VARIANT_SORT_OPTONS = [
   { value: SORT_BY_GNOMAD_EXOMES, text: 'gnomAD Exomes Frequency', comparator: populationComparator('gnomad_exomes') },
   { value: SORT_BY_CALLSET_AF, text: 'Callset AF', comparator: populationComparator('callset') },
   { value: SORT_BY_1KG, text: '1kg  Frequency', comparator: populationComparator('g1k') },
-  { value: SORT_BY_GENETALE_VAR_CLASS_NUM, text: 'Genetale Variant Class', comparator: predictionComparator('genetale_var_class_num') },
   { value: SORT_BY_CADD, text: 'Cadd', comparator: predictionComparator('cadd') },
   { value: SORT_BY_REVEL, text: 'Revel', comparator: predictionComparator('revel') },
   { value: SORT_BY_EIGEN, text: 'Eigen', comparator: predictionComparator('eigen') },
   { value: SORT_BY_MPC, text: 'MPC', comparator: predictionComparator('mpc') },
-  { value: SORT_BY_SPLICE_AI, text: 'Splice AI', comparator: predictionComparator('splice_ai') },
+  { value: SORT_BY_SPLICE_AI, text: 'SpliceAI', comparator: predictionComparator('splice_ai') },
   { value: SORT_BY_PRIMATE_AI, text: 'Primate AI', comparator: predictionComparator('primate_ai') },
   {
     value: SORT_BY_PATHOGENICITY,
@@ -972,6 +1029,11 @@ const VARIANT_SORT_OPTONS = [
       ) - Object.keys(a.transcripts || {}).reduce(
         (acc, geneId) => (genesById[geneId] ? acc + genesById[geneId].omimPhenotypes.length : acc), 0,
       )),
+  },
+  {
+    value: SORT_BY_SIZE,
+    text: 'Size',
+    comparator: (a, b) => ((a.pos - a.end) - (b.pos - b.end)),
   },
   {
     value: SORT_BY_TAGGED_DATE,
@@ -1065,8 +1127,6 @@ const MUTTASTER_MAP = {
   P: { color: 'green', value: 'polymorphism automatic' },
 }
 
-export const GENETALE_INHERITANCE_CODES = ['AR', 'AD', 'XLR', 'XLD']
-
 const MISSENSE_IN_SILICO_GROUP = 'Missense'
 const CODING_IN_SILICO_GROUP = 'Coding/Noncoding'
 const SPLICING_IN_SILICO_GROUP = 'Splicing'
@@ -1075,12 +1135,19 @@ export const NO_SV_IN_SILICO_GROUPS = [MISSENSE_IN_SILICO_GROUP, CODING_IN_SILIC
 export const SPLICE_AI_FIELD = 'splice_ai'
 
 export const PREDICTOR_FIELDS = [
-  { field: 'genetale_var_class_num', warningThreshold: 5, dangerThreshold: 6, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
   { field: 'cadd', group: CODING_IN_SILICO_GROUP, warningThreshold: 10, dangerThreshold: 20, min: 1, max: 99 },
   { field: 'revel', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.75 },
   { field: 'primate_ai', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.7 },
   { field: 'mpc', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 1, dangerThreshold: 2, max: 5 },
-  { field: SPLICE_AI_FIELD, group: SPLICING_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.8, infoField: 'splice_ai_consequence', infoTitle: 'Predicted Consequence' },
+  {
+    field: SPLICE_AI_FIELD,
+    group: SPLICING_IN_SILICO_GROUP,
+    warningThreshold: 0.5,
+    dangerThreshold: 0.8,
+    infoField: 'splice_ai_consequence',
+    infoTitle: 'Predicted Consequence',
+    fieldTitle: 'SpliceAI',
+  },
   { field: 'eigen', group: CODING_IN_SILICO_GROUP, warningThreshold: 1, dangerThreshold: 2, max: 99 },
   { field: 'dann', displayOnly: true, warningThreshold: 0.93, dangerThreshold: 0.96 },
   { field: 'strvctvre', group: SV_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.75 },
@@ -1127,7 +1194,6 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'gnomad_genomes_freq', getVal: getPopAf('gnomad_genomes') },
   { header: 'gnomad_exomes_freq', getVal: getPopAf('gnomad_exomes') },
   { header: 'topmed_freq', getVal: getPopAf('topmed') },
-  { header: 'genetale_var_class_num', getVal: variant => (variant.predictions || {}).genetale_var_class_num },
   { header: 'cadd', getVal: variant => (variant.predictions || {}).cadd },
   { header: 'revel', getVal: variant => (variant.predictions || {}).revel },
   { header: 'eigen', getVal: variant => (variant.predictions || {}).eigen },
@@ -1142,7 +1208,8 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'clinvar_clinical_significance', getVal: variant => (variant.clinvar || {}).clinicalSignificance },
   { header: 'clinvar_gold_stars', getVal: variant => (variant.clinvar || {}).goldStars },
   { header: 'filter', getVal: variant => variant.genotypeFilters },
-  { header: 'family', getVal: variant => variant.familyGuids[0].split(/_(.+)/)[1] },
+  { header: 'project' },
+  { header: 'family' },
   { header: 'tags', getVal: (variant, tagsByGuid) => variant.tagGuids.map(tagGuid => tagsByGuid[tagGuid].name).join('|') },
   { header: 'classification', getVal: variant => (variant.acmgClassification ? `${variant.acmgClassification.score}, ${variant.acmgClassification.classify}, ${variant.acmgClassification.criteria}` : '') },
   {
@@ -1205,6 +1272,18 @@ const VARIANT_ICON_COLORS = {
   green: '#21a926',
 }
 
+export const PANEL_APP_MODE_OF_INHERITANCE_INITIALS = {
+  BIALLELIC: 'AR',
+  IMPRINTED_MATERNALY_EXPRESSED: null,
+  IMPRINTED_PATERNALY_EXPRESSED: null,
+  MITOCHONDRIAL: null,
+  MONOALLELIC: 'AD',
+  OTHER: null,
+  UNKNOWN: null,
+  X_LINKED_DOMINANT: 'XD',
+  X_LINKED_RECESSIVE: 'XR',
+}
+
 export const PANEL_APP_CONFIDENCE_DESCRIPTION = {
   0: 'No Panel App confidence level',
   1: 'Red, lowest level of confidence; 1 of the 4 sources or from other sources.',
@@ -1213,13 +1292,17 @@ export const PANEL_APP_CONFIDENCE_DESCRIPTION = {
   4: 'Green, highest level of confidence; a gene from 3 or 4 sources.',
 }
 
-export const PANEL_APP_CONFIDENCE_LEVEL_COLORS = {
+export const PANEL_APP_CONFIDENCE_LEVELS = {
   0: 'none',
-  1: VARIANT_ICON_COLORS.red,
-  2: VARIANT_ICON_COLORS.amber,
-  3: VARIANT_ICON_COLORS.green,
-  4: VARIANT_ICON_COLORS.green,
+  1: 'red',
+  2: 'amber',
+  3: 'green',
+  4: 'green',
 }
+
+export const PANEL_APP_CONFIDENCE_LEVEL_COLORS = Object.entries(PANEL_APP_CONFIDENCE_LEVELS).reduce(
+  (acc, [confidence, color]) => ({ ...acc, [confidence]: VARIANT_ICON_COLORS[color] }), {},
+)
 
 // Users
 
