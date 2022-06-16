@@ -208,6 +208,9 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms1300m -Xmx1300m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data
