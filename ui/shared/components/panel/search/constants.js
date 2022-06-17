@@ -22,9 +22,11 @@ import {
   SPLICE_AI_FIELD,
   VEP_GROUP_SV_NEW,
   PANEL_APP_CONFIDENCE_LEVELS,
+  PANEL_APP_MODE_OF_INHERITANCE_FIELDS,
 } from 'shared/utils/constants'
 
 import LocusListItemsFilter from './LocusListItemsFilter'
+import PaMoiFilter from './PaMoiFilter'
 
 export const getSelectedAnalysisGroups = (
   analysisGroupsByGuid, familyGuids,
@@ -395,6 +397,16 @@ export const LOCATION_FIELDS = [
     inline: false,
     shouldDisable: locus => !!locus[VARIANT_FIELD_NAME],
   },
+  ...PANEL_APP_MODE_OF_INHERITANCE_FIELDS.map(moi => ({
+    name: moi.name,
+    component: PaMoiFilter,
+    filterComponent: BooleanCheckbox,
+    label: moi.label,
+    width: 6,
+    inline: false,
+    shouldShow: locus => !!locus[PANEL_APP_FIELD_NAME],
+    shouldDisable: locus => !!locus[VARIANT_FIELD_NAME],
+  })),
 ]
 
 export const IN_SILICO_FIELDS = PREDICTOR_FIELDS.filter(({ displayOnly }) => !displayOnly).map(

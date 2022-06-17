@@ -515,6 +515,29 @@ export const LOCUS_LIST_ITEMS_FIELD = {
   ],
 }
 
+export const PANEL_APP_MODE_OF_INHERITANCE_FIELDS = [
+  {
+    name: 'paMoiAutosomalDominant',
+    label: 'Autosomal Dominant',
+  },
+  {
+    name: 'paMoiAutosomalRecessive',
+    label: 'Autosomal Recessive',
+  },
+  {
+    name: 'paMoiXLinkedDominant',
+    label: 'X-Linked Dominant',
+  },
+  {
+    name: 'paMoiXLinkedRecessive',
+    label: 'X-Linked Recessive',
+  },
+  {
+    name: 'paMoiOther',
+    label: 'Other Mode of Inheritance',
+  },
+]
+
 export const VEP_GROUP_NONSENSE = 'nonsense'
 export const VEP_GROUP_ESSENTIAL_SPLICE_SITE = 'essential_splice_site'
 export const VEP_GROUP_EXTENDED_SPLICE_SITE = 'extended_splice_site'
