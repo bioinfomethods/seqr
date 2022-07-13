@@ -2,10 +2,9 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import { FormSpy } from 'react-final-form'
-import { Dropdown, Multiselect } from 'shared/components/form/Inputs'
+import { Dropdown } from 'shared/components/form/Inputs'
 import { LocusListItemsLoader } from 'shared/components/LocusListLoader'
-import { PANEL_APP_MOI_OPTIONS } from 'shared/utils/constants'
-import { moiToMoiInitials, panelAppLocusListReducer } from 'shared/utils/panelAppUtils'
+import { panelAppLocusListReducer } from 'shared/utils/panelAppUtils'
 import { getSearchedProjectsLocusListOptions } from '../../selectors'
 
 class BaseLocusListDropdown extends React.Component {
@@ -42,78 +41,25 @@ class BaseLocusListDropdown extends React.Component {
     }
   }
 
-  handleDropdown = (locusListGuid) => {
+  onChange = (locusListGuid) => {
     const { onChange } = this.props
-    onChange({ locusListGuid, selectedMOIs: [] })
-  }
-
-  handleMOIselect = (selectedMOIs) => {
-    const { locusList, onChange } = this.props
-    onChange({ locusListGuid: locusList.locusListGuid, selectedMOIs })
-  }
-
-  moiOptions = () => {
-    const { locusList } = this.props
-    if (!locusList.items) {
-      return []
-    }
-
-    const initials = locusList.items?.reduce((acc, gene) => {
-      moiToMoiInitials(gene.pagene?.modeOfInheritance).forEach((initial) => {
-        acc[initial] = true
-      })
-      if (moiToMoiInitials(gene.pagene?.modeOfInheritance).length === 0) {
-        acc.other = true
-      }
-      return acc
-    }, {}) || {}
-
-    return PANEL_APP_MOI_OPTIONS.map(moi => ({
-      ...moi,
-      disabled: !initials[moi.value],
-    }))
+    onChange({ locusListGuid })
   }
 
   render() {
-    const { locusList, projectLocusListOptions, selectedMOIs } = this.props
+    const { locusList, projectLocusListOptions } = this.props
     const locusListGuid = locusList.locusListGuid || ''
-
-    const GeneListDropdown = (
-      <Dropdown
-        inline
-        selection
-        search
-        label="Gene List"
-        value={locusListGuid}
-        onChange={this.handleDropdown}
-        options={projectLocusListOptions}
-      />
-    )
-
-    const rightJustify = {
-      justifyContent: 'right',
-    }
-
-    if (locusList.paLocusList) {
-      return (
-        <div className="inline fields" style={rightJustify}>
-          <Multiselect
-            className="wide eight"
-            label="Modes of Inheritance"
-            value={selectedMOIs}
-            onChange={this.handleMOIselect}
-            placeholder="Showing All MOIs"
-            options={this.moiOptions()}
-            color="violet"
-          />
-          { GeneListDropdown }
-        </div>
-      )
-    }
-
     return (
       <div>
-        { GeneListDropdown }
+        <Dropdown
+          inline
+          selection
+          search
+          label="Gene List"
+          value={locusListGuid}
+          onChange={this.onChange}
+          options={projectLocusListOptions}
+        />
       </div>
     )
   }
