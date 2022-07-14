@@ -5,9 +5,41 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { Form, List, Button, Pagination as PaginationComponent, Search } from 'semantic-ui-react'
 
-import { semanticShouldUpdate, propsAreEqual, optionsAreEqual } from '../../utils/semanticUtils'
 import { helpLabel } from './FormHelpers'
 
+const optionsAreEqual = (options, nextOptions) => {
+  if (nextOptions) {
+    if (nextOptions.length !== (options || []).length) {
+      return false
+    }
+    if (Object.entries(nextOptions)
+      .some(([i, opt]) => ['value', 'text', 'color', 'disabled', 'description']
+        .some(k => opt[k] !== options[i][k]))
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+const hasUpdatedFormInputProps = (props, nextProps) => {
+  if (!optionsAreEqual(props.options, nextProps.options)) {
+    return false
+  }
+  if (Object.keys(nextProps).filter(k => k !== 'onChange' && k !== 'options').some(
+    k => nextProps[k] !== props[k],
+  )) {
+    return false
+  }
+  return true
+}
+
+const formInputComponentShouldUpdate = (that, nextProps, nextState) => {
+  if (!hasUpdatedFormInputProps(that.props, nextProps)) {
+    return true
+  }
+  return nextState !== that.state
+}
 export class BaseSemanticInput extends React.Component {
 
   static propTypes = {
@@ -17,7 +49,7 @@ export class BaseSemanticInput extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return semanticShouldUpdate(this, nextProps, nextState)
+    return formInputComponentShouldUpdate(this, nextProps, nextState)
   }
 
   handleChange = (e, data) => {
@@ -42,8 +74,6 @@ const setIntVal = (onChange, min, max) => (stringVal) => {
   }
 }
 
-const stopPropagation = e => e.stopPropagation()
-
 export const IntegerInput = React.memo(({ onChange, min, max, value, ...props }) => (
   <BaseSemanticInput
     {...props}
@@ -53,7 +83,6 @@ export const IntegerInput = React.memo(({ onChange, min, max, value, ...props })
     min={min}
     max={max}
     onChange={setIntVal(onChange, min, max)}
-    onClick={stopPropagation}
   />
 ))
 
@@ -98,7 +127,7 @@ export const Dropdown = React.memo(({ options, includeCategories, ...props }) =>
     noResultsMessage={null}
     tabIndex="0"
   />
-), propsAreEqual)
+), hasUpdatedFormInputProps)
 
 Dropdown.propTypes = {
   options: PropTypes.arrayOf(PropTypes.object),
