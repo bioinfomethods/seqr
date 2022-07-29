@@ -37,6 +37,7 @@ export const getVersion = state => state.meta.version
 export const getGoogleLoginEnabled = state => state.meta.googleLoginEnabled
 export const getHijakEnabled = state => state.meta.hijakEnabled
 export const getWarningMessages = state => state.meta.warningMessages
+export const getArchieApiRootUrl = state => state.meta.archieApiRootUrl
 export const getSavedVariantsIsLoading = state => state.savedVariantsLoading.isLoading
 export const getSavedVariantsLoadingError = state => state.savedVariantsLoading.errorMessage
 export const getSearchesByHash = state => state.searchesByHash

@@ -1,5 +1,6 @@
 import { GENOME_VERSION_DISPLAY_LOOKUP, GENOME_VERSION_LOOKUP } from '../../../utils/constants'
 
+export const ARCHIE_TYPE = 'archie'
 export const ALIGNMENT_TYPE = 'alignment'
 export const COVERAGE_TYPE = 'wig'
 export const JUNCTION_TYPE = 'spliceJunctions'

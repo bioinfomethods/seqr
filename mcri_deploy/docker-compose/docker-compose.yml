@@ -72,6 +72,7 @@ services:
       - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
       - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
+      - ARCHIE_API_ROOT_URL
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files

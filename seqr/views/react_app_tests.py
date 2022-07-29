@@ -5,6 +5,7 @@ from seqr.views.react_app import main_app, no_login_main_app
 from seqr.views.utils.test_utils import AuthenticationTestCase, USER_FIELDS
 
 MOCK_GA_TOKEN = 'mock_ga_token' # nosec
+MOCK_ARCHIE_API_ROOT_URL = 'https://archiedev.mcri.edu.au'
 
 @mock.patch('seqr.views.react_app.DEBUG', False)
 class DashboardPageTest(AuthenticationTestCase):
@@ -22,6 +23,7 @@ class DashboardPageTest(AuthenticationTestCase):
             'hijakEnabled': False,
             'googleLoginEnabled': google_enabled,
             'warningMessages': [{'id': 1, 'header': 'Warning!', 'message': 'A sample warning'}],
+            'archieApiRootUrl': 'https://archiedev.mcri.edu.au',
         })
 
         self.assertEqual(self.get_initial_page_window('gaTrackingId', response), ga_token_id)
@@ -32,6 +34,7 @@ class DashboardPageTest(AuthenticationTestCase):
         content = response.content.decode('utf-8')
         self.assertEqual(content.count('<script type="text/javascript" nonce="{}">'.format(nonce)), 5)
 
+    @mock.patch('seqr.views.react_app.ARCHIE_API_ROOT_URL', MOCK_ARCHIE_API_ROOT_URL)
     @mock.patch('seqr.views.react_app.GA_TOKEN_ID', MOCK_GA_TOKEN)
     @mock.patch('seqr.views.utils.terra_api_utils.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY')
     def test_react_page(self, mock_oauth_key):
@@ -57,6 +60,7 @@ class DashboardPageTest(AuthenticationTestCase):
         self.assertContains(response, 'src="/app.js"')
         self.assertNotRegex(content, r'<link\s+href="/static/app.*css"[^>]*>')
 
+    @mock.patch('seqr.views.react_app.ARCHIE_API_ROOT_URL', MOCK_ARCHIE_API_ROOT_URL)
     def test_no_login_react_page(self):
         url = reverse(no_login_main_app)
 
