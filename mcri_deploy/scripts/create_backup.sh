@@ -16,8 +16,8 @@
 
         # We expect the last good backup is our current backup but it may not be - so we only copy the most recent one that has
         # expected size to the cloud
-        SEQRDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname 'seqrdb*.dmp.gz' | xargs ls -t -1 | head -n 1)
-        REFERENCEDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname 'reference_data_db*.dmp.gz' | xargs ls -t -1 | head -n 1)
+        SEQRDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname "seqrdb*.dmp.gz" | sort -r | head -n 1)
+        REFERENCEDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname "reference_data_db*.dmp.gz" | sort -r | head -n 1)
 
         gsutil cp "${SEQRDB_LAST_GOOD_BACKUP}" gs://mcri-seqr-backups/
         gsutil cp "${REFERENCEDB_LAST_GOOD_BACKUP}" gs://mcri-seqr-backups/
