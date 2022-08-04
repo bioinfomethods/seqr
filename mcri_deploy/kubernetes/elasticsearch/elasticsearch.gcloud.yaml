@@ -171,7 +171,7 @@ spec:
         storageClassName: pd-standard-expandable-storage-class
         resources:
           requests:
-            storage: 300Gi
+            storage: 400Gi
   - name: data-loading-node
     count: 2
     config:
@@ -208,6 +208,9 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms1300m -Xmx1300m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data

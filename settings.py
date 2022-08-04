@@ -476,3 +476,8 @@ OAUTH2_PROVIDER = {
     ),
     'ALWAYS_RELOAD_OAUTHLIB_CORE': DEBUG,
 }
+
+##########
+# ARCHIE #
+##########
+ARCHIE_API_ROOT_URL = os.environ.get('ARCHIE_API_ROOT_URL')

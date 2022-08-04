@@ -347,6 +347,9 @@ export const STATE1 = {
     projectGuid: 'R0237_1000_genomes_demo',
   },
   user: USER,
+  meta: {
+    archieApiRootUrl: 'https://archiedev.mcri.edu.au',
+  },
   caseReviewTableState: {
     familiesFilter: 'ALL',
     familiesSortOrder: 'FAMILY_NAME',

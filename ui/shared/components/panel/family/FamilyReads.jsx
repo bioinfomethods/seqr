@@ -2,9 +2,11 @@ import React from 'react'
 import ReactDOMServer from 'react-dom/server'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
+import queryString from 'query-string'
 import { Segment, Icon, Popup, Divider, Loader } from 'semantic-ui-react'
 
 import {
+  getArchieApiRootUrl,
   getSortedIndividualsByFamily,
   getIGVSamplesByFamilySampleIndividual,
   getFamiliesByGuid,
@@ -13,12 +15,12 @@ import {
 } from 'redux/selectors'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { CheckboxGroup, RadioGroup } from '../../form/Inputs'
-import { ButtonLink, HelpIcon } from '../../StyledComponents'
+import { ButtonLink, HelpIcon, ColoredIcon } from '../../StyledComponents'
 import { VerticalSpacer } from '../../Spacers'
 import { getLocus } from '../variants/VariantUtils'
 import { AFFECTED, GENOME_VERSION_38, getVariantMainGeneId } from '../../../utils/constants'
 import {
-  ALIGNMENT_TYPE, COVERAGE_TYPE, GCNV_TYPE, JUNCTION_TYPE, BUTTON_PROPS, TRACK_OPTIONS,
+  ARCHIE_TYPE, ALIGNMENT_TYPE, COVERAGE_TYPE, GCNV_TYPE, JUNCTION_TYPE, BUTTON_PROPS, TRACK_OPTIONS,
   MAPPABILITY_TRACK_OPTIONS, CRAM_PROXY_TRACK_OPTIONS, BAM_TRACK_OPTIONS,
   DNA_TRACK_TYPE_OPTIONS, RNA_TRACK_TYPE_OPTIONS, IGV_OPTIONS, REFERENCE_LOOKUP, RNA_TRACK_TYPE_LOOKUP,
   JUNCTION_VISIBILITY_OPTIONS, NORM_GTEX_TRACK_OPTIONS, AGG_GTEX_TRACK_OPTIONS,
@@ -42,6 +44,16 @@ const getTrackOptions = (type, sample, individual) => {
 }
 
 const getSampleColor = individual => (individual.affected === AFFECTED ? 'red' : 'blue')
+
+const getVariantLocus = (variant, project) => {
+  const size = variant.end && variant.end - variant.pos
+  return getLocus(
+    variant.chrom,
+    (variant.genomeVersion !== project.genomeVersion && variant.liftedOverPos) ? variant.liftedOverPos : variant.pos,
+    size ? Math.max(Math.round(size / 2), MIN_LOCUS_RANGE_SIZE) : MIN_LOCUS_RANGE_SIZE,
+    size,
+  )
+}
 
 const getIgvTracks = (igvSampleIndividuals, sortedIndividuals, sampleTypes) => {
   const gcnvSamplesByBatch = Object.entries(igvSampleIndividuals[GCNV_TYPE] || {}).reduce(
@@ -140,7 +152,10 @@ ShowIgvButton.propTypes = {
 }
 
 const ReadButtons = React.memo((
-  { variant, familyGuid, igvSamplesByFamilySampleIndividual, familiesByGuid, buttonProps, showReads },
+  {
+    variant, familyGuid, igvSamplesByFamilySampleIndividual, familiesByGuid, buttonProps, showReads,
+    archieApiRootUrl, getProjectForFamily,
+  },
 ) => {
   const familyGuids = variant ? variant.familyGuids : [familyGuid]
 
@@ -162,7 +177,37 @@ const ReadButtons = React.memo((
 
   if (familyGuids.length === 1) {
     return Object.keys(sampleTypeFamilies).map(
-      type => <ShowIgvButton key={type} type={type} {...buttonProps} showReads={showReads(familyGuids[0])} />,
+      (type) => {
+        if (archieApiRootUrl && type === ARCHIE_TYPE) {
+          const firstFamilyGuid = familyGuids[0]
+          const project = getProjectForFamily(firstFamilyGuid)
+          const locus = variant ? getVariantLocus(variant, project) : ''
+          const archieIgvSamples = igvSamplesByFamilySampleIndividual[firstFamilyGuid][ARCHIE_TYPE]
+          const sampleIdentifiersStr = Object.values(archieIgvSamples).map(s => s.sampleId).join(',')
+          const qs = queryString.stringify({
+            project_identifier: project.projectGuid,
+            sample_identifiers: sampleIdentifiersStr,
+            igv_locus: locus,
+            igv_merge: false,
+          })
+          return (
+            <a href={`${archieApiRootUrl}/igv/?${qs}`} target="blank" rel="noreferrer">
+              <Popup
+                content="This will redirect you to your desktop IGV application where you can view the aligned reads.  Make sure your IGV application is running and your network drive to access this family's bam files is already mounted on your computer."
+                trigger={
+                  <span>
+                    <ColoredIcon name="options" />
+                    DESKTOP IGV
+                  </span>
+                }
+                size="small"
+                position="top center"
+              />
+            </a>
+          )
+        }
+        return <ShowIgvButton key={type} type={type} {...buttonProps} showReads={showReads(familyGuids[0])} />
+      },
     )
   }
 
@@ -189,6 +234,8 @@ ReadButtons.propTypes = {
   familiesByGuid: PropTypes.object,
   igvSamplesByFamilySampleIndividual: PropTypes.object,
   showReads: PropTypes.func,
+  archieApiRootUrl: PropTypes.string,
+  getProjectForFamily: PropTypes.func,
 }
 
 const applyUserTrackSettings = (tracks, options) => tracks.map(track => ({
@@ -197,16 +244,6 @@ const applyUserTrackSettings = (tracks, options) => tracks.map(track => ({
     tracks: track.tracks.map(tr => (options[tr.type] ? { ...tr, ...options[tr.type] } : tr)),
   } : {},
 }))
-
-const getVariantLocus = (variant, project) => {
-  const size = variant.end && variant.end - variant.pos
-  return getLocus(
-    variant.chrom,
-    (variant.genomeVersion !== project.genomeVersion && variant.liftedOverPos) ? variant.liftedOverPos : variant.pos,
-    size ? Math.max(Math.round(size / 2), MIN_LOCUS_RANGE_SIZE) : MIN_LOCUS_RANGE_SIZE,
-    size,
-  )
-}
 
 const getGeneLocus = (variant, genesById, project) => {
   const gene = genesById[getVariantMainGeneId(variant)]
@@ -257,6 +294,7 @@ class FamilyReads extends React.PureComponent {
     sortedIndividualByFamily: PropTypes.object,
     igvSamplesByFamilySampleIndividual: PropTypes.object,
     genesById: PropTypes.object,
+    archieApiRootUrl: PropTypes.string,
   }
 
   state = {
@@ -360,7 +398,7 @@ class FamilyReads extends React.PureComponent {
   render() {
     const {
       variant, familyGuid, buttonProps, layout, igvSamplesByFamilySampleIndividual, familiesByGuid,
-      projectsByGuid, genesById, sortedIndividualByFamily, ...props
+      projectsByGuid, genesById, sortedIndividualByFamily, archieApiRootUrl, ...props
     } = this.props
     const { openFamily, sampleTypes, rnaReferences, minJunctionEndsVisible, locus } = this.state
 
@@ -372,6 +410,8 @@ class FamilyReads extends React.PureComponent {
         igvSamplesByFamilySampleIndividual={igvSamplesByFamilySampleIndividual}
         familiesByGuid={familiesByGuid}
         showReads={this.showReads}
+        archieApiRootUrl={archieApiRootUrl}
+        getProjectForFamily={this.getProjectForFamily}
       />
     )
 
@@ -409,7 +449,7 @@ class FamilyReads extends React.PureComponent {
                 {this.getSampleColorPanel()}
               </div>
             )}
-            { locusOptions && (
+            {locusOptions && (
               <div>
                 <Divider horizontal>Range</Divider>
                 <RadioGroup
@@ -471,6 +511,7 @@ const mapStateToProps = state => ({
   familiesByGuid: getFamiliesByGuid(state),
   projectsByGuid: getProjectsByGuid(state),
   genesById: getGenesById(state),
+  archieApiRootUrl: getArchieApiRootUrl(state),
 })
 
 export default connect(mapStateToProps)(FamilyReads)

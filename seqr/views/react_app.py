@@ -5,7 +5,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.middleware.csrf import rotate_token
 from django.template import loader
 from django.http import HttpResponse
-from settings import SEQR_VERSION, CSRF_COOKIE_NAME, DEBUG, LOGIN_URL, GA_TOKEN_ID
+from settings import SEQR_VERSION, CSRF_COOKIE_NAME, DEBUG, LOGIN_URL, GA_TOKEN_ID, ARCHIE_API_ROOT_URL
 from seqr.models import WarningMessage
 from seqr.views.utils.orm_to_json_utils import _get_json_for_user
 from seqr.views.utils.permissions_utils import login_active_required
@@ -46,6 +46,7 @@ def render_app_html(request, additional_json=None, include_user=True, status=200
         'hijakEnabled': DEBUG or False,
         'googleLoginEnabled': google_auth_enabled(),
         'warningMessages': [message.json() for message in WarningMessage.objects.all()],
+        'archieApiRootUrl': ARCHIE_API_ROOT_URL
     }}
     if include_user:
         initial_json['user'] = _get_json_for_user(request.user)
