@@ -776,7 +776,7 @@ PARSED_VARIANTS = [
                         'polyphen': None, 'dann': None, 'sift': None,
                         'cadd': '25.9', 'metasvm': None, 'primate_ai': None,
                         'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None,
-                        'splice_ai_consequence': None},
+                        'genetale_var_class_num': None, 'genetale_gene_class_info': [], 'splice_ai_consequence': None},
         'ref': 'TC',
         'rsid': None,
         'transcripts': {
@@ -842,7 +842,8 @@ PARSED_VARIANTS = [
             'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None, 'polyphen': None,
             'dann': None, 'sift': None,
             'cadd': None, 'metasvm': None, 'primate_ai': 1, 'gerp_rs': None,
-            'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None, 'splice_ai_consequence': None,
+            'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None, 'genetale_var_class_num': None,
+            'genetale_gene_class_info': [], 'splice_ai_consequence': None,
         },
         'ref': 'GAGA',
         'rsid': None,
@@ -909,7 +910,7 @@ PARSED_SV_VARIANT = {
     'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
                     'polyphen': None, 'dann': None, 'sift': None, 'cadd': None, 'metasvm': None, 'primate_ai': None,
                     'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': 0.374,
-                    'splice_ai_consequence': None},
+                    'genetale_var_class_num': None, 'genetale_gene_class_info': [], 'splice_ai_consequence': None},
     'ref': None,
     'rsid': None,
     'transcripts': {
@@ -974,7 +975,7 @@ PARSED_SV_WGS_VARIANT = {
     'predictions': {'splice_ai': None, 'eigen': None, 'revel': None, 'mut_taster': None, 'fathmm': None,
                     'polyphen': None, 'dann': None, 'sift': None, 'cadd': None, 'metasvm': None, 'primate_ai': None,
                     'gerp_rs': None, 'mpc': None, 'phastcons_100_vert': None, 'strvctvre': None,
-                    'splice_ai_consequence': None},
+                    'genetale_var_class_num': None, 'genetale_gene_class_info': [], 'splice_ai_consequence': None},
     'ref': None,
     'rsid': None,
     'transcripts': {

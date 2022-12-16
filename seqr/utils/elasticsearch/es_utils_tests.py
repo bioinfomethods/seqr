@@ -642,6 +642,8 @@ MAPPING_FIELDS = [
     'primate_ai_score',
     'dbnsfp_SIFT_pred',
     'dbnsfp_Polyphen2_HVAR_pred',
+    'genetale_var_class_num',
+    'genetale_gene_class_info',
     'cadd_PHRED',
     'sortedTranscriptConsequences',
     'genotypes',

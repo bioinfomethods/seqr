@@ -312,6 +312,12 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
+    'genetale_var_class_num': {'response_key': 'genetale_var_class_num'},
+    'genetale_gene_class_info': {
+        'response_key': 'genetale_gene_class_info',
+        'format_value': lambda values: [v for v in values],
+        'default_value': []
+    },
 }
 
 def get_prediction_response_key(key):
