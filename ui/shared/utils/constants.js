@@ -1139,7 +1139,7 @@ export const NO_SV_IN_SILICO_GROUPS = [MISSENSE_IN_SILICO_GROUP, CODING_IN_SILIC
 export const SPLICE_AI_FIELD = 'splice_ai'
 
 export const PREDICTOR_FIELDS = [
-  { field: 'genetale_var_class_num', warningThreshold: 5, dangerThreshold: 6, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
+  { field: 'genetale_var_class_num', group: CODING_IN_SILICO_GROUP, warningThreshold: 5, dangerThreshold: 6, min: 3, max: 7, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
   { field: 'cadd', group: CODING_IN_SILICO_GROUP, warningThreshold: 10, dangerThreshold: 20, min: 1, max: 99 },
   { field: 'revel', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.75 },
   { field: 'primate_ai', group: MISSENSE_IN_SILICO_GROUP, warningThreshold: 0.5, dangerThreshold: 0.7 },
