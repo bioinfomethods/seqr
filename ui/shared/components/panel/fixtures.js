@@ -333,6 +333,7 @@ export const STATE1 = {
       tpms: { ENSG00000228198: { tpm: 1.03, geneId: 'ENSG00000228198' } },
     },
   },
+  phenotypeGeneScoresByIndividual: {},
   mmeSubmissionsByGuid: {},
   project: {
     createdDate: '2016-05-16T05:37:08.634Z',
@@ -348,6 +349,7 @@ export const STATE1 = {
   },
   user: USER,
   meta: {
+    anvilLoadingDelayDate: null,
     archieApiRootUrl: 'https://archiedev.mcri.edu.au',
   },
   caseReviewTableState: {

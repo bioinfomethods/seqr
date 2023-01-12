@@ -23,7 +23,7 @@ import {
   QUALITY_FILTER_OPTIONS,
   ALL_QUALITY_FILTER,
   LOCATION_FIELDS,
-  CODING_IMPACT_GROUPS,
+  CODING_IMPACT_GROUPS_SCREEN,
   HIGH_IMPACT_GROUPS_SPLICE,
   MODERATE_IMPACT_GROUPS,
   SV_GROUPS,
@@ -65,7 +65,7 @@ const ToggleHeaderFieldColumn = styled(Grid.Column)`
       width: 100% !important;
     }
     
-    .icon {
+    >.icon {
       margin: -0.75em !important;
       transform: rotate(90deg) !important;
     }
@@ -117,7 +117,7 @@ const IN_SILICO_GROUP_INDEX_MAP = IN_SILICO_FIELDS.reduce(
 const ANNOTATION_GROUPS_SPLICE = [...ANNOTATION_GROUPS, IN_SILICO_SPLICING_FIELD]
 const ANNOTATION_GROUP_INDEX_MAP = ANNOTATION_GROUPS_SPLICE.reduce((acc, { name }, i) => ({ ...acc, [name]: i }), {})
 
-export const inSilicoFieldLayout = groups => fieldComponents => (
+export const inSilicoFieldLayout = groups => ([requireComponent, ...fieldComponents]) => (
   <Form.Field>
     <Grid divided="vertically">
       {groups.map(group => (
@@ -127,13 +127,16 @@ export const inSilicoFieldLayout = groups => fieldComponents => (
             <Grid>
               <Grid.Row>
                 {IN_SILICO_GROUP_INDEX_MAP[group].map(
-                  i => <Grid.Column key={i} width={3}>{fieldComponents[i]}</Grid.Column>,
+                  i => <Grid.Column key={i} width={3}>{fieldComponents[i - 1]}</Grid.Column>,
                 )}
               </Grid.Row>
             </Grid>
           </Grid.Column>
         </Grid.Row>
       ))}
+      <Grid.Row>
+        <Grid.Column>{requireComponent}</Grid.Column>
+      </Grid.Row>
     </Grid>
   </Form.Field>
 )
@@ -181,7 +184,7 @@ export const ANNOTATION_PANEL = {
   fields: ANNOTATION_GROUPS_SPLICE,
   fieldProps: { control: AlignedCheckboxGroup, format: val => val || [] },
   fieldLayout: annotationFieldLayout([
-    SV_GROUPS, HIGH_IMPACT_GROUPS_SPLICE, MODERATE_IMPACT_GROUPS, CODING_IMPACT_GROUPS,
+    SV_GROUPS, HIGH_IMPACT_GROUPS_SPLICE, MODERATE_IMPACT_GROUPS, CODING_IMPACT_GROUPS_SCREEN,
   ]),
 }
 
@@ -246,9 +249,11 @@ HeaderContent.propTypes = {
   inputProps: PropTypes.object,
 }
 
+const searchFieldName = (name, field) => (field.fullFieldValue ? `search.${name}` : `search.${name}.${field.name}`)
+
 const PanelContent = React.memo(({ name, fields, fieldProps, helpText, fieldLayout }) => {
   const fieldComponents = fields && configuredFields(
-    { fields: fields.map(field => ({ ...(fieldProps || {}), ...field, name: `search.${name}.${field.name}` })) },
+    { fields: fields.map(field => ({ ...(fieldProps || {}), ...field, name: searchFieldName(name, field) })) },
   )
   return (
     <div>

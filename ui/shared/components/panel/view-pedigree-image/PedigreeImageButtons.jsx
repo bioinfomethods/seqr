@@ -1,68 +1,52 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
-import { Message, Loader } from 'semantic-ui-react'
+import { Loader } from 'semantic-ui-react'
 
 import { updateFamily } from 'redux/rootReducer'
 import { RECEIVE_DATA } from 'redux/utils/reducerUtils'
 import { closeModal } from 'redux/utils/modalReducer'
 import DeleteButton from '../../buttons/DeleteButton'
 import DispatchRequestButton from '../../buttons/DispatchRequestButton'
+import PhiWarningUploadField from '../../form/PhiWarningUploadField'
 import Modal from '../../modal/Modal'
 import { ButtonLink } from '../../StyledComponents'
 
 const XHRUploaderWithEvents = React.lazy(() => import('../../form/XHRUploaderWithEvents'))
 
-class BaseEditPedigreeImageButton extends React.PureComponent {
+const getModalId = family => `uploadPedigree-${family.familyGuid}`
 
-  static propTypes = {
-    family: PropTypes.object,
-    onSuccess: PropTypes.func,
-  }
+const BaseEditPedigreeImageButton = ({ family, onSuccess }) => (
+  <Modal
+    title={`Upload Pedigree for Family ${family.familyId}`}
+    modalName={getModalId(family)}
+    trigger={<ButtonLink content="Upload New Image" icon="upload" labelPosition="right" />}
+  >
+    <PhiWarningUploadField fileDescriptor="image" disclaimerDetail="either in the image itself or in the image metadata">
+      <React.Suspense fallback={<Loader />}>
+        <XHRUploaderWithEvents
+          onUploadFinished={onSuccess}
+          url={`/api/family/${family.familyGuid}/update_pedigree_image`}
+          clearTimeOut={0}
+          auto
+          maxFiles={1}
+          dropzoneLabel="Drag and drop or click to upload pedigree image"
+          showError
+        />
+      </React.Suspense>
+    </PhiWarningUploadField>
+  </Modal>
+)
 
-  state = { error: null }
-
-  constructor(props) {
-    super(props)
-    this.modalId = `uploadPedigree-${props.family.familyGuid}`
-  }
-
-  onFinished = (xhr) => {
-    const { onSuccess } = this.props
-    return xhr.status === 200 ? onSuccess(JSON.parse(xhr.response), this.modalId) :
-      this.setState({ error: `Error: ${xhr.statusText} (${xhr.status})` })
-  }
-
-  render() {
-    const { family } = this.props
-    const { error } = this.state
-    return (
-      <Modal
-        title={`Upload Pedigree for Family ${family.familyId}`}
-        modalName={this.modalId}
-        trigger={<ButtonLink content="Upload New Image" icon="upload" labelPosition="right" />}
-      >
-        <React.Suspense fallback={<Loader />}>
-          <XHRUploaderWithEvents
-            onUploadFinished={this.onFinished}
-            url={`/api/family/${family.familyGuid}/update_pedigree_image`}
-            clearTimeOut={0}
-            auto
-            maxFiles={1}
-            dropzoneLabel="Drag and drop or click to upload pedigree image"
-          />
-        </React.Suspense>
-        {error && <Message error content={error} />}
-      </Modal>
-    )
-  }
-
+BaseEditPedigreeImageButton.propTypes = {
+  family: PropTypes.object,
+  onSuccess: PropTypes.func,
 }
 
-const mapDispatchToProps = dispatch => ({
-  onSuccess: (responseJson, modalId) => {
+const mapDispatchToProps = (dispatch, ownProps) => ({
+  onSuccess: (responseJson) => {
     dispatch({ type: RECEIVE_DATA, updatesById: { familiesByGuid: responseJson } })
-    dispatch(closeModal(modalId))
+    dispatch(closeModal(getModalId(ownProps.family)))
   },
 })
 

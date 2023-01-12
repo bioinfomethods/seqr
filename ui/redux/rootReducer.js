@@ -13,8 +13,19 @@ import {
 } from './utils/reducerFactories'
 import modalReducers from './utils/modalReducer'
 import {
-  RECEIVE_DATA, REQUEST_PROJECTS, RECEIVE_SAVED_SEARCHES, REQUEST_SAVED_SEARCHES, REQUEST_SAVED_VARIANTS,
-  REQUEST_SEARCHED_VARIANTS, RECEIVE_SEARCHED_VARIANTS, updateEntity, loadFamilyData, loadProjectChildEntities,
+  RECEIVE_DATA,
+  REQUEST_PROJECTS,
+  RECEIVE_PROJECT_CHILD_ENTITES,
+  RECEIVE_SAVED_SEARCHES,
+  REQUEST_SAVED_SEARCHES,
+  REQUEST_SAVED_VARIANTS,
+  REQUEST_SEARCHED_VARIANTS,
+  RECEIVE_SEARCHED_VARIANTS,
+  REQUEST_PROJECT_DETAILS,
+  REQUEST_ANALYSIS_GROUPS,
+  RECEIVE_ANALYSIS_GROUPS,
+  updateEntity,
+  loadFamilyData,
 } from './utils/reducerUtils'
 
 /**
@@ -24,6 +35,7 @@ import {
 // actions
 const REQUEST_GENES = 'REQUEST_GENES'
 const REQUEST_GENE_LISTS = 'REQUEST_GENE_LISTS'
+const RECEIVE_GENE_LISTS = 'RECEIVE_GENE_LISTS'
 const REQUEST_GENE_LIST = 'REQUEST_GENE_LIST'
 const REQUEST_SEARCH_GENE_BREAKDOWN = 'REQUEST_SEARCH_GENE_BREAKDOWN'
 const RECEIVE_SEARCH_GENE_BREAKDOWN = 'RECEIVE_SEARCH_GENE_BREAKDOWN'
@@ -34,7 +46,6 @@ const UPDATE_USER = 'UPDATE_USER'
 const REQUEST_HPO_TERMS = 'REQUEST_HPO_TERMS'
 const RECEIVE_HPO_TERMS = 'RECEIVE_HPO_TERMS'
 const REQUEST_FAMILY_DETAILS = 'REQUEST_FAMILY_DETAILS'
-const REQUEST_ANALYSIS_GROUPS = 'REQUEST_ANALYSIS_GROUPS'
 
 // action creators
 
@@ -72,8 +83,6 @@ export const updateProject = (values) => {
   const actionSuffix = values.projectField ? `_project_${values.projectField}` : '_project'
   return updateEntity(values, RECEIVE_DATA, '/api/project', 'projectGuid', actionSuffix)
 }
-
-export const loadProjectAnalysisGroups = projectGuid => loadProjectChildEntities(projectGuid, 'analysis groups', REQUEST_ANALYSIS_GROUPS)
 
 export const loadFamilyDetails = familyGuid => loadFamilyData(
   familyGuid, 'detailsLoaded', 'details', REQUEST_FAMILY_DETAILS, true,
@@ -129,14 +138,15 @@ export const loadGenes = geneIds => (dispatch, getState) => {
   }
 }
 
-export const loadLocusLists = () => (dispatch) => {
+export const loadLocusLists = allProjectLists => (dispatch) => {
   dispatch({ type: REQUEST_GENE_LISTS })
-  new HttpRequestHelper('/api/locus_lists',
+  new HttpRequestHelper(`/api/${allProjectLists ? 'all_locus_list_options' : 'locus_lists'}`,
     (responseJson) => {
       dispatch({ type: RECEIVE_DATA, updatesById: responseJson })
+      dispatch({ type: RECEIVE_GENE_LISTS, updatesById: {} })
     },
     (e) => {
-      dispatch({ type: RECEIVE_DATA, error: e.message, updatesById: {} })
+      dispatch({ type: RECEIVE_GENE_LISTS, error: e.message, updatesById: {} })
     }).get()
 }
 
@@ -305,6 +315,8 @@ const rootReducer = combineReducers({
   projectCategoriesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'projectCategoriesByGuid'),
   projectsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'projectsByGuid'),
   projectsLoading: loadingReducer(REQUEST_PROJECTS, RECEIVE_DATA),
+  projectDetailsLoading: loadingReducer(REQUEST_PROJECT_DETAILS, RECEIVE_DATA),
+  loadedProjectChildEntities: createObjectsByIdReducer(RECEIVE_PROJECT_CHILD_ENTITES),
   familiesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'familiesByGuid'),
   familyNotesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'familyNotesByGuid'),
   familyDetailsLoading: createSingleObjectReducer(REQUEST_FAMILY_DETAILS),
@@ -312,16 +324,17 @@ const rootReducer = combineReducers({
   samplesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'samplesByGuid'),
   igvSamplesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'igvSamplesByGuid'),
   analysisGroupsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'analysisGroupsByGuid'),
-  analysisGroupsLoading: loadingReducer(REQUEST_ANALYSIS_GROUPS, RECEIVE_DATA),
+  analysisGroupsLoading: loadingReducer(REQUEST_ANALYSIS_GROUPS, RECEIVE_ANALYSIS_GROUPS),
   mmeSubmissionsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'mmeSubmissionsByGuid'),
   mmeResultsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'mmeResultsByGuid'),
   genesById: createObjectsByIdReducer(RECEIVE_DATA, 'genesById'),
   rnaSeqDataByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'rnaSeqData'),
+  phenotypeGeneScoresByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'phenotypeGeneScores'),
   genesLoading: loadingReducer(REQUEST_GENES, RECEIVE_DATA),
   hpoTermsByParent: createObjectsByIdReducer(RECEIVE_HPO_TERMS),
   hpoTermsLoading: loadingReducer(REQUEST_HPO_TERMS, RECEIVE_HPO_TERMS),
   locusListsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'locusListsByGuid'),
-  locusListsLoading: loadingReducer(REQUEST_GENE_LISTS, RECEIVE_DATA),
+  locusListsLoading: loadingReducer(REQUEST_GENE_LISTS, RECEIVE_GENE_LISTS),
   locusListLoading: loadingReducer(REQUEST_GENE_LIST, RECEIVE_DATA),
   savedVariantsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'savedVariantsByGuid'),
   savedVariantsLoading: loadingReducer(REQUEST_SAVED_VARIANTS, RECEIVE_DATA),
@@ -335,6 +348,7 @@ const rootReducer = combineReducers({
   searchGeneBreakdownLoading: loadingReducer(REQUEST_SEARCH_GENE_BREAKDOWN, RECEIVE_SEARCH_GENE_BREAKDOWN),
   savedSearchesByGuid: createObjectsByIdReducer(RECEIVE_SAVED_SEARCHES, 'savedSearchesByGuid'),
   savedSearchesLoading: loadingReducer(REQUEST_SAVED_SEARCHES, RECEIVE_SAVED_SEARCHES),
+  transcriptsById: createObjectsByIdReducer(RECEIVE_DATA, 'transcriptsById'),
   user: createSingleObjectReducer(UPDATE_USER),
   newUser: zeroActionsReducer,
   userOptionsByUsername: createSingleValueReducer(RECEIVE_USER_OPTIONS, {}),

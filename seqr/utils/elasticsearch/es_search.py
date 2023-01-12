@@ -11,14 +11,14 @@ from itertools import combinations
 from reference_data.models import GENOME_VERSION_GRCh38, GENOME_VERSION_GRCh37
 from seqr.models import Sample, Individual
 from seqr.utils.elasticsearch.constants import XPOS_SORT_KEY, COMPOUND_HET, RECESSIVE, X_LINKED_RECESSIVE, \
-    HAS_ALT_FIELD_KEYS, GENOTYPES_FIELD_KEY, GENOTYPE_FIELDS_CONFIG, POPULATION_RESPONSE_FIELD_CONFIGS, POPULATIONS, \
+    HAS_ALT_FIELD_KEYS, GENOTYPES_FIELD_KEY, POPULATION_RESPONSE_FIELD_CONFIGS, POPULATIONS, \
     SORTED_TRANSCRIPTS_FIELD_KEY, CORE_FIELDS_CONFIG, NESTED_FIELDS, PREDICTION_FIELDS_CONFIG, INHERITANCE_FILTERS, \
     QUERY_FIELD_NAMES, REF_REF, ANY_AFFECTED, GENOTYPE_QUERY_MAP, CLINVAR_SIGNFICANCE_MAP, HGMD_CLASS_MAP, \
     SORT_FIELDS, MAX_VARIANTS, MAX_COMPOUND_HET_GENES, MAX_INDEX_NAME_LENGTH, QUALITY_QUERY_FIELDS, \
-    GRCH38_LOCUS_FIELD, MAX_SEARCH_CLAUSES, SV_SAMPLE_OVERRIDE_FIELD_CONFIGS, SV_GENOTYPE_FIELDS_CONFIG, \
+    GRCH38_LOCUS_FIELD, MAX_SEARCH_CLAUSES, SV_SAMPLE_OVERRIDE_FIELD_CONFIGS, \
     PREDICTION_FIELD_LOOKUP, SPLICE_AI_FIELD, CLINVAR_KEY, HGMD_KEY, CLINVAR_PATH_SIGNIFICANCES, \
     PATH_FREQ_OVERRIDE_CUTOFF, MAX_NO_LOCATION_COMP_HET_FAMILIES, NEW_SV_FIELD, AFFECTED, UNAFFECTED, HAS_ALT, \
-    get_prediction_response_key, XSTOP_FIELD
+    get_prediction_response_key, XSTOP_FIELD, GENOTYPE_FIELDS, SCREEN_KEY, MAX_INDEX_SEARCHES, PREFILTER_SEARCH_SIZE
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.redis_utils import safe_redis_get_json, safe_redis_set_json
 from seqr.utils.xpos_utils import get_xpos, MIN_POS, MAX_POS, get_chrom_pos
@@ -44,7 +44,7 @@ class EsSearch(object):
             raise InvalidSearchException('No es index found for families {}'.format(
                 ', '.join([f.family_id for f in families])))
 
-        self._indices = sorted(list(self.samples_by_family_index.keys()))
+        self._set_indices(sorted(list(self.samples_by_family_index.keys())))
         self._set_index_metadata()
 
         if len(self.samples_by_family_index) > len(self.index_metadata):
@@ -54,6 +54,17 @@ class EsSearch(object):
         elif len(self.index_metadata) > len(self.samples_by_family_index):
             # Some of the indices are an alias
             self._update_alias_metadata()
+
+        genome_versions = {meta['genomeVersion'] for meta in self.index_metadata.values()}
+        if len(genome_versions) > 1:
+            versions = defaultdict(set)
+            for s in samples.select_related('individual__family__project'):
+                versions[self.index_metadata[s.elasticsearch_index]['genomeVersion']].add(s.individual.family.project.name)
+            raise InvalidSearchException(
+                'Searching across multiple genome builds is not supported. Remove projects with differing genome builds from search: {}'.format(
+                    '; '.join(['{} - {}'.format(build, ', '.join(sorted(projects))) for build, projects in versions.items()])
+                ))
+        self._genome_version = genome_versions.pop()
 
         self.indices_by_dataset_type = defaultdict(list)
         for index in self._indices:
@@ -70,7 +81,7 @@ class EsSearch(object):
         self._allowed_consequences = None
         self._allowed_consequences_secondary = None
         self._consequence_overrides = {}
-        self._filtered_variant_ids = None
+        self._filtered_gene_ids = None
         self._paired_index_comp_het = False
         self._no_sample_filters = False
         self._any_affected_sample_filters = False
@@ -96,6 +107,10 @@ class EsSearch(object):
     def _get_index_dataset_type(self, index):
         return self.index_metadata[index].get('datasetType', Sample.DATASET_TYPE_VARIANT_CALLS)
 
+    def _set_indices(self, indices):
+        self._indices = indices
+        self._set_index_name()
+
     def _set_index_name(self):
         self.index_name = ','.join(sorted(self._indices))
         if len(self.index_name) > MAX_INDEX_NAME_LENGTH:
@@ -109,7 +124,6 @@ class EsSearch(object):
             self.index_name = alias
 
     def _set_index_metadata(self):
-        self._set_index_name()
         from seqr.utils.elasticsearch.utils import get_index_metadata
         self.index_metadata = get_index_metadata(self.index_name, self._client, include_fields=True)
 
@@ -157,7 +171,7 @@ class EsSearch(object):
                 dataset_type = self._get_index_dataset_type(index)
                 self.indices_by_dataset_type[dataset_type].remove(index)
 
-        self._indices = sorted(list(self.samples_by_family_index.keys()))
+        self._set_indices(sorted(list(self.samples_by_family_index.keys())))
 
         if len(self._indices) < 1:
             from seqr.utils.elasticsearch.utils import InvalidSearchException
@@ -166,10 +180,12 @@ class EsSearch(object):
 
     def update_dataset_type(self, dataset_type, keep_previous=False):
         new_indices = self.indices_by_dataset_type[dataset_type]
+        if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
+            new_indices += self.indices_by_dataset_type[Sample.DATASET_TYPE_MITO_CALLS]
         if keep_previous:
             indices = set(self._indices)
             indices.update(new_indices)
-            self._indices = list(indices)
+            update_indices = list(indices)
         else:
             if not new_indices:
                 error = 'Unable to search against dataset type "{}". This may be because inheritance based search is disabled in families with no loaded affected individuals'.format(
@@ -177,8 +193,9 @@ class EsSearch(object):
                 )
                 from seqr.utils.elasticsearch.utils import InvalidSearchException
                 raise InvalidSearchException(error)
-            self._indices = new_indices
-        self._set_index_name()
+            update_indices = new_indices
+
+        self._set_indices(update_indices)
         return self
 
     def _sort_variants(self):
@@ -223,35 +240,19 @@ class EsSearch(object):
     def filter_variants(self, inheritance=None, genes=None, intervals=None, rs_ids=None, variant_ids=None, locus=None,
                         frequencies=None, pathogenicity=None, in_silico=None, annotations=None, annotations_secondary=None,
                         quality_filter=None, custom_query=None, skip_genotype_filter=False):
-        has_location_filter = genes or intervals
 
         self._filter_custom(custom_query)
 
-        if has_location_filter:
-            self._filter(_location_filter(genes, intervals, locus))
-        elif variant_ids:
-            self.filter_by_variant_ids(variant_ids, locus=locus)
-        elif rs_ids:
-            self._filter(Q('terms', rsid=rs_ids))
+        self._filter_by_location(genes, intervals, variant_ids, rs_ids, locus)
 
-        clinvar_terms, hgmd_classes = _parse_pathogenicity_filter(pathogenicity or {})
-        self._filter_by_frequency(frequencies, clinvar_terms=clinvar_terms)
+        annotations = self._parse_annotation_overrides(annotations, pathogenicity)
+
+        self._filter_by_frequency(frequencies)
 
         self._filter_by_in_silico(in_silico)
 
         if quality_filter and quality_filter.get('vcf_filter') is not None:
             self._filter(~Q('exists', field='filters'))
-
-        annotations = {k: v for k, v in (annotations or {}).items() if v}
-        new_svs = bool(annotations.pop(NEW_SV_FIELD, False))
-        splice_ai = annotations.pop(SPLICE_AI_FIELD, None)
-        self._allowed_consequences = sorted({ann for anns in annotations.values() for ann in anns})
-        if clinvar_terms:
-            self._consequence_overrides[CLINVAR_KEY] = clinvar_terms
-        if hgmd_classes:
-            self._consequence_overrides[HGMD_KEY] = hgmd_classes
-        if splice_ai:
-            self._consequence_overrides[SPLICE_AI_FIELD] = float(splice_ai)
 
         inheritance_mode = (inheritance or {}).get('mode')
         inheritance_filter = (inheritance or {}).get('filter') or {}
@@ -262,19 +263,18 @@ class EsSearch(object):
         if inheritance:
             self._filter_families_for_inheritance(inheritance_filter, skipped_sample_count)
 
-        quality_filters_by_family = _quality_filters_by_family(
-            quality_filter, self.samples_by_family_index, self._indices, new_svs=new_svs)
+        quality_filters_by_family = self._get_quality_filters_by_family(quality_filter)
 
         has_comp_het_search = inheritance_mode in {RECESSIVE, COMPOUND_HET} and not self.previous_search_results.get('grouped_results')
         if has_comp_het_search:
             comp_het_dataset_type = self._filter_compound_hets(
-                quality_filters_by_family, annotations, annotations_secondary, has_location_filter)
+                quality_filters_by_family, annotations, annotations_secondary, bool(genes or intervals))
             if inheritance_mode == COMPOUND_HET:
                 if comp_het_dataset_type:
                     self.update_dataset_type(comp_het_dataset_type)
                 return
 
-        dataset_type = self._filter_by_annotations(annotations, new_svs)
+        dataset_type = self._filter_by_annotations(annotations)
 
         if skip_genotype_filter and not inheritance_mode:
             return
@@ -284,6 +284,38 @@ class EsSearch(object):
         if has_comp_het_search and annotations_secondary and dataset_type and comp_het_dataset_type != dataset_type:
             self.update_dataset_type(_dataset_type_for_annotations(annotations_secondary), keep_previous=True)
 
+    def _parse_annotation_overrides(self, annotations, pathogenicity):
+        clinvar_terms, hgmd_classes = _parse_pathogenicity_filter(pathogenicity or {})
+
+        annotations = {k: v for k, v in (annotations or {}).items() if v}
+        new_svs = bool(annotations.pop(NEW_SV_FIELD, False))
+        splice_ai = annotations.pop(SPLICE_AI_FIELD, None)
+        screen = annotations.pop(SCREEN_KEY, None)
+        self._allowed_consequences = sorted({ann for anns in annotations.values() for ann in anns})
+        if clinvar_terms:
+            self._consequence_overrides[CLINVAR_KEY] = clinvar_terms
+        if hgmd_classes:
+            self._consequence_overrides[HGMD_KEY] = hgmd_classes
+        if splice_ai:
+            self._consequence_overrides[SPLICE_AI_FIELD] = float(splice_ai)
+        if screen:
+            self._consequence_overrides[SCREEN_KEY] = screen
+        if new_svs:
+            self._consequence_overrides[NEW_SV_FIELD] = new_svs
+
+        return annotations
+
+    def _filter_by_location(self, genes, intervals, variant_ids, rs_ids, locus):
+        if genes or intervals:
+            exclude_locations = locus and locus.get('excludeLocations')
+            self._filter(_location_filter(genes, intervals, exclude_locations))
+            if genes and not exclude_locations:
+                self._filtered_gene_ids = set(genes.keys())
+        elif variant_ids:
+            self.filter_by_variant_ids(variant_ids)
+        elif rs_ids:
+            self._filter(Q('terms', rsid=rs_ids))
+
     def _filter_custom(self, custom_query):
         if custom_query:
             if not isinstance(custom_query, list):
@@ -292,16 +324,19 @@ class EsSearch(object):
                 self._filter(Q(q_dict))
 
     def _filter_by_in_silico(self, in_silico_filters):
-        in_silico_filters = {k: v for k, v in (in_silico_filters or {}).items() if v is not None and len(v) != 0}
+        in_silico_filters = in_silico_filters or {}
+        require_score = in_silico_filters.pop('requireScore', False)
+        in_silico_filters = {k: v for k, v in in_silico_filters.items() if v is not None and len(v) != 0}
         if in_silico_filters:
-            self._filter(_in_silico_filter(in_silico_filters))
+            self._filter(_in_silico_filter(in_silico_filters, require_score=require_score))
 
-    def _filter_by_frequency(self, frequencies, clinvar_terms=None):
+    def _filter_by_frequency(self, frequencies):
+        frequencies = {pop: v for pop, v in (frequencies or {}).items() if pop in POPULATIONS}
         if not frequencies:
             return
 
-        clinvar_path_filters = [f for f in clinvar_terms if f in CLINVAR_PATH_SIGNIFICANCES]
-        path_override = bool(clinvar_path_filters) and any(
+        path_filter = self._get_clinvar_pathogenic_override_filter()
+        path_override = path_filter is not None and any(
             freqs.get('af') or 1 < PATH_FREQ_OVERRIDE_CUTOFF for freqs in frequencies.values())
 
         q = Q()
@@ -323,25 +358,40 @@ class EsSearch(object):
                 q &= _pop_freq_filter(POPULATIONS[pop]['Hemi'], freqs['hh'])
 
         if path_override:
-            q |= (_pathogenicity_filter(clinvar_path_filters) & path_q)
+            q |= (path_filter & path_q)
 
         self._filter(q)
 
+    def _get_clinvar_pathogenic_override_filter(self):
+        clinvar_path_terms = [
+            f for f in self._consequence_overrides.get(CLINVAR_KEY, []) if f in CLINVAR_PATH_SIGNIFICANCES
+        ]
+        if clinvar_path_terms:
+            return _pathogenicity_filter(clinvar_path_terms)
+        return None
+
     def _get_annotation_override_filter(self):
+        filters = []
         pathogenicity_filter = _pathogenicity_filter(
             self._consequence_overrides.get(CLINVAR_KEY), self._consequence_overrides.get(HGMD_KEY),
         )
+        if pathogenicity_filter:
+            filters.append(pathogenicity_filter)
         splice_ai = self._consequence_overrides.get(SPLICE_AI_FIELD)
-        splice_ai_filter = _in_silico_filter({SPLICE_AI_FIELD: splice_ai}, allow_missing=False) if splice_ai else None
-        if pathogenicity_filter and splice_ai_filter:
-            return _or_filters([pathogenicity_filter, splice_ai_filter])
-        else:
-            return pathogenicity_filter or splice_ai_filter
+        if splice_ai:
+            filters.append(_in_silico_filter({SPLICE_AI_FIELD: splice_ai}, require_score=True))
+        screen = self._consequence_overrides.get(SCREEN_KEY)
+        if screen:
+            filters.append(Q('terms', screen_region_type=screen))
 
+        if not filters:
+            return None
+        return _or_filters(filters)
 
-    def _filter_by_annotations(self, annotations, new_svs):
+    def _filter_by_annotations(self, annotations):
         dataset_type = None
         annotation_override_filter = self._get_annotation_override_filter()
+        new_svs = self._consequence_overrides.get(NEW_SV_FIELD)
 
         if self._allowed_consequences:
             consequences_filter = _annotations_filter(self._allowed_consequences)
@@ -350,7 +400,9 @@ class EsSearch(object):
                 # Pathogencicity and transcript consequences act as "OR" filters instead of the usual "AND"
                 consequences_filter |= annotation_override_filter
             self._filter(consequences_filter)
-            dataset_type = _dataset_type_for_annotations(annotations, new_svs=new_svs)
+            dataset_type = _dataset_type_for_annotations(
+                annotations, new_svs=new_svs, screen=self._consequence_overrides.get(SCREEN_KEY)
+            )
         elif new_svs:
             dataset_type = Sample.DATASET_TYPE_SV_CALLS
         elif annotation_override_filter:
@@ -361,26 +413,8 @@ class EsSearch(object):
 
         return dataset_type
 
-    def filter_by_variant_ids(self, variant_ids, locus=None):
-        genome_version = locus and locus.get('genomeVersion')
-        variant_id_genome_versions = {variant_id: genome_version for variant_id in variant_ids or []}
-        if variant_id_genome_versions and genome_version:
-            lifted_genome_version = GENOME_VERSION_GRCh37 if genome_version == GENOME_VERSION_GRCh38 else GENOME_VERSION_GRCh38
-            liftover = _liftover_grch38_to_grch37() if genome_version == GENOME_VERSION_GRCh38 else _liftover_grch37_to_grch38()
-            if liftover:
-                for variant_id in deepcopy(variant_ids):
-                    chrom, pos, ref, alt = self.parse_variant_id(variant_id)
-                    lifted_coord = liftover.convert_coordinate('chr{}'.format(chrom), pos)
-                    if lifted_coord and lifted_coord[0]:
-                        lifted_variant_id = '{chrom}-{pos}-{ref}-{alt}'.format(
-                            chrom=lifted_coord[0][0].lstrip('chr'), pos=lifted_coord[0][1], ref=ref, alt=alt
-                        )
-                        variant_id_genome_versions[lifted_variant_id] = lifted_genome_version
-                        variant_ids.append(lifted_variant_id)
-
+    def filter_by_variant_ids(self, variant_ids):
         self._filter(Q('terms', variantId=variant_ids))
-        if len({genome_version for genome_version in variant_id_genome_versions.values()}) > 1:
-            self._filtered_variant_ids = variant_id_genome_versions
         return self
 
     def _filter_by_genotype(self, inheritance_mode, inheritance_filter, quality_filters_by_family, skipped_sample_count):
@@ -453,13 +487,6 @@ class EsSearch(object):
                 from seqr.utils.elasticsearch.utils import InvalidSearchException
                 raise InvalidSearchException('Invalid custom inheritance')
 
-
-            # For recessive search, should be hom recessive, x-linked recessive, or compound het
-            if inheritance_mode == RECESSIVE:
-                x_linked_q = _family_genotype_inheritance_filter(
-                    X_LINKED_RECESSIVE, inheritance_filter, samples_by_id, affected_status, index_fields,
-                )
-                family_samples_q |= x_linked_q
         else:
             # If no inheritance specified only return variants where at least one of the requested samples has an alt allele
             family_samples_q = _any_affected_sample_filter(list(samples_by_id.keys()))
@@ -626,9 +653,11 @@ class EsSearch(object):
         num_results_for_search = num_results * len(self._indices) if deduplicate else num_results
         if num_results_for_search > MAX_VARIANTS and deduplicate:
             num_results_for_search = MAX_VARIANTS
-        search = self._get_paginated_searches(
+        searches, log_messages = self._get_paginated_searches(
             self.index_name, page=page, num_results=num_results_for_search, start_index=start_index
-        )[0]
+        )
+        logger.info(log_messages[0], self._user)
+        search = searches[0]
         response = self._execute_search(search)
         parsed_response = self._parse_response(response)
         return self._process_single_search_response(
@@ -662,7 +691,8 @@ class EsSearch(object):
         if self.CACHED_COUNTS_KEY and not self.previous_search_results.get(self.CACHED_COUNTS_KEY):
             self.previous_search_results[self.CACHED_COUNTS_KEY] = {}
 
-        ms = MultiSearch()
+        paginated_index_searches = {}
+        index_logs = {}
         for index_name in indices:
             start_index = 0
             if self.CACHED_COUNTS_KEY:
@@ -674,13 +704,47 @@ class EsSearch(object):
                 else:
                     self.previous_search_results[self.CACHED_COUNTS_KEY][index_name] = {'loaded': 0, 'total': 0}
 
-            searches = self._get_paginated_searches(index_name, start_index=start_index, **kwargs)
+            searches, log_messages = self._get_paginated_searches(index_name, start_index=start_index, **kwargs)
+            if searches:
+                paginated_index_searches[index_name] = searches
+                index_logs[index_name] = log_messages
+
+        if len(paginated_index_searches) > MAX_INDEX_SEARCHES:
+            index_possible_variants, all_inheritance_response = self._get_possible_hit_indices()
+            if index_possible_variants:
+                paginated_index_searches = {
+                    index_name: [
+                        search.query('ids', values=possible_ids) for search in paginated_index_searches[index_name]
+                    ] for index_name, possible_ids in index_possible_variants.items()
+                    if paginated_index_searches.get(index_name)
+                }
+            elif all_inheritance_response is not None:
+                # all inheritance search succeeded but has no results, return an empty response
+                return self._process_single_search_response(self._parse_response(all_inheritance_response), **kwargs)
+
+        ms = MultiSearch()
+        for index_name, searches in paginated_index_searches.items():
             for search in searches:
                 ms = ms.add(search)
+            for message in index_logs[index_name]:
+                logger.info(message, self._user)
 
         responses = self._execute_search(ms) if ms._searches else []
         parsed_responses = [self._parse_response(response) for response in responses]
         return self._process_multi_search_responses(parsed_responses, **kwargs)
+
+    def _get_possible_hit_indices(self):
+        no_inheritance_search = self._search.index(self.index_name).source('')[:PREFILTER_SEARCH_SIZE]
+        response = no_inheritance_search.using(self._client).execute()
+        if response.hits.total['value'] > len(response.hits):
+            return None, None
+
+        index_possible_variants = defaultdict(list)
+        for hit in response.hits:
+            index_possible_variants[hit.meta.index].append(hit.meta.id)
+
+        logger.info(f'Filtering search to {len(index_possible_variants)} indices with possible hits', self._user)
+        return index_possible_variants, response
 
     def _process_multi_search_responses(self, parsed_responses, page=1, num_results=100):
         new_results = []
@@ -748,9 +812,9 @@ class EsSearch(object):
         hit = {k: raw_hit[k] for k in QUERY_FIELD_NAMES if k in raw_hit}
         index_name = raw_hit.meta.index
         index_family_samples = self.samples_by_family_index[index_name]
-        is_sv = self._get_index_dataset_type(index_name) == Sample.DATASET_TYPE_SV_CALLS
+        data_type = self._get_index_dataset_type(index_name)
 
-        family_guids, genotypes = self._parse_genotypes(raw_hit, hit, index_family_samples, is_sv)
+        family_guids, genotypes = self._parse_genotypes(raw_hit, hit, index_family_samples, data_type)
 
         result = _get_field_values(hit, CORE_FIELDS_CONFIG, format_response_key=str)
         result.update({
@@ -760,11 +824,13 @@ class EsSearch(object):
         if hasattr(raw_hit.meta, 'sort'):
             result['_sort'] = [_parse_es_sort(sort, self._sort[i]) for i, sort in enumerate(raw_hit.meta.sort)]
 
-        self._parse_genome_versions(result, index_name, hit)
+        result['genomeVersion'] = self._genome_version
+        if self._genome_version == GENOME_VERSION_GRCh38:
+            self._add_liftover(result, hit)
         self._parse_xstop(result)
 
         # If an SV has genotype-specific coordinates that differ from the main coordinates, use those
-        if is_sv and genotypes:
+        if data_type == Sample.DATASET_TYPE_SV_CALLS and genotypes:
             self._set_sv_genotype_coords(genotypes, result)
 
         populations = {
@@ -788,16 +854,7 @@ class EsSearch(object):
         gene_ids = result.pop('geneIds', None)
         if gene_ids:
             transcripts = {gene_id: ts for gene_id, ts in transcripts.items() if gene_id in gene_ids}
-
-        main_transcript_id = sorted_transcripts[0]['transcriptId'] \
-            if len(sorted_transcripts) and 'transcriptRank' in sorted_transcripts[0] else None
-        selected_main_transcript_id = None
-        if main_transcript_id and self._allowed_consequences and sorted_transcripts[0].get('majorConsequence') not in self._allowed_consequences:
-            selected_main_transcript_id = next((
-                t.get('transcriptId') for t in sorted_transcripts if t.get('majorConsequence') in self._allowed_consequences), None)
-            if not selected_main_transcript_id and self._allowed_consequences_secondary:
-                selected_main_transcript_id = next((
-                    t for t in sorted_transcripts if t.get('majorConsequence') in self._allowed_consequences_secondary), None)
+        main_transcript_id, selected_main_transcript_id = self._get_main_transcript(sorted_transcripts)
 
         result.update({
             'familyGuids': sorted(family_guids),
@@ -812,7 +869,7 @@ class EsSearch(object):
         })
         return result
 
-    def _parse_genotypes(self, raw_hit, hit, index_family_samples, is_sv):
+    def _parse_genotypes(self, raw_hit, hit, index_family_samples, data_type):
         if hasattr(raw_hit.meta, 'matched_queries'):
             family_guids = list(raw_hit.meta.matched_queries)
         elif self._return_all_queried_families:
@@ -837,7 +894,7 @@ class EsSearch(object):
                        for sample_id, sample in samples_by_id.items())]
 
         genotypes = {}
-        genotype_fields_config = SV_GENOTYPE_FIELDS_CONFIG if is_sv else GENOTYPE_FIELDS_CONFIG
+        genotype_fields_config = GENOTYPE_FIELDS[data_type]
         for family_guid in family_guids:
             samples_by_id = index_family_samples[family_guid]
             for genotype_hit in hit[GENOTYPES_FIELD_KEY]:
@@ -846,7 +903,7 @@ class EsSearch(object):
                     genotype_hit['sample_type'] = sample.sample_type
                     genotypes[sample.individual.guid] = _get_field_values(genotype_hit, genotype_fields_config)
 
-            if len(samples_by_id) != len(genotypes) and is_sv:
+            if len(samples_by_id) != len(genotypes) and data_type == Sample.DATASET_TYPE_SV_CALLS:
                 # Family members with no variants are not included in the SV index
                 for sample_id, sample in samples_by_id.items():
                     if sample.individual.guid not in genotypes:
@@ -880,30 +937,53 @@ class EsSearch(object):
                     if compare_func(gen.get(gen_field), result.get(field)):
                         gen[gen_field] = None
 
-    def _parse_genome_versions(self, result, index_name, hit):
-        genome_version = self.index_metadata[index_name]['genomeVersion']
+    def _get_main_transcript(self, sorted_transcripts):
+        main_transcript_id = sorted_transcripts[0]['transcriptId'] \
+            if len(sorted_transcripts) and 'transcriptRank' in sorted_transcripts[0] else None
+
+        selected_main_transcript_id = None
+        if main_transcript_id and (self._filtered_gene_ids or self._allowed_consequences):
+            gene_transcripts = [
+                t for t in sorted_transcripts if t.get('geneId') in self._filtered_gene_ids
+            ] if  self._filtered_gene_ids else sorted_transcripts
+
+            selected_main_transcript_id = gene_transcripts[0].get('transcriptId')
+            if self._allowed_consequences:
+                consequence_transcript_id = next((
+                    t.get('transcriptId') for t in gene_transcripts if
+                    t.get('majorConsequence') in self._allowed_consequences), None)
+                if not consequence_transcript_id and self._allowed_consequences_secondary:
+                    consequence_transcript_id = next((
+                        t for t in gene_transcripts if t.get('majorConsequence') in self._allowed_consequences_secondary
+                    ), None)
+                selected_main_transcript_id = consequence_transcript_id or selected_main_transcript_id
+            if selected_main_transcript_id == main_transcript_id:
+                selected_main_transcript_id = None
+
+        return main_transcript_id, selected_main_transcript_id
+
+    @staticmethod
+    def _add_liftover(result, hit):
         lifted_over_genome_version = None
         lifted_over_chrom = None
         lifted_over_pos = None
-        grch37_locus = result.pop(GRCH38_LOCUS_FIELD, None)
-        if genome_version == GENOME_VERSION_GRCh38:
-            if grch37_locus:
-                lifted_over_genome_version = GENOME_VERSION_GRCh37
-                lifted_over_chrom = grch37_locus['contig']
-                lifted_over_pos = grch37_locus['position']
-            else:
-                # TODO once all projects are lifted in pipeline, remove this code (https://github.com/broadinstitute/seqr/issues/1010)
-                liftover_grch38_to_grch37 = _liftover_grch38_to_grch37()
-                if liftover_grch38_to_grch37:
-                    grch37_coord = liftover_grch38_to_grch37.convert_coordinate(
-                        'chr{}'.format(hit['contig'].lstrip('chr')), int(hit['start'])
-                    )
-                    if grch37_coord and grch37_coord[0]:
-                        lifted_over_genome_version = GENOME_VERSION_GRCh37
-                        lifted_over_chrom = grch37_coord[0][0].lstrip('chr')
-                        lifted_over_pos = grch37_coord[0][1]
+        grch37_locus = hit.get(GRCH38_LOCUS_FIELD, None)
+        if grch37_locus:
+            lifted_over_genome_version = GENOME_VERSION_GRCh37
+            lifted_over_chrom = grch37_locus['contig']
+            lifted_over_pos = grch37_locus['position']
+        else:
+            # TODO once all projects are lifted in pipeline, remove this code (https://github.com/broadinstitute/seqr/issues/1010)
+            liftover_grch38_to_grch37 = _liftover_grch38_to_grch37()
+            if liftover_grch38_to_grch37:
+                grch37_coord = liftover_grch38_to_grch37.convert_coordinate(
+                    'chr{}'.format(hit['contig'].lstrip('chr')), int(hit['start'])
+                )
+                if grch37_coord and grch37_coord[0]:
+                    lifted_over_genome_version = GENOME_VERSION_GRCh37
+                    lifted_over_chrom = grch37_coord[0][0].lstrip('chr')
+                    lifted_over_pos = grch37_coord[0][1]
         result.update({
-            'genomeVersion': genome_version,
             'liftedOverGenomeVersion': lifted_over_genome_version,
             'liftedOverChrom': lifted_over_chrom,
             'liftedOverPos': lifted_over_pos,
@@ -1085,22 +1165,12 @@ class EsSearch(object):
 
     def _deduplicate_results(self, sorted_new_results):
         original_result_count = len(sorted_new_results)
-
-        if self._filtered_variant_ids:
-            sorted_new_results = [
-                v for v in sorted_new_results if self._filtered_variant_ids.get(v['variantId']) == v['genomeVersion']
-            ]
-
-        genome_builds = {var['genomeVersion'] for var in sorted_new_results}
-        if len(genome_builds) > 1:
-            variant_results = self._deduplicate_multi_genome_variant_results(sorted_new_results)
-        else:
-            variant_results = []
-            for variant in sorted_new_results:
-                if variant_results and variant_results[-1]['variantId'] == variant['variantId']:
-                    self._merge_duplicate_variants(variant_results[-1], variant)
-                else:
-                    variant_results.append(variant)
+        variant_results = []
+        for variant in sorted_new_results:
+            if variant_results and variant_results[-1]['variantId'] == variant['variantId']:
+                self._merge_duplicate_variants(variant_results[-1], variant)
+            else:
+                variant_results.append(variant)
 
         previous_duplicates = self.previous_search_results.get('duplicate_doc_count', 0)
         new_duplicates = original_result_count - len(variant_results)
@@ -1109,43 +1179,6 @@ class EsSearch(object):
         self.previous_search_results['total_results'] -= self.previous_search_results['duplicate_doc_count']
 
         return variant_results
-
-    @classmethod
-    def _deduplicate_multi_genome_variant_results(cls, sorted_new_results):
-        hg_38_variant_indices = {}
-        hg_37_variant_indices = {}
-
-        variant_results = []
-        for i, variant in enumerate(sorted_new_results):
-            if variant['genomeVersion'] == GENOME_VERSION_GRCh38:
-                hg37_id = '{}-{}-{}-{}'.format(variant['liftedOverChrom'], variant['liftedOverPos'], variant['ref'],
-                                               variant['alt'])
-                existing_38_index = hg_38_variant_indices.get(hg37_id)
-                if existing_38_index is not None:
-                    cls._merge_duplicate_variants(variant_results[existing_38_index], variant)
-                    variant_results.append(None)
-                else:
-                    existing_37_index = hg_37_variant_indices.get(hg37_id)
-                    if existing_37_index is not None:
-                        cls._merge_duplicate_variants(variant, variant_results[existing_37_index])
-                        variant_results[existing_37_index] = None
-
-                    hg_38_variant_indices[hg37_id] = i
-                    variant_results.append(variant)
-            else:
-                existing_38_index = hg_38_variant_indices.get(variant['variantId'])
-                existing_37_index = hg_37_variant_indices.get(variant['variantId'])
-                if existing_38_index is not None:
-                    cls._merge_duplicate_variants(variant_results[existing_38_index], variant)
-                    variant_results.append(None)
-                elif existing_37_index is not None:
-                    cls._merge_duplicate_variants(variant_results[existing_37_index], variant)
-                    variant_results.append(None)
-                else:
-                    hg_37_variant_indices[variant['variantId']] = i
-                    variant_results.append(variant)
-
-        return [var for var in variant_results if var]
 
     @classmethod
     def _merge_duplicate_variants(cls, variant, duplicate_variant):
@@ -1225,13 +1258,14 @@ class EsSearch(object):
 
     def _get_paginated_searches(self, index_name, page=1, num_results=100, start_index=None):
         searches = []
+        log_messages = []
         for search in self._index_searches.get(index_name, [self._search]):
             search = search.index(index_name.split(','))
 
             if search.aggs.to_dict():
                 # For compound het search get results from aggregation instead of top level hits
                 search = search[:1]
-                logger.info('Loading {}s for {}'.format(self.AGGREGATION_NAME, index_name), self._user)
+                log_messages.append('Loading {}s for {}'.format(self.AGGREGATION_NAME, index_name))
             else:
                 end_index = page * num_results
                 if start_index is None:
@@ -1244,10 +1278,10 @@ class EsSearch(object):
 
                 search = search[start_index:end_index]
                 search = search.source(QUERY_FIELD_NAMES)
-                logger.info('Loading {} records {}-{}'.format(index_name, start_index, end_index), self._user)
+                log_messages.append('Loading {} records {}-{}'.format(index_name, start_index, end_index))
 
             searches.append(search)
-        return searches
+        return searches, log_messages
 
     def _execute_search(self, search):
         logger.debug(json.dumps(search.to_dict(), indent=2), self._user)
@@ -1299,6 +1333,44 @@ class EsSearch(object):
             raise ValueError('Invalid variant id')
         return var_fields[0].lstrip('chr'), int(var_fields[1]), var_fields[2], var_fields[3]
 
+    def _get_quality_filters_by_family(self, quality_filter):
+        quality_field_configs = {
+            'min_{}'.format(field): {'field': field, 'step': step} for field, step in QUALITY_QUERY_FIELDS.items()
+        }
+        quality_filter = dict({field: 0 for field in quality_field_configs.keys()}, **(quality_filter or {}))
+        for field, config in quality_field_configs.items():
+            if quality_filter[field] % config['step'] != 0:
+                raise Exception('Invalid {} filter {}'.format(config['field'], quality_filter[field]))
+
+        quality_filters_by_family = {}
+        new_svs = self._consequence_overrides.get(NEW_SV_FIELD)
+        if new_svs or any(quality_filter[field] for field in quality_field_configs.keys()):
+            family_sample_ids = defaultdict(set)
+            for index in self._indices:
+                family_samples_by_id = self.samples_by_family_index[index]
+                for family_guid, samples_by_id in family_samples_by_id.items():
+                    family_sample_ids[family_guid].update(samples_by_id.keys())
+
+            path_filter = self._get_clinvar_pathogenic_override_filter()
+            for family_guid, sample_ids in sorted(family_sample_ids.items()):
+                quality_q = Q('terms', samples_new_call=sorted(sample_ids)) if new_svs else Q()
+                for sample_id in sorted(sample_ids):
+                    for field, config in sorted(quality_field_configs.items()):
+                        if quality_filter[field]:
+                            q = _build_or_filter('term', [
+                                {'samples_{}_{}_to_{}'.format(config['field'], i, i + config['step']): sample_id}
+                                for i in range(0, quality_filter[field], config['step'])
+                            ])
+                            if field == 'min_ab':
+                                #  AB only relevant for hets
+                                quality_q &= ~Q(q) | ~Q('term', samples_num_alt_1=sample_id)
+                            else:
+                                quality_q &= ~Q(q)
+                if path_filter:
+                    quality_q |= path_filter
+                quality_filters_by_family[family_guid] = quality_q
+        return quality_filters_by_family
+
 
 # TODO  move liftover to hail pipeline once upgraded to 0.2 (https://github.com/broadinstitute/seqr/issues/1010)
 LIFTOVER_GRCH38_TO_GRCH37 = None
@@ -1312,17 +1384,6 @@ def _liftover_grch38_to_grch37():
     return LIFTOVER_GRCH38_TO_GRCH37
 
 
-LIFTOVER_GRCH37_TO_GRCH38 = None
-def _liftover_grch37_to_grch38():
-    global LIFTOVER_GRCH37_TO_GRCH38
-    if not LIFTOVER_GRCH37_TO_GRCH38:
-        try:
-            LIFTOVER_GRCH37_TO_GRCH38 = LiftOver('hg19', 'hg38')
-        except Exception as e:
-            logger.error('ERROR: Unable to set up liftover. {}'.format(e), user=None)
-    return LIFTOVER_GRCH37_TO_GRCH38
-
-
 def _get_family_affected_status(samples_by_id, inheritance_filter):
     individual_affected_status = inheritance_filter.get('affected') or {}
     affected_status = {}
@@ -1331,41 +1392,6 @@ def _get_family_affected_status(samples_by_id, inheritance_filter):
         affected_status[indiv.guid] = individual_affected_status.get(indiv.guid) or indiv.affected
 
     return affected_status
-
-
-def _quality_filters_by_family(quality_filter, samples_by_family_index, indices, new_svs=False):
-    quality_field_configs = {
-        'min_{}'.format(field): {'field': field, 'step': step} for field, step in QUALITY_QUERY_FIELDS.items()
-    }
-    quality_filter = dict({field: 0 for field in quality_field_configs.keys()}, **(quality_filter or {}))
-    for field, config in quality_field_configs.items():
-        if quality_filter[field] % config['step'] != 0:
-            raise Exception('Invalid {} filter {}'.format(config['field'], quality_filter[field]))
-
-    quality_filters_by_family = {}
-    if new_svs or any(quality_filter[field] for field in quality_field_configs.keys()):
-        family_sample_ids = defaultdict(set)
-        for index in indices:
-            family_samples_by_id = samples_by_family_index[index]
-            for family_guid, samples_by_id in family_samples_by_id.items():
-                family_sample_ids[family_guid].update(samples_by_id.keys())
-
-        for family_guid, sample_ids in sorted(family_sample_ids.items()):
-            quality_q = Q('terms', samples_new_call=sorted(sample_ids)) if new_svs else Q()
-            for sample_id in sorted(sample_ids):
-                for field, config in sorted(quality_field_configs.items()):
-                    if quality_filter[field]:
-                        q = _build_or_filter('term', [
-                            {'samples_{}_{}_to_{}'.format(config['field'], i, i + config['step']): sample_id}
-                            for i in range(0, quality_filter[field], config['step'])
-                        ])
-                        if field == 'min_ab':
-                            #  AB only relevant for hets
-                            quality_q &= ~Q(q) | ~Q('term', samples_num_alt_1=sample_id)
-                        else:
-                            quality_q &= ~Q(q)
-            quality_filters_by_family[family_guid] = quality_q
-    return quality_filters_by_family
 
 
 def _any_affected_sample_filter(sample_ids):
@@ -1431,7 +1457,7 @@ def _named_family_sample_q(family_samples_q, family_guid, quality_filters_by_fam
     return Q('bool', must=sample_queries, _name=family_guid)
 
 
-def _location_filter(genes, intervals, location_filter):
+def _location_filter(genes, intervals, exclude_locations):
     q = None
 
     if genes:
@@ -1461,7 +1487,7 @@ def _location_filter(genes, intervals, location_filter):
             else:
                 q = interval_q
 
-    if location_filter and location_filter.get('excludeLocations'):
+    if exclude_locations:
         return ~q
     else:
         return q
@@ -1512,9 +1538,9 @@ def _annotations_filter(vep_consequences):
     return consequences_filter
 
 
-def _dataset_type_for_annotations(annotations, new_svs=False):
+def _dataset_type_for_annotations(annotations, new_svs=False, screen=False):
     sv = new_svs or bool(annotations.get('structural')) or bool(annotations.get('structural_consequence'))
-    non_sv = any(v for k, v in annotations.items() if k != 'structural' and k != 'structural_consequence')
+    non_sv = bool(screen) or any(v for k, v in annotations.items() if k != 'structural' and k != 'structural_consequence')
     if sv and not non_sv:
         return Sample.DATASET_TYPE_SV_CALLS
     elif not sv and non_sv:
@@ -1522,7 +1548,7 @@ def _dataset_type_for_annotations(annotations, new_svs=False):
     return None
 
 
-def _in_silico_filter(in_silico_filters, allow_missing=True):
+def _in_silico_filter(in_silico_filters, require_score):
     in_silico_qs = []
     for in_silico_filter, value in in_silico_filters.items():
         prediction_key = PREDICTION_FIELD_LOOKUP.get(in_silico_filter.lower(), in_silico_filter)
@@ -1531,7 +1557,7 @@ def _in_silico_filter(in_silico_filters, allow_missing=True):
         except ValueError:
             score_q = Q('prefix', **{prediction_key: value})
 
-        if allow_missing:
+        if not require_score:
             score_q |= ~Q('exists', field=prediction_key)
 
         in_silico_qs.append(score_q)

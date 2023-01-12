@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { Table, Icon, Popup, Visibility } from 'semantic-ui-react'
 import { connect } from 'react-redux'
-import { withRouter } from 'react-router'
 
 import DataLoader from 'shared/components/DataLoader'
 import { ExportTableButtonContent, DownloadButton } from 'shared/components/buttons/ExportTableButton'
@@ -18,7 +17,6 @@ import {
 import { loadFamilies, loadProjectExportData } from '../../reducers'
 import { FamilyDetail } from '../FamilyPage'
 import TableHeaderRow from './header/TableHeaderRow'
-import EmptyTableRow from './EmptyTableRow'
 
 const ExportContainer = styled.span`
   float: right;
@@ -30,9 +28,19 @@ const ToggleIcon = styled(Icon).attrs({ size: 'large', link: true, name: 'dropdo
   z-index: 1;
 `
 
+const EmptyCell = styled(Table.Cell)`
+  padding: 10px 0px 10px 15px;
+  color: gray;
+  border-width: 0px;
+`
+
 // Allows dropdowns to be visible inside table cell
 const OverflowCell = styled(Table.Cell)`
   overflow: visible !important;
+  
+  td {
+    overflow: visible !important;
+  }
 `
 
 class FamilyTableRow extends React.PureComponent {
@@ -93,8 +101,32 @@ class FamilyTableRow extends React.PureComponent {
 
 }
 
+const BaseFamilyTableRows = ({ visibleFamilies, ...props }) => (
+  visibleFamilies.length > 0 ? visibleFamilies.map(family => (
+    <FamilyTableRow
+      key={family.familyGuid}
+      familyGuid={family.familyGuid}
+      {...props}
+    />
+  )) : (
+    <Table.Row>
+      <EmptyCell content="0 families found" />
+    </Table.Row>
+  )
+)
+
+const mapFamilyRowsStateToProps = (state, ownProps) => ({
+  visibleFamilies: getVisibleFamiliesInSortedOrder(state, ownProps),
+})
+
+BaseFamilyTableRows.propTypes = {
+  visibleFamilies: PropTypes.arrayOf(PropTypes.object).isRequired,
+}
+
+const FamilyTableRows = connect(mapFamilyRowsStateToProps)(BaseFamilyTableRows)
+
 const FamilyTable = React.memo(({
-  visibleFamilies, load, loading, headerStatus, exportUrls, noDetailFields, tableName, showVariantDetails,
+  load, loading, headerStatus, exportUrls, noDetailFields, tableName, showVariantDetails,
   loadExportData, exportDataLoading, ...props
 }) => (
   <DataLoader load={load} loading={false} content>
@@ -128,22 +160,20 @@ const FamilyTable = React.memo(({
         fields={noDetailFields}
         tableName={tableName}
         showVariantDetails={showVariantDetails}
-        analysisGroupGuid={props.match.params.analysisGroupGuid}
+        analysisGroupGuid={props.analysisGroupGuid}
       />
     </Table>
     <Table striped compact attached="bottom">
       <Table.Body>
         {loading && <TableLoading />}
-        {!loading && (visibleFamilies.length > 0 ? visibleFamilies.map(family => (
-          <FamilyTableRow
-            key={family.familyGuid}
-            familyGuid={family.familyGuid}
+        {!loading && (
+          <FamilyTableRows
             noDetailFields={noDetailFields}
             showVariantDetails={showVariantDetails}
             tableName={tableName}
             {...props}
           />
-        )) : <EmptyTableRow tableName={tableName} />)}
+        )}
       </Table.Body>
       <Table.Footer>
         <Table.Row>
@@ -158,7 +188,6 @@ const FamilyTable = React.memo(({
 export { FamilyTable as FamilyTableComponent }
 
 FamilyTable.propTypes = {
-  visibleFamilies: PropTypes.arrayOf(PropTypes.object).isRequired,
   loading: PropTypes.bool,
   load: PropTypes.func,
   exportDataLoading: PropTypes.bool,
@@ -168,11 +197,10 @@ FamilyTable.propTypes = {
   showVariantDetails: PropTypes.bool,
   noDetailFields: PropTypes.arrayOf(PropTypes.object),
   tableName: PropTypes.string,
-  match: PropTypes.object,
+  analysisGroupGuid: PropTypes.string,
 }
 
 const mapStateToProps = (state, ownProps) => ({
-  visibleFamilies: getVisibleFamiliesInSortedOrder(state, ownProps),
   loading: getFamiliesLoading(state) || getProjectOverviewIsLoading(state),
   exportDataLoading: getFamiliesLoading(state) || getIndivdualsLoading(state),
   exportUrls: getProjectExportUrls(state, ownProps),
@@ -183,4 +211,4 @@ const mapDispatchToProps = {
   loadExportData: loadProjectExportData,
 }
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(FamilyTable))
+export default connect(mapStateToProps, mapDispatchToProps)(FamilyTable)

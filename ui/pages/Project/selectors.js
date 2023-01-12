@@ -5,19 +5,20 @@ import {
   FAMILY_FIELD_ID,
   INDIVIDUAL_FIELD_ID,
   FAMILY_FIELD_FIRST_SAMPLE,
+  FAMILY_FIELD_ANALYSED_BY,
   FAMILY_NOTES_FIELDS,
-  SHOW_ALL,
   GENOME_VERSION_DISPLAY_LOOKUP,
   getVariantMainTranscript,
   INDIVIDUAL_EXPORT_DATA,
   INDIVIDUAL_HAS_DATA_FIELD,
+  MME_TAG_NAME,
 } from 'shared/utils/constants'
 import { toCamelcase, toSnakecase, snakecaseToTitlecase } from 'shared/utils/stringUtils'
 
 import {
   getProjectsByGuid, getFamiliesGroupedByProjectGuid, getIndividualsByGuid, getSamplesByGuid, getGenesById, getUser,
   getAnalysisGroupsGroupedByProjectGuid, getSavedVariantsByGuid, getSortedIndividualsByFamily,
-  getMmeResultsByGuid, getMmeSubmissionsByGuid, getHasActiveSearchableSampleByFamily, getTagTypesByProject,
+  getMmeResultsByGuid, getMmeSubmissionsByGuid, getHasActiveSearchableSampleByFamily, getSelectableTagTypesByProject,
   getVariantTagsByGuid, getUserOptionsByUsername, getSamplesByFamily, getNotesByFamilyType,
   getSamplesGroupedByProjectGuid, getVariantTagNotesByFamilyVariants,
 } from 'redux/selectors'
@@ -25,6 +26,7 @@ import {
 import {
   SORT_BY_FAMILY_NAME,
   CASE_REVIEW_STATUS_OPTIONS,
+  CASE_REVIEW_FILTER_LOOKUP,
   FAMILY_FILTER_LOOKUP,
   FAMILY_SORT_OPTIONS,
   FAMILY_EXPORT_DATA,
@@ -32,6 +34,7 @@ import {
   CASE_REVIEW_TABLE_NAME,
   CASE_REVIEW_INDIVIDUAL_EXPORT_DATA,
   SAMPLE_EXPORT_DATA,
+  CATEGORY_FAMILY_FILTERS,
 } from './constants'
 
 const FAMILY_SORT_LOOKUP = FAMILY_SORT_OPTIONS.reduce(
@@ -44,11 +47,13 @@ const FAMILY_SORT_LOOKUP = FAMILY_SORT_OPTIONS.reduce(
 // project data selectors
 
 export const getProjectGuid = state => state.currentProjectGuid
-export const getProjectDetailsIsLoading = state => state.projectDetailsLoading.isLoading
 export const getProjectOverviewIsLoading = state => state.projectOverviewLoading.isLoading
+export const getProjectCollaboratorsIsLoading = state => state.projectCollaboratorsLoading.isLoading
+export const getProjectLocusListsIsLoading = state => state.projectLocusListsLoading.isLoading
 export const getMatchmakerMatchesLoading = state => state.matchmakerMatchesLoading.isLoading
 export const getMatchmakerContactNotes = state => state.mmeContactNotes
 export const getRnaSeqDataLoading = state => state.rnaSeqDataLoading.isLoading
+export const getPhenotypeDataLoading = state => state.phenotypeDataLoading.isLoading
 export const getFamiliesLoading = state => state.familiesLoading.isLoading
 export const getFamilyVariantSummaryLoading = state => state.familyVariantSummaryLoading.isLoading
 export const getIndivdualsLoading = state => state.individualsLoading.isLoading
@@ -56,6 +61,7 @@ export const getMmeSubmissionsLoading = state => state.mmeSubmissionsLoading.isL
 export const getSamplesLoading = state => state.samplesLoading.isLoading
 export const getTagTypesLoading = state => state.tagTypesLoading.isLoading
 export const getFamilyTagTypeCounts = state => state.familyTagTypeCounts
+export const getFamiliesTableFilters = state => state.familyTableFilterState
 
 export const getCurrentProject = createSelector(
   getProjectsByGuid, getProjectGuid, (projectsByGuid, currentProjectGuid) => projectsByGuid[currentProjectGuid],
@@ -97,11 +103,18 @@ export const getProjectAnalysisGroupFamiliesByGuid = createSelector(
   },
 )
 
-export const getProjectAnalysisGroupIndividualsCount = createSelector(
+export const getProjectAnalysisGroupFamilyIndividualCounts = createSelector(
   getProjectAnalysisGroupFamiliesByGuid,
-  familiesByGuid => Object.values(familiesByGuid).reduce(
-    (acc, family) => acc + (family.individualGuids || []).length, 0,
-  ),
+  familiesByGuid => Object.values(familiesByGuid).map(family => (family.individualGuids || []).length),
+)
+
+export const getProjectAnalysisGroupDataLoadedFamilyIndividualCounts = createSelector(
+  getProjectAnalysisGroupFamiliesByGuid,
+  getSamplesByFamily,
+  (familiesByGuid, samplesByFamily) => Object.keys(familiesByGuid).map((familyGuid) => {
+    const sampleIndividuals = new Set((samplesByFamily[familyGuid] || []).map(sample => sample.individualGuid))
+    return sampleIndividuals.size
+  }).filter(size => size > 0),
 )
 
 export const getProjectAnalysisGroupIndividualsByGuid = createSelector(
@@ -157,12 +170,6 @@ export const getProjectAnalysisGroupMmeSubmissionDetails = createSelector(
   },
 )
 
-export const getProjectTagTypes = createSelector(
-  getProjectGuid,
-  getTagTypesByProject,
-  (projectGuid, tagTypesByProject) => tagTypesByProject[projectGuid] || [],
-)
-
 export const getTaggedVariantsByFamily = createSelector(
   getSavedVariantsByGuid,
   getGenesById,
@@ -201,8 +208,11 @@ export const getSavedVariantTagTypeCountsByFamily = createSelector(
   variantsByFamily => Object.entries(variantsByFamily).reduce(
     (acc, [familyGuid, variants]) => ({
       ...acc,
-      [familyGuid]: variants.reduce((acc2, { tags }) => {
+      [familyGuid]: variants.reduce((acc2, { tags, mmeSubmissions = [] }) => {
         const counts = {}
+        if (mmeSubmissions.length) {
+          counts[MME_TAG_NAME] = (acc2[MME_TAG_NAME] || 0) + 1
+        }
         tags.forEach(({ name }) => {
           if (!counts[name]) {
             counts[name] = acc2[name] || 0
@@ -217,8 +227,13 @@ export const getSavedVariantTagTypeCountsByFamily = createSelector(
 
 export const getSavedVariantTagTypeCounts = createSelector(
   getVariantTagsByGuid,
-  variantTagsByGuid => Object.values(variantTagsByGuid).reduce(
-    (acc, { name }) => ({ ...acc, [name]: (acc[name] || 0) + 1 }), {},
+  getSavedVariantsByGuid,
+  (variantTagsByGuid, savedVariantsByGuid) => Object.values(variantTagsByGuid).reduce(
+    (acc, { name }) => ({ ...acc, [name]: (acc[name] || 0) + 1 }), {
+      [MME_TAG_NAME]: Object.values(savedVariantsByGuid).filter(
+        ({ mmeSubmissions = [] }) => mmeSubmissions.length > 0,
+      ).length,
+    },
   ),
 )
 
@@ -233,13 +248,11 @@ export const getAnalysisGroupTagTypeCounts = createSelector(
 )
 
 export const getTagTypeCounts = createSelector(
-  getProjectTagTypes,
-  tagTypes => tagTypes.reduce((acc, { name, numTags }) => ({ ...acc, [name]: numTags }), {}),
+  getCurrentProject,
+  project => project?.variantTagTypes?.reduce((acc, { name, numTags }) => ({ ...acc, [name]: numTags }), {}),
 )
 
-export const getVariantUniqueId = (
-  { chrom, pos, ref, alt, end, geneId }, variantGeneId,
-) => `${chrom}-${pos}-${ref ? `${ref}-${alt}` : end}-${variantGeneId || geneId}`
+export const getVariantGeneId = ({ variantGuid, geneId }, variantGeneId) => `${variantGuid}-${variantGeneId || geneId}`
 
 export const getIndividualTaggedVariants = createSelector(
   getTaggedVariantsByFamily,
@@ -254,7 +267,7 @@ export const getIndividualTaggedVariants = createSelector(
       }
       return [...acc, ...variant.genes.map(gene => ({
         ...variantDetail,
-        variantId: getVariantUniqueId(variant, gene.geneId),
+        variantId: getVariantGeneId(variant, gene.geneId),
         ...gene,
       }))]
     }, [])
@@ -263,7 +276,7 @@ export const getIndividualTaggedVariants = createSelector(
 
 export const getProjectTagTypeOptions = createSelector(
   getProjectGuid,
-  getTagTypesByProject,
+  getSelectableTagTypesByProject,
   (projectGuid, tagTypesByProject) => tagTypesByProject[projectGuid].map(
     ({ name, variantTagTypeGuid, ...tag }) => ({ value: name, text: name, ...tag }),
   ),
@@ -292,10 +305,7 @@ export const getFamiliesTableState = createSelector(
   (state, ownProps) => state[`${toCamelcase((ownProps || {}).tableName) || 'family'}TableState`],
   tableState => tableState,
 )
-export const getFamiliesFilter = createSelector(
-  getFamiliesTableState,
-  familyTableState => familyTableState.familiesFilter || SHOW_ALL,
-)
+
 const getFamiliesSearch = createSelector(
   getFamiliesTableState,
   familyTableState => (familyTableState.familiesSearch || '').toLowerCase(),
@@ -332,27 +342,131 @@ const getFamiliesBySearchString = createSelector(
   },
 )
 
+const getFamilyAnalysers = createSelector(
+  getProjectFamiliesByGuid,
+  familiesByGuid => new Set(Object.values(familiesByGuid).reduce(
+    (acc, family) => ([...acc, ...(family.analysedBy || []).map(({ createdBy }) => createdBy)]), [],
+  )),
+)
+
+export const getFamiliesFilterOptionsByCategory = createSelector(
+  getFamilyAnalysers,
+  analysedByOptions => ({
+    ...CATEGORY_FAMILY_FILTERS,
+    [FAMILY_FIELD_ANALYSED_BY]: [
+      ...CATEGORY_FAMILY_FILTERS[FAMILY_FIELD_ANALYSED_BY],
+      ...[...analysedByOptions].map(analysedBy => ({ value: analysedBy, category: 'Analysed By' })),
+    ],
+  }),
+)
+
+const ANALYSED_BY_FILTER_LOOKUP = Object.values(CATEGORY_FAMILY_FILTERS).reduce(
+  (acc, options) => {
+    options.forEach((opt) => {
+      acc[opt.value] = opt.analysedByFilter
+    })
+    return acc
+  }, {},
+)
+
+const NO_ANALYSED_BY_FIELDS = Object.values(CATEGORY_FAMILY_FILTERS).reduce(
+  (acc, options) => {
+    options.filter(opt => opt.requireNoAnalysedBy).forEach((opt) => {
+      acc.add(opt.value)
+    })
+    return acc
+  }, new Set(),
+)
+
+const ANALYSED_BY_CATEGORY_OPTION_LOOKUP = CATEGORY_FAMILY_FILTERS[FAMILY_FIELD_ANALYSED_BY].reduce(
+  (acc, { value, category }) => ({ ...acc, [value]: category || 'Analysed By' }), {},
+)
+
+const analysedByFilters = (filter, analysedByOptions) => {
+  const filterGroups = []
+
+  const otherFilters = filter.map(val => FAMILY_FILTER_LOOKUP[val]).filter(val => val)
+  if (otherFilters.length) {
+    filterGroups.push(otherFilters)
+  }
+
+  let requireNoAnalysedBy = false
+  const analsedByGroups = Object.values(filter.reduce(
+    (acc, val) => {
+      const optFilter = analysedByOptions.has(val) ? () => ({ createdBy }) => createdBy === val :
+        ANALYSED_BY_FILTER_LOOKUP[val]
+      if (optFilter) {
+        const category = ANALYSED_BY_CATEGORY_OPTION_LOOKUP[val]
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category].push(optFilter)
+      }
+      if (NO_ANALYSED_BY_FIELDS.has(val)) {
+        requireNoAnalysedBy = true
+      }
+      return acc
+    }, {},
+  ))
+  if (analsedByGroups.length) {
+    filterGroups.push([(...args) => (family) => {
+      const filteredAnalysedBy = analsedByGroups.reduce(
+        (acc, filterGroup) => acc.filter(analysedBy => filterGroup.some(f => f(...args)(analysedBy))),
+        family.analysedBy,
+      )
+      return requireNoAnalysedBy ? filteredAnalysedBy.length === 0 : filteredAnalysedBy.length > 0
+    }])
+  }
+  return filterGroups
+}
+
+const getFamiliesFilterFunc = createSelector(
+  (state, ownProps) => ownProps?.tableName === CASE_REVIEW_TABLE_NAME,
+  state => state.caseReviewTableState.familiesFilter,
+  getFamiliesTableFilters,
+  getFamilyAnalysers,
+  (isCaseReview, caseReviewFilter, familyTableFilters, analysedByOptions) => {
+    if (isCaseReview) {
+      return CASE_REVIEW_FILTER_LOOKUP[caseReviewFilter]
+    }
+
+    const { analysedBy, ...tableFilters } = familyTableFilters || {}
+    const filterGroups = Object.values(tableFilters).map(
+      groupVals => (groupVals || []).map(val => FAMILY_FILTER_LOOKUP[val]).filter(val => val),
+    ).filter(groupVals => groupVals.length)
+    if (analysedBy) {
+      const filters = analysedByFilters(analysedBy, analysedByOptions)
+      if (filters.length) {
+        filterGroups.push(...filters)
+      }
+    }
+    if (!filterGroups.length) {
+      return null
+    }
+
+    return (...args) => family => filterGroups.every(filters => filters.some(filter => filter(...args)(family)))
+  },
+)
+
 export const getVisibleFamilies = createSelector(
   getProjectAnalysisGroupFamiliesByGuid,
   getFamiliesBySearchString,
   getIndividualsByGuid,
   getSamplesByFamily,
   getUser,
-  getFamiliesFilter,
+  getFamilyTagTypeCounts,
   getFamiliesSearch,
+  getFamiliesFilterFunc,
   (
-    familiesByGuid, familiesBySearchString, individualsByGuid, samplesByFamily, user, familiesFilter, familiesSearch,
+    familiesByGuid, familiesBySearchString, individualsByGuid, samplesByFamily, user, familyTagTypeCounts,
+    familiesSearch, familyFilter,
   ) => {
     const searchedFamilies = familiesBySearchString ? Object.keys(familiesBySearchString).filter(
       familySearchString => familySearchString.includes(familiesSearch),
     ).map(familySearchString => familiesBySearchString[familySearchString]) : Object.values(familiesByGuid)
-
-    if (!familiesFilter || !FAMILY_FILTER_LOOKUP[familiesFilter]) {
-      return searchedFamilies
-    }
-
-    const familyFilter = FAMILY_FILTER_LOOKUP[familiesFilter].createFilter(individualsByGuid, user, samplesByFamily)
-    return searchedFamilies.filter(familyFilter)
+    return familyFilter ?
+      searchedFamilies.filter(familyFilter(individualsByGuid, user, samplesByFamily, familyTagTypeCounts)) :
+      searchedFamilies
   },
 )
 
@@ -379,8 +493,8 @@ export const getVisibleFamiliesInSortedOrder = createSelector(
   },
 )
 
-export const getEntityExportConfig = ({ project, tableName, fileName, fields }) => ({
-  filename: `${project.name.replace(' ', '_').toLowerCase()}_${tableName ? `${toSnakecase(tableName)}_` : ''}${fileName}`,
+export const getEntityExportConfig = ({ projectName, tableName, fileName, fields }) => ({
+  filename: `${projectName.replace(' ', '_').toLowerCase()}_${tableName ? `${toSnakecase(tableName)}_` : ''}${fileName}`,
   headers: fields.map(config => config.header),
   processRow: family => fields.map((config) => {
     const val = family[config.field]
@@ -437,10 +551,10 @@ const getSamplesExportData = createSelector(
 )
 
 export const getProjectExportUrls = createSelector(
-  getCurrentProject,
+  state => getCurrentProject(state).name,
   (state, ownProps) => (ownProps || {}).tableName,
   getAnalysisGroupGuid,
-  (project, tableName, analysisGroupGuid) => {
+  (projectName, tableName, analysisGroupGuid) => {
     const ownProps = { tableName, analysisGroupGuid }
     const isCaseReview = tableName === CASE_REVIEW_TABLE_NAME
     return [
@@ -448,7 +562,7 @@ export const getProjectExportUrls = createSelector(
         name: 'Families',
         getRawData: state => getFamiliesExportData(state, ownProps),
         ...getEntityExportConfig({
-          project,
+          projectName,
           tableName,
           fileName: 'families',
           fields: isCaseReview ? CASE_REVIEW_FAMILY_EXPORT_DATA : FAMILY_EXPORT_DATA,
@@ -458,7 +572,7 @@ export const getProjectExportUrls = createSelector(
         name: 'Individuals',
         getRawData: state => getIndividualsExportData(state, ownProps),
         ...getEntityExportConfig({
-          project,
+          projectName,
           tableName,
           fileName: 'individuals',
           fields: isCaseReview ? CASE_REVIEW_INDIVIDUAL_EXPORT_DATA : INDIVIDUAL_EXPORT_DATA,
@@ -467,7 +581,7 @@ export const getProjectExportUrls = createSelector(
       {
         name: 'Samples',
         getRawData: state => getSamplesExportData(state, ownProps),
-        ...getEntityExportConfig({ project, tableName, fileName: 'samples', fields: SAMPLE_EXPORT_DATA }),
+        ...getEntityExportConfig({ projectName, tableName, fileName: 'samples', fields: SAMPLE_EXPORT_DATA }),
       },
     ]
   },
@@ -512,20 +626,17 @@ export const getDefaultMmeSubmission = createSelector(
 export const getMmeResultsBySubmission = createSelector(
   getMmeResultsByGuid,
   getMmeSubmissionsByGuid,
-  (mmeResultsByGuid, mmeSubmissionsByGuid) => Object.values(mmeSubmissionsByGuid).reduce((acc, submission) => {
-    const { submissionGuid, mmeResultGuids = [] } = submission
+  (mmeResultsByGuid, mmeSubmissionsByGuid) => Object.values(mmeResultsByGuid).reduce((acc, result) => {
+    const { submissionGuid } = result
     if (!acc[submissionGuid]) {
       acc[submissionGuid] = { active: [], removed: [] }
     }
-    mmeResultGuids.forEach((resultGuid) => {
-      const result = mmeResultsByGuid[resultGuid]
-      const parsedResult = { ...result.matchStatus, ...result }
-      if (parsedResult.matchRemoved || mmeSubmissionsByGuid[submissionGuid].deletedDate) {
-        acc[submissionGuid].removed.push(parsedResult)
-      } else {
-        acc[submissionGuid].active.push(parsedResult)
-      }
-    })
+    const parsedResult = { ...result.matchStatus, ...result }
+    if (parsedResult.matchRemoved || mmeSubmissionsByGuid[submissionGuid].deletedDate) {
+      acc[submissionGuid].removed.push(parsedResult)
+    } else {
+      acc[submissionGuid].active.push(parsedResult)
+    }
     return acc
   }, { }),
 )
@@ -533,17 +644,15 @@ export const getMmeResultsBySubmission = createSelector(
 export const getMmeDefaultContactEmail = createSelector(
   getMmeResultsByGuid,
   getMmeSubmissionsByGuid,
-  getIndividualsByGuid,
   getGenesById,
   getSavedVariantsByGuid,
   getUser,
   (state, ownProps) => ownProps.matchmakerResultGuid,
-  (mmeResultsByGuid, mmeSubmissionsByGuid, individualsByGuid, genesById, savedVariants, user, matchmakerResultGuid) => {
+  (mmeResultsByGuid, mmeSubmissionsByGuid, genesById, savedVariants, user, matchmakerResultGuid) => {
     const { patient, geneVariants, submissionGuid } = mmeResultsByGuid[matchmakerResultGuid]
     const {
       geneVariants: submissionGeneVariants, phenotypes, individualGuid, contactHref, submissionId,
     } = mmeSubmissionsByGuid[submissionGuid]
-    const { familyGuid } = individualsByGuid[individualGuid]
 
     const submittedGenes = [...new Set((submissionGeneVariants || []).map(
       ({ geneId }) => (genesById[geneId] || {}).geneSymbol,
@@ -553,11 +662,9 @@ export const getMmeDefaultContactEmail = createSelector(
       geneSymbol => geneSymbol && submittedGenes.includes(geneSymbol),
     )
 
-    const submittedVariants = (submissionGeneVariants || []).map(({ alt, ref, chrom, pos, end, genomeVersion }) => {
-      const savedVariant = Object.values(savedVariants).find(
-        o => o.chrom === chrom && o.pos === pos && (ref ? o.ref === ref && o.alt === alt : end === o.end) &&
-          o.familyGuids.includes(familyGuid),
-      ) || {}
+    const submittedVariants = (submissionGeneVariants || []).map(({ variantGuid }) => {
+      const savedVariant = savedVariants[variantGuid]
+      const { alt, ref, chrom, pos, end, genomeVersion } = savedVariant
       const genotype = (savedVariant.genotypes || {})[individualGuid] || {}
       const mainTranscript = getVariantMainTranscript(savedVariant)
       let consequence = `${(mainTranscript.majorConsequence || '').replace(/_variant/g, '').replace(/_/g, ' ')} variant`
@@ -603,11 +710,6 @@ export const getUserOptions = createSelector(
   usersOptionsByUsername => Object.values(usersOptionsByUsername).map(
     user => ({ key: user.username, value: user, text: user.email }),
   ),
-)
-
-export const getCollaborators = createSelector(
-  getCurrentProject,
-  project => project.collaborators,
 )
 
 export const getPageHeaderFamily = createSelector(

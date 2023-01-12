@@ -23,7 +23,7 @@ from seqr.views.utils.json_to_orm_utils import update_model_from_json, get_or_cr
 from seqr.views.utils.orm_to_json_utils import get_json_for_saved_variants_with_tags, get_json_for_saved_search,\
     get_json_for_saved_searches
 from seqr.views.utils.permissions_utils import check_project_permissions, get_project_guids_user_can_view, \
-    user_is_analyst, login_and_policies_required, check_user_created_object_permissions
+    user_is_analyst, login_and_policies_required, check_user_created_object_permissions, check_projects_view_permission
 from seqr.views.utils.project_context_utils import get_projects_child_entities
 from seqr.views.utils.variant_utils import get_variant_key, get_variants_response
 
@@ -56,10 +56,10 @@ def query_variants_handler(request, search_hash):
         return create_json_response({'error': str(e)}, status=400, reason=str(e))
 
     _check_results_permission(results_model, request.user)
-    is_all_project_search = _is_all_project_family_search(search_context)
+    skip_genotype_filter = bool(_all_project_family_search_genome(search_context))
 
     variants, total_results = get_es_variants(results_model, sort=sort, page=page, num_results=per_page,
-                                              skip_genotype_filter=is_all_project_search, user=request.user)
+                                              skip_genotype_filter=skip_genotype_filter, user=request.user)
 
     response = _process_variants(variants or [], results_model.families.all(), request)
     response['search'] = _get_search_context(results_model)
@@ -68,8 +68,8 @@ def query_variants_handler(request, search_hash):
     return create_json_response(response)
 
 
-def _is_all_project_family_search(search_context):
-    return bool(search_context and search_context.get('allProjectFamilies'))
+def _all_project_family_search_genome(search_context):
+    return (search_context or {}).get('allGenomeProjectFamilies')
 
 
 def _get_or_create_results_model(search_hash, search_context, user):
@@ -78,21 +78,22 @@ def _get_or_create_results_model(search_hash, search_context, user):
         if not search_context:
             raise Exception('Invalid search hash: {}'.format(search_hash))
 
-        project_families = search_context.get('projectFamilies')
-        if project_families:
-            all_families = set()
-            for project_family in project_families:
-                all_families.update(project_family['familyGuids'])
-            families = Family.objects.filter(guid__in=all_families)
-        elif _is_all_project_family_search(search_context):
+        all_project_genome_version = _all_project_family_search_genome(search_context)
+        if all_project_genome_version:
             omit_projects = [p.guid for p in Project.objects.filter(is_demo=True).only('guid')]
             project_guids = [
                 project_guid for project_guid in get_project_guids_user_can_view(user, limit_data_manager=True)
                 if project_guid not in omit_projects
             ]
-            families = Family.objects.filter(project__guid__in=project_guids)
+            families = Family.objects.filter(
+                project__guid__in=project_guids, project__genome_version=all_project_genome_version)
         elif search_context.get('projectGuids'):
             families = Family.objects.filter(project__guid__in=search_context['projectGuids'])
+        elif search_context.get('projectFamilies'):
+            all_families = set()
+            for project_family in search_context['projectFamilies']:
+                all_families.update(project_family['familyGuids'])
+            families = Family.objects.filter(guid__in=all_families)
         else:
             raise Exception('Invalid search: no projects/ families specified')
 
@@ -362,15 +363,10 @@ def search_context_handler(request):
         error = 'Invalid context params: {}'.format(json.dumps(context))
         return create_json_response({'error': error}, status=400, reason=error)
 
-    for project in projects:
-        check_project_permissions(project, request.user)
-
-    is_analyst = user_is_analyst(request.user)
+    check_projects_view_permission(projects, request.user)
 
     project_guid = projects[0].guid if len(projects) == 1 else None
-    response.update(get_projects_child_entities(
-        projects, project_guid, request.user, is_analyst, include_samples=False, include_locus_list_metadata=False,
-    ))
+    response.update(get_projects_child_entities(projects, project_guid, request.user))
 
     family_models = Family.objects.filter(project__in=projects)
     response['familiesByGuid'] = {f.guid: {
@@ -469,8 +465,8 @@ def delete_saved_search_handler(request, saved_search_guid):
 def _check_results_permission(results_model, user, project_perm_check=None):
     families = results_model.families.prefetch_related('project').all()
     projects = {family.project for family in families}
+    check_projects_view_permission(projects, user)
     for project in projects:
-        check_project_permissions(project, user)
         if project_perm_check and not project_perm_check(project):
             raise PermissionDenied()
 
@@ -507,7 +503,7 @@ def _get_saved_variant_models(variants, families):
     for variant in variants:
         variants_by_id[get_variant_key(**variant)] = variant
         variant_q |= Q(variant_id=variant['variantId'], family__guid__in=variant['familyGuids'])
-        if variant['liftedOverGenomeVersion'] == GENOME_VERSION_GRCh37 and hg37_family_guids:
+        if variant.get('liftedOverGenomeVersion') == GENOME_VERSION_GRCh37 and hg37_family_guids:
             variant_hg37_families = [family_guid for family_guid in variant['familyGuids'] if family_guid in hg37_family_guids]
             if variant_hg37_families:
                 lifted_xpos = get_xpos(variant['liftedOverChrom'], variant['liftedOverPos'])
