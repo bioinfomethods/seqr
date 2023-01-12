@@ -118,8 +118,7 @@ kubectl apply -f elasticsearch/es-data-prod2.yaml
 # For production
 # kubectl apply -f elasticsearch/es-data-prod.yaml
 
-# Note that elasticsearch/all-in-one.yaml needs to be applied before this can continue, usually only takes a few seconds
-# Before applying, change labels env=test to env=production
+# Note that elasticsearch/crds.yaml and elasticsearch/operator.yaml needs to be applied before this can continue, usually only takes a few minutes
 kubectl apply -f elasticsearch/elasticsearch.gcloud.yaml
 
 # After 5-10 minutes, all workloads and services should be up and running
