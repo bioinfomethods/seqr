@@ -4,7 +4,7 @@ metadata:
   name: elasticsearch
   labels:
     name: elasticsearch
-    env: test
+    env: prod
 spec:
   version: 7.8.1
   image: "gcr.io/seqr-project/elasticsearch:gcloud-prod-7.8.1"
@@ -35,7 +35,7 @@ spec:
         labels:
           name: elasticsearch
           role: master
-          env: test
+          env: prod
       spec:
         affinity:
           nodeAffinity:
@@ -85,7 +85,7 @@ spec:
         labels:
           name: elasticsearch
           role: client
-          env: test
+          env: prod
       spec:
         affinity:
           nodeAffinity:
@@ -131,7 +131,7 @@ spec:
         labels:
           name: elasticsearch
           role: data
-          env: test
+          env: prod
       spec:
         affinity:
           nodeAffinity:
@@ -189,7 +189,7 @@ spec:
         labels:
           name: elasticsearch
           role: ingest
-          env: test
+          env: prod
       spec:
         affinity:
           nodeAffinity:
@@ -228,12 +228,12 @@ metadata:
   name: elasticsearch-es-http-ilb
   labels:
     name: elasticsearch-es-http-ilb
-    env: test
+    env: prod
   annotations:
     cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
-  loadBalancerIP: 10.152.0.6
+  loadBalancerIP: 10.152.0.7
   ports:
     - name: http
       port: 9200
