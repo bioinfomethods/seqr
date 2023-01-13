@@ -17,14 +17,14 @@ def TEST_DISK_CONFIGS = [
 ]
 
 def PROD_DISK_CONFIGS = [
-        ['oldDiskName': 'pd-es-data-prod-0', 'newPdDiskName': 'pd-es-data-prod2-0', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-data-prod-1', 'newPdDiskName': 'pd-es-data-prod2-1', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-data-prod-2', 'newPdDiskName': 'pd-es-data-prod2-2', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-master-prod-0', 'newPdDiskName': 'pd-es-master-prod2-0', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-master-prod-1', 'newPdDiskName': 'pd-es-master-prod2-1', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-master-prod-2', 'newPdDiskName': 'pd-es-master-prod2-2', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-data-loading-prod-0', 'newPdDiskName': 'pd-es-data-loading-prod2-0', 'size': '150Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
-        ['oldDiskName': 'pd-es-data-loading-prod-1', 'newPdDiskName': 'pd-es-data-loading-prod2-1', 'size': '150Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-data-prod-0', 'newPdDiskName': 'pd-es-data-prod1-0', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-data-prod-1', 'newPdDiskName': 'pd-es-data-prod1-1', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-data-prod-2', 'newPdDiskName': 'pd-es-data-prod1-2', 'size': '600Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-master-prod-0', 'newPdDiskName': 'pd-es-master-prod1-0', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-master-prod-1', 'newPdDiskName': 'pd-es-master-prod1-1', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-master-prod-2', 'newPdDiskName': 'pd-es-master-prod1-2', 'size': '10Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-data-loading-prod-0', 'newPdDiskName': 'pd-es-data-loading-prod1-0', 'size': '150Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
+        ['oldDiskName': 'pd-es-data-loading-prod-1', 'newPdDiskName': 'pd-es-data-loading-prod1-1', 'size': '150Gi', 'type': 'pd-standard', 'labels': ['goog-gke-volume=', 'env=prod']],
 ]
 
 def out = new StringBuilder()

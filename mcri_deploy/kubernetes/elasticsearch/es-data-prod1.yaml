@@ -2,9 +2,9 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-master-prod-0
+  name: pv-es-master-prod1-0
   labels:
-    name: pv-es-master-prod-0
+    name: pv-es-master-prod1-0
     env: prod
 spec:
   capacity:
@@ -18,15 +18,15 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-master-prod-0
+    pdName: pd-es-master-prod1-0
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-master-prod-1
+  name: pv-es-master-prod1-1
   labels:
-    name: pv-es-master-prod-1
+    name: pv-es-master-prod1-1
     env: prod
 spec:
   capacity:
@@ -40,15 +40,15 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-master-prod-1
+    pdName: pd-es-master-prod1-1
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-master-prod-2
+  name: pv-es-master-prod1-2
   labels:
-    name: pv-es-master-prod-2
+    name: pv-es-master-prod1-2
     env: prod
 spec:
   capacity:
@@ -62,19 +62,19 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-master-prod-2
+    pdName: pd-es-master-prod1-2
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-data-prod-0
+  name: pv-es-data-prod1-0
   labels:
-    name: pv-es-data-prod-0
+    name: pv-es-data-prod1-0
     env: prod
 spec:
   capacity:
-    storage: 200Gi
+    storage: 600Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -84,19 +84,19 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-data-prod-0
+    pdName: pd-es-data-prod1-0
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-data-prod-1
+  name: pv-es-data-prod1-1
   labels:
-    name: pv-es-data-prod-1
+    name: pv-es-data-prod1-1
     env: prod
 spec:
   capacity:
-    storage: 200Gi
+    storage: 600Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -106,19 +106,19 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-data-prod-1
+    pdName: pd-es-data-prod1-1
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-data-prod-2
+  name: pv-es-data-prod1-2
   labels:
-    name: pv-es-data-prod-2
+    name: pv-es-data-prod1-2
     env: prod
 spec:
   capacity:
-    storage: 200Gi
+    storage: 600Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -128,19 +128,19 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-data-prod-2
+    pdName: pd-es-data-prod1-2
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-data-loading-prod-0
+  name: pv-es-data-loading-prod1-0
   labels:
-    name: pv-es-data-loading-prod-0
+    name: pv-es-data-loading-prod1-0
     env: prod
 spec:
   capacity:
-    storage: 50Gi
+    storage: 150Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -150,19 +150,19 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-data-loading-prod-0
+    pdName: pd-es-data-loading-prod1-0
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   namespace: default
-  name: pv-es-data-loading-prod-1
+  name: pv-es-data-loading-prod1-1
   labels:
-    name: pv-es-data-loading-prod-1
+    name: pv-es-data-loading-prod1-1
     env: prod
 spec:
   capacity:
-    storage: 50Gi
+    storage: 150Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -172,4 +172,4 @@ spec:
   storageClassName: pd-standard-expandable-storage-class
   gcePersistentDisk:
     fsType: ext4
-    pdName: pd-es-data-loading-prod-1
+    pdName: pd-es-data-loading-prod1-1
