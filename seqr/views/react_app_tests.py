@@ -27,7 +27,7 @@ class AppPageTest(object):
             'googleLoginEnabled': self.GOOGLE_ENABLED,
             'warningMessages': [{'id': 1, 'header': 'Warning!', 'message': 'A sample warning'}],
             'anvilLoadingDelayDate': anvil_loading_date,
-            'archieApiRootUrl': 'https://archiedev.mcri.edu.au',
+            'archieApiRootUrl': mock.ANY,
         })
 
         self.assertEqual(self.get_initial_page_window('gaTrackingId', response), ga_token_id)

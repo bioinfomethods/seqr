@@ -340,8 +340,6 @@ api_endpoints = {
     'matchmaker/v1/match': external_api.mme_match_proxy,
     'matchmaker/v1/metrics': external_api.mme_metrics_proxy,
 
-    'create_project_from_workspace/submit/(?P<namespace>[^/]+)/(?P<name>[^/]+)': create_project_from_workspace,
-
     'echo': echo,
 }
 

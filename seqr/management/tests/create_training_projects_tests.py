@@ -53,14 +53,14 @@ class CreateTrainingProjectsTest(TestCase):
         self.assertSetEqual(set([p.name for p in actual_projects]),
                             {'1kg project nåme with uniçøde_01', '1kg project nåme with uniçøde_02'})
         actual_project_0: Project = actual_projects[0]
-        self.assertSetEqual(set([u.email for u in actual_project_0.get_collaborators(permissions={'can_view'})]),
+        self.assertSetEqual(set([u.email for u in actual_project_0.can_view_group.user_set.all()]),
                             {'test_user_collaborator@test.com', 'test_user_manager@test.com'})
         actual_project_1: Project = actual_projects[1]
         self.assertSetEqual(set([f.family_id for f in actual_project_0.family_set.all()]),
                             {'1', '2'})
         self.assertSetEqual(set([f.family_id for f in actual_project_1.family_set.all()]),
                             {'1', '2'})
-        self.assertSetEqual(set([u.email for u in actual_project_1.get_collaborators(permissions={'can_edit'})]),
+        self.assertSetEqual(set([u.email for u in actual_project_1.can_edit_group.user_set.all()]),
                             {'test_user_manager@test.com'})
 
         actual_fam_0_0 = actual_project_0.family_set.all()[0]
