@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'seqr.utils.middleware.CacheControlMiddleware',
     'seqr.utils.middleware.LogRequestMiddleware',
     'seqr.utils.middleware.JsonErrorMiddleware',
+    'mcri_ext.security.security_middleware.McriSocialAuthExceptionMiddleware',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
@@ -490,3 +491,5 @@ OAUTH2_PROVIDER = {
 # ARCHIE #
 ##########
 ARCHIE_API_ROOT_URL = os.environ.get('ARCHIE_API_ROOT_URL')
+ARCHIE_OIDC_ENDPOINT = SOCIAL_AUTH_API_URL
+ARCHIE_OIDC_GROUPS_CLAIM = os.environ.get('ARCHIE_OIDC_GROUPS_CLAIM', 'ad_groups')
