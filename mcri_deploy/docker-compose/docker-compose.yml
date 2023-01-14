@@ -27,7 +27,7 @@ services:
 
 
   kibana:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${KIBANA_IMAGE_NAME:-kibana}:${KIBANA_IMAGE_TAG:-latest}
+    image: docker.elastic.co/kibana/${KIBANA_IMAGE_NAME:-kibana}:${KIBANA_IMAGE_TAG:-latest}
     environment:
       - ELASTICSEARCH_SERVICE_HOSTNAME=${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}
       - ELASTICSEARCH_SERVICE_PORT=${ELASTICSEARCH_SERVICE_PORT:-9200}
