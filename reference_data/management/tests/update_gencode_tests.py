@@ -164,6 +164,7 @@ class UpdateGencodeTest(TestCase):
     @responses.activate
     @mock.patch('reference_data.management.commands.utils.gencode_utils.logger')
     @mock.patch('reference_data.management.commands.update_gencode_transcripts.logger')
+    @mock.patch('reference_data.management.commands.update_gencode_transcripts.LATEST_GENCODE_RELEASE', 31)
     @mock.patch('reference_data.management.commands.update_gencode.logger')
     def test_update_gencode_command(self, mock_logger, mock_update_transcripts_logger, mock_utils_logger):
         # Test normal command function
