@@ -6,8 +6,8 @@ metadata:
     name: elasticsearch
     env: prod
 spec:
-  version: 7.8.1
-  image: "gcr.io/seqr-project/elasticsearch:gcloud-prod-7.8.1"
+  version: 7.16.3
+  image: "docker.elastic.co/elasticsearch/elasticsearch:7.16.3"
   auth:
     roles:
       - secretName: elasticsearch-secrets
@@ -233,7 +233,7 @@ metadata:
     cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
-  loadBalancerIP: 10.152.0.7
+  loadBalancerIP: 10.152.0.5
   ports:
     - name: http
       port: 9200
