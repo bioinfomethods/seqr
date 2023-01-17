@@ -29,6 +29,7 @@ from seqr.views.apis.family_api import \
     delete_family_note, \
     family_page_data, \
     get_family_rna_seq_data, \
+    get_family_phenotype_gene_scores, \
     family_variant_tag_summary
 
 from seqr.views.apis.individual_api import \
@@ -72,6 +73,7 @@ from seqr.views.apis.gene_api import \
 
 from seqr.views.apis.locus_list_api import \
     locus_lists, \
+    all_locus_list_options, \
     locus_list_info, \
     create_locus_list_handler, \
     update_locus_list_handler, \
@@ -81,7 +83,10 @@ from seqr.views.apis.locus_list_api import \
 
 from matchmaker.views.matchmaker_api import \
     get_individual_mme_matches, \
+    get_mme_nodes, \
+    search_local_individual_mme_matches, \
     search_individual_mme_matches, \
+    finalize_mme_search, \
     update_mme_submission, \
     delete_mme_submission, \
     update_mme_result_status, \
@@ -102,23 +107,27 @@ from seqr.views.apis.variant_search_api import \
 
 from seqr.views.apis.users_api import \
     get_all_collaborator_options, \
+    get_all_user_group_options, \
     get_project_collaborator_options, \
     create_project_collaborator, \
     create_project_collaborator_mcri, \
     update_project_collaborator, \
     delete_project_collaborator, \
+    update_project_collaborator_group, \
+    delete_project_collaborator_group, \
     set_password, \
     update_policies, \
     update_user, \
     forgot_password
 
 from seqr.views.apis.data_manager_api import elasticsearch_status, upload_qc_pipeline_output, delete_index, \
-    update_rna_seq, load_rna_seq_sample_data, proxy_to_kibana
+    update_rna_seq, load_rna_seq_sample_data, proxy_to_kibana, load_phenotype_prioritization_data
 from seqr.views.apis.report_api import \
     anvil_export, \
     discovery_sheet, \
     get_cmg_projects, \
     sample_metadata_export, \
+    gregor_export, \
     seqr_stats
 from seqr.views.apis.summary_data_api import success_story, saved_variants_page, mme_details, \
     bulk_update_family_analysed_by
@@ -131,9 +140,10 @@ from seqr.views.apis.igv_api import fetch_igv_track, receive_igv_table_handler, 
 from seqr.views.apis.analysis_group_api import update_analysis_group_handler, delete_analysis_group_handler
 from seqr.views.apis.project_api import create_project_handler, update_project_handler, delete_project_handler, \
     project_page_data, project_families, project_overview, project_mme_submisssions, project_individuals, \
-    project_analysis_groups, update_project_workspace, project_family_notes
+    project_analysis_groups, update_project_workspace, project_family_notes, project_collaborators, project_locus_lists
 from seqr.views.apis.project_categories_api import update_project_categories_handler
-from seqr.views.apis.anvil_workspace_api import anvil_workspace_page, create_project_from_workspace
+from seqr.views.apis.anvil_workspace_api import anvil_workspace_page, create_project_from_workspace, \
+    grant_workspace_access, validate_anvil_vcf, add_workspace_data, get_anvil_vcf_list
 from matchmaker.views import external_api
 from seqr.views.utils.file_utils import save_temp_file
 
@@ -185,6 +195,7 @@ api_endpoints = {
     'family/(?P<family_guid>[\w.|-]+)/note/(?P<note_guid>[\w.|-]+)/update': update_family_note,
     'family/(?P<family_guid>[\w.|-]+)/note/(?P<note_guid>[\w.|-]+)/delete': delete_family_note,
     'family/(?P<family_guid>[\w.|-]+)/rna_seq_data/(?P<gene_id>[\w.|-]+)': get_family_rna_seq_data,
+    'family/(?P<family_guid>[\w.|-]+)/phenotype_gene_scores': get_family_phenotype_gene_scores,  # noqa: W605
 
     'dashboard': dashboard_page_data,
 
@@ -194,7 +205,9 @@ api_endpoints = {
     'project/(?P<project_guid>[^/]+)/get_family_notes': project_family_notes,
     'project/(?P<project_guid>[^/]+)/get_mme_submissions': project_mme_submisssions,
     'project/(?P<project_guid>[^/]+)/get_analysis_groups': project_analysis_groups,
+    'project/(?P<project_guid>[^/]+)/get_locus_lists': project_locus_lists,
     'project/(?P<project_guid>[^/]+)/get_overview': project_overview,
+    'project/(?P<project_guid>[^/]+)/get_collaborators': project_collaborators,
 
     'project/create_project': create_project_handler,
     'project/(?P<project_guid>[^/]+)/update_project': update_project_handler,
@@ -223,6 +236,7 @@ api_endpoints = {
     'project/(?P<project_guid>[^/]+)/analysis_groups/(?P<analysis_group_guid>[^/]+)/update': update_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/analysis_groups/(?P<analysis_group_guid>[^/]+)/delete': delete_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/update_saved_variant_json': update_saved_variant_json,
+    'project/(?P<project_guid>[^/]+)/add_workspace_data': add_workspace_data,
 
     'search/variant/(?P<variant_id>[^/]+)': query_single_variant_handler,
     'search/(?P<search_hash>[^/]+)': query_variants_handler,
@@ -250,18 +264,22 @@ api_endpoints = {
     'gene_info/(?P<gene_id>[^/]+)/note/(?P<note_guid>[^/]+)/delete': delete_gene_note_handler,
 
     'hpo_terms/(?P<hpo_parent_id>[^/]+)': get_hpo_terms,
-    'igv_genomes/(?P<file_path>.*)': igv_genomes_proxy,
+    'igv_genomes/(?P<cloud_host>[^/]+)/(?P<file_path>.*)': igv_genomes_proxy,
 
     'locus_lists/(?P<locus_list_guid>[^/]+)/update': update_locus_list_handler,
     'locus_lists/(?P<locus_list_guid>[^/]+)/delete': delete_locus_list_handler,
     'locus_lists/create': create_locus_list_handler,
     'locus_lists/(?P<locus_list_guid>[^/]+)': locus_list_info,
     'locus_lists': locus_lists,
+    'all_locus_list_options': all_locus_list_options,
     'project/(?P<project_guid>[^/]+)/add_locus_lists': add_project_locus_lists,
     'project/(?P<project_guid>[^/]+)/delete_locus_lists': delete_project_locus_lists,
 
     'matchmaker/get_mme_matches/(?P<submission_guid>[\w.|-]+)': get_individual_mme_matches,
-    'matchmaker/search_mme_matches/(?P<submission_guid>[\w.|-]+)': search_individual_mme_matches,
+    'matchmaker/get_mme_nodes': get_mme_nodes,
+    'matchmaker/search_local_mme_matches/(?P<submission_guid>[^/]+)': search_local_individual_mme_matches,
+    'matchmaker/search_mme_matches/(?P<submission_guid>[^/]+)/(?P<node>[^/]+)': search_individual_mme_matches,
+    'matchmaker/finalize_mme_search/(?P<submission_guid>[^/]+)': finalize_mme_search,
     'matchmaker/submission/create': update_mme_submission,
     'matchmaker/submission/(?P<submission_guid>[\w.|-]+)/update': update_mme_submission,
     'matchmaker/submission/(?P<submission_guid>[\w.|-]+)/delete': delete_mme_submission,
@@ -277,10 +295,13 @@ api_endpoints = {
     'users/update_policies': update_policies,
 
     'users/get_options': get_all_collaborator_options,
+    'users/get_group_options': get_all_user_group_options,
     'users/get_options/(?P<project_guid>[^/]+)': get_project_collaborator_options,
     'project/(?P<project_guid>[^/]+)/collaborators/create': create_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/update': update_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators/(?P<username>[^/]+)/delete': delete_project_collaborator,
+    'project/(?P<project_guid>[^/]+)/collaboratorGroups/(?P<name>[^/]+)/update': update_project_collaborator_group,
+    'project/(?P<project_guid>[^/]+)/collaboratorGroups/(?P<name>[^/]+)/delete': delete_project_collaborator_group,
     'project/(?P<project_guid>[^/]+)/collaborators_mcri/create': create_project_collaborator_mcri,
     'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/update': update_project_collaborator,
     'project/(?P<project_guid>[^/]+)/collaborators_mcri/(?P<username>[^/]+)/delete': delete_project_collaborator,
@@ -292,6 +313,7 @@ api_endpoints = {
     'report/anvil/(?P<project_guid>[^/]+)': anvil_export,
     'report/sample_metadata/(?P<project_guid>[^/]+)': sample_metadata_export,
     'report/discovery_sheet/(?P<project_guid>[^/]+)': discovery_sheet,
+    'report/gregor/(?P<consent_code>[^/]+)': gregor_export,
     'report/get_cmg_projects': get_cmg_projects,
     'report/seqr_stats': seqr_stats,
 
@@ -301,18 +323,22 @@ api_endpoints = {
     'data_management/get_all_users': get_all_users,
     'data_management/update_rna_seq': update_rna_seq,
     'data_management/load_rna_seq_sample/(?P<sample_guid>[^/]+)': load_rna_seq_sample_data,
+    'data_management/load_phenotype_prioritization_data': load_phenotype_prioritization_data,
 
     'summary_data/saved_variants/(?P<tag>[^/]+)': saved_variants_page,
     'summary_data/success_story/(?P<success_story_types>[^/]+)': success_story,
     'summary_data/matchmaker': mme_details,
     'summary_data/update_analysed_by': bulk_update_family_analysed_by,
 
+    'create_project_from_workspace/(?P<namespace>[^/]+)/(?P<name>[^/]+)/grant_access': grant_workspace_access,
+    'create_project_from_workspace/(?P<namespace>[^/]+)/(?P<name>[^/]+)/validate_vcf': validate_anvil_vcf,
+    'create_project_from_workspace/(?P<namespace>[^/]+)/(?P<name>[^/]+)/submit': create_project_from_workspace,
+    'create_project_from_workspace/(?P<namespace>[^/]+)/(?P<name>[^/]+)/get_vcf_list': get_anvil_vcf_list,
+
     # EXTERNAL APIS: DO NOT CHANGE
     # matchmaker public facing MME URLs
     'matchmaker/v1/match': external_api.mme_match_proxy,
     'matchmaker/v1/metrics': external_api.mme_metrics_proxy,
-
-    'create_project_from_workspace/submit/(?P<namespace>[^/]+)/(?P<name>[^/]+)': create_project_from_workspace,
 
     'echo': echo,
 }
@@ -337,6 +363,8 @@ urlpatterns += [
     url(API_LOGIN_REQUIRED_URL.lstrip('/'), login_required_error),
     url(API_POLICY_REQUIRED_URL.lstrip('/'), policies_required_error),
 ]
+
+handler401 = 'seqr.views.apis.auth_api.app_login_required_error'
 
 kibana_urls = '^(?:{})'.format('|'.join([
     'app', '\d+/built_assets', '\d+/bundles', 'bundles', 'elasticsearch', 'es_admin', 'node_modules/@kbn', 'internal',

@@ -46,9 +46,26 @@ export const FILE_FIELD_NAME = 'uploadedFile'
 
 export const PROJECT_DESC_FIELD = { name: 'description', label: 'Project Description', placeholder: 'Description' }
 
+export const CONSENT_CODES = ['HMB', 'GRU']
+const CONSENT_CODE_OPTIONS = [...CONSENT_CODES, 'Other'].map(text => ({ text, value: text[0] }))
+export const CONSENT_CODE_LOOKUP = CONSENT_CODE_OPTIONS.reduce(
+  (acc, { value, text }) => ({ ...acc, [value]: text }), {},
+)
+const CONSENT_CODE_FIELD = {
+  name: 'consentCode',
+  label: 'Consent Code',
+  component: RadioGroup,
+  options: CONSENT_CODE_OPTIONS,
+}
+
 export const EDITABLE_PROJECT_FIELDS = [
   { name: 'name', label: 'Project Name', placeholder: 'Name', validate: validators.required, autoFocus: true },
   PROJECT_DESC_FIELD,
+]
+
+export const PM_EDITABLE_PROJECT_FIELDS = [
+  ...EDITABLE_PROJECT_FIELDS,
+  CONSENT_CODE_FIELD,
 ]
 
 export const ANVIL_FIELDS = [
@@ -95,8 +112,12 @@ export const MATCHMAKER_CONTACT_URL_FIELD = {
 
 export const DATASET_TYPE_VARIANT_CALLS = 'VARIANTS'
 export const DATASET_TYPE_SV_CALLS = 'SV'
+export const DATASET_TYPE_MITO_CALLS = 'MITO'
 
-export const DATASET_TITLE_LOOKUP = { [DATASET_TYPE_SV_CALLS]: ' SV' }
+export const DATASET_TITLE_LOOKUP = {
+  [DATASET_TYPE_SV_CALLS]: ' SV',
+  [DATASET_TYPE_MITO_CALLS]: ' Mitochondria',
+}
 
 export const SAMPLE_TYPE_EXOME = 'WES'
 export const SAMPLE_TYPE_GENOME = 'WGS'
@@ -117,18 +138,18 @@ export const SAMPLE_TYPE_LOOKUP = SAMPLE_TYPE_OPTIONS.reduce(
 
 // ANALYSIS STATUS
 
-export const FAMILY_STATUS_SOLVED = 'S'
-export const FAMILY_STATUS_SOLVED_KNOWN_GENE_KNOWN_PHENOTYPE = 'S_kgfp'
-export const FAMILY_STATUS_SOLVED_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'S_kgdp'
-export const FAMILY_STATUS_SOLVED_NOVEL_GENE = 'S_ng'
-export const FAMILY_STATUS_EXTERNAL_SOLVE = 'ES'
-export const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_KNOWN_PHENOTYPE = 'Sc_kgfp'
-export const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'Sc_kgdp'
-export const FAMILY_STATUS_STRONG_CANDIDATE_NOVEL_GENE = 'Sc_ng'
-export const FAMILY_STATUS_REVIEWED_PURSUING_CANDIDATES = 'Rcpc'
-export const FAMILY_STATUS_REVIEWED_NO_CLEAR_CANDIDATE = 'Rncc'
-export const FAMILY_STATUS_CLOSED = 'C'
-export const FAMILY_STATUS_ANALYSIS_IN_PROGRESS = 'I'
+const FAMILY_STATUS_SOLVED = 'S'
+const FAMILY_STATUS_SOLVED_KNOWN_GENE_KNOWN_PHENOTYPE = 'S_kgfp'
+const FAMILY_STATUS_SOLVED_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'S_kgdp'
+const FAMILY_STATUS_SOLVED_NOVEL_GENE = 'S_ng'
+const FAMILY_STATUS_EXTERNAL_SOLVE = 'ES'
+const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_KNOWN_PHENOTYPE = 'Sc_kgfp'
+const FAMILY_STATUS_STRONG_CANDIDATE_KNOWN_GENE_DIFFERENT_PHENOTYPE = 'Sc_kgdp'
+const FAMILY_STATUS_STRONG_CANDIDATE_NOVEL_GENE = 'Sc_ng'
+const FAMILY_STATUS_REVIEWED_PURSUING_CANDIDATES = 'Rcpc'
+const FAMILY_STATUS_REVIEWED_NO_CLEAR_CANDIDATE = 'Rncc'
+const FAMILY_STATUS_CLOSED = 'C'
+const FAMILY_STATUS_ANALYSIS_IN_PROGRESS = 'I'
 const FAMILY_STATUS_WAITING_FOR_DATA = 'Q'
 const FAMILY_STATUS_NO_DATA = 'N'
 
@@ -218,6 +239,7 @@ export const FAMILY_FIELD_PMIDS = 'pubmedIds'
 export const FAMILY_FIELD_PEDIGREE = 'pedigreeImage'
 export const FAMILY_FIELD_CREATED_DATE = 'createdDate'
 export const FAMILY_FIELD_ANALYSIS_GROUPS = 'analysisGroups'
+export const FAMILY_FIELD_SAVED_VARIANTS = 'savedVariants'
 
 export const FAMILY_FIELD_NAME_LOOKUP = {
   [FAMILY_FIELD_DESCRIPTION]: 'Family Description',
@@ -236,6 +258,7 @@ export const FAMILY_FIELD_NAME_LOOKUP = {
   [FAMILY_FIELD_PMIDS]: 'Publications on this discovery',
   [FAMILY_FIELD_INTERNAL_NOTES]: 'Internal Notes',
   [FAMILY_FIELD_INTERNAL_SUMMARY]: 'Internal Summary',
+  [FAMILY_FIELD_SAVED_VARIANTS]: 'Saved Variants',
 }
 
 export const FAMILY_NOTES_FIELDS = [
@@ -915,12 +938,19 @@ export const SVTYPE_DETAILS = {
   },
 }
 
+export const SCREEN_LABELS = {
+  PLS: 'Promotor-like signatures',
+  pELS: 'proximal Enhancer-like signatures',
+  dELS: 'distal Enhancer-like signatures',
+}
+
 export const SHOW_ALL = 'ALL'
 export const NOTE_TAG_NAME = 'Has Notes'
 export const EXCLUDED_TAG_NAME = 'Excluded'
 export const REVIEW_TAG_NAME = 'Review'
 export const KNOWN_GENE_FOR_PHENOTYPE_TAG_NAME = 'Known gene for phenotype'
 export const DISCOVERY_CATEGORY_NAME = 'CMG Discovery Tags'
+export const MME_TAG_NAME = 'MME Submission'
 
 export const SORT_BY_FAMILY_GUID = 'FAMILY_GUID'
 export const SORT_BY_XPOS = 'XPOS'
@@ -930,7 +960,6 @@ const SORT_BY_PROTEIN_CONSQ = 'PROTEIN_CONSEQUENCE'
 const SORT_BY_GNOMAD_GENOMES = 'GNOMAD'
 const SORT_BY_GNOMAD_EXOMES = 'GNOMAD_EXOMES'
 const SORT_BY_CALLSET_AF = 'CALLSET_AF'
-const SORT_BY_1KG = '1KG'
 const SORT_BY_CONSTRAINT = 'CONSTRAINT'
 const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
 const SORT_BY_CADD = 'CADD'
@@ -997,7 +1026,6 @@ const VARIANT_SORT_OPTONS = [
   { value: SORT_BY_GNOMAD_GENOMES, text: 'gnomAD Genomes Frequency', comparator: populationComparator('gnomad_genomes') },
   { value: SORT_BY_GNOMAD_EXOMES, text: 'gnomAD Exomes Frequency', comparator: populationComparator('gnomad_exomes') },
   { value: SORT_BY_CALLSET_AF, text: 'Callset AF', comparator: populationComparator('callset') },
-  { value: SORT_BY_1KG, text: '1kg  Frequency', comparator: populationComparator('g1k') },
   { value: SORT_BY_GENETALE_VAR_CLASS_NUM, text: 'Genetale Variant Class', comparator: predictionComparator('genetale_var_class_num') },
   { value: SORT_BY_CADD, text: 'Cadd', comparator: predictionComparator('cadd') },
   { value: SORT_BY_REVEL, text: 'Revel', comparator: predictionComparator('revel') },
@@ -1131,6 +1159,13 @@ const MUTTASTER_MAP = {
 
 export const GENETALE_INHERITANCE_CODES = ['AR', 'AD', 'XLR', 'XLD']
 
+const MITOTIP_MAP = {
+  likely_pathogenic: { color: 'red', value: 'likely pathogenic' },
+  possibly_pathogenic: { color: 'red', value: 'possibly pathogenic' },
+  possibly_benign: { color: 'green', value: 'possibly benign' },
+  likely_benign: { color: 'green', value: 'likely benign' },
+}
+
 const MISSENSE_IN_SILICO_GROUP = 'Missense'
 const CODING_IN_SILICO_GROUP = 'Coding/Noncoding'
 const SPLICING_IN_SILICO_GROUP = 'Splicing'
@@ -1160,9 +1195,11 @@ export const PREDICTOR_FIELDS = [
   { field: 'sift', group: MISSENSE_IN_SILICO_GROUP, indicatorMap: INDICATOR_MAP },
   { field: 'mut_taster', group: MISSENSE_IN_SILICO_GROUP, indicatorMap: MUTTASTER_MAP },
   { field: 'fathmm', group: MISSENSE_IN_SILICO_GROUP, indicatorMap: INDICATOR_MAP },
-  { field: 'metasvm', group: MISSENSE_IN_SILICO_GROUP, indicatorMap: INDICATOR_MAP },
-  { field: 'gerp_rs', group: MISSENSE_IN_SILICO_GROUP, noSeverity: true, min: -13, max: 7 },
-  { field: 'phastcons_100_vert', group: MISSENSE_IN_SILICO_GROUP, noSeverity: true },
+  { field: 'apogee', warningThreshold: 0.5, dangerThreshold: 0.5 },
+  { field: 'gnomad_noncoding', fieldTitle: 'gnomAD Constraint', displayOnly: true, warningThreshold: 2.18, dangerThreshold: 4 },
+  { field: 'haplogroup_defining', indicatorMap: { Y: { color: 'green', value: '' } } },
+  { field: 'mitotip', indicatorMap: MITOTIP_MAP },
+  { field: 'hmtvar', warningThreshold: 0.35, dangerThreshold: 0.35 },
 ]
 
 export const getVariantMainGeneId = ({ transcripts = {}, mainTranscriptId, selectedMainTranscriptId }) => {
@@ -1194,7 +1231,6 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'alt' },
   { header: 'gene', getVal: variant => getVariantMainTranscript(variant).geneSymbol },
   { header: 'worst_consequence', getVal: variant => getVariantMainTranscript(variant).majorConsequence },
-  { header: '1kg_freq', getVal: getPopAf('g1k') },
   { header: 'exac_freq', getVal: getPopAf('exac') },
   { header: 'gnomad_genomes_freq', getVal: getPopAf('gnomad_genomes') },
   { header: 'gnomad_exomes_freq', getVal: getPopAf('gnomad_exomes') },

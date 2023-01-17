@@ -14,19 +14,23 @@ STREAMING_READS_CONTENT = [b'CRAM\x03\x83', b'\\\t\xfb\xa3\xf7%\x01', b'[\xfc\xc
 PROJECT_GUID = 'R0001_1kg'
 
 
-@mock.patch('seqr.views.utils.permissions_utils.ANALYST_PROJECT_CATEGORY', 'analyst-projects')
-@mock.patch('seqr.views.utils.permissions_utils.ANALYST_USER_GROUP', 'analysts')
 @mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
 class IgvAPITest(AuthenticationTestCase):
     fixtures = ['users', '1kg_project']
 
     @responses.activate
+    @mock.patch('seqr.utils.file_utils.logger')
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     @mock.patch('seqr.views.apis.igv_api.safe_redis_get_json')
     @mock.patch('seqr.views.apis.igv_api.safe_redis_set_json')
-    def test_proxy_google_to_igv(self, mock_set_redis, mock_get_redis, mock_subprocess):
-        mock_subprocess.return_value.stdout = iter([b'token1\n', b'token2\n'])
-        mock_subprocess.return_value.wait.side_effect = [-1, 0, 0]
+    def test_proxy_google_to_igv(self, mock_set_redis, mock_get_redis, mock_subprocess, mock_file_logger):
+        mock_ls_subprocess = mock.MagicMock()
+        mock_access_token_subprocess = mock.MagicMock()
+        mock_subprocess.side_effect = [mock_ls_subprocess, mock_access_token_subprocess]
+        mock_ls_subprocess.stdout = iter([b'CommandException: One or more URLs matched no objects.'])
+        mock_ls_subprocess.wait.return_value = 1
+        mock_access_token_subprocess.stdout = iter([b'token1\n', b'token2\n'])
+        mock_access_token_subprocess.wait.return_value = 0
         mock_get_redis.return_value = None
 
         responses.add(responses.GET, 'https://storage.googleapis.com/fc-secure-project_A/sample_1.bai',
@@ -47,10 +51,12 @@ class IgvAPITest(AuthenticationTestCase):
         mock_set_redis.assert_called_with(GS_STORAGE_ACCESS_CACHE_KEY, 'token1', expire=3594)
         mock_subprocess.assert_has_calls([
             mock.call('gsutil -u anvil-datastorage ls gs://fc-secure-project_A/sample_1.bam.bai', stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True),
-            mock.call().wait(),
             mock.call('gcloud auth print-access-token', stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True),
-            mock.call().wait(),
         ])
+        mock_ls_subprocess.wait.assert_called_once()
+        mock_access_token_subprocess.wait.assert_called_once()
+        mock_file_logger.info.assert_any_call(
+            'CommandException: One or more URLs matched no objects.', self.collaborator_user)
 
         mock_get_redis.reset_mock()
         mock_get_redis.return_value = 'token3'
@@ -211,27 +217,28 @@ class IgvAPITest(AuthenticationTestCase):
         self.assertEqual(response.status_code, 200)
 
     @responses.activate
-    def test_igv_genomes_proxyy(self):
-        url_path = 'org.genomes/foo?query=true'
-        url = reverse(igv_genomes_proxy, args=[url_path])
+    def test_igv_genomes_proxy(self):
+        url_path = 'igv.org.genomes/foo?query=true'
+        s3_url = reverse(igv_genomes_proxy, args=['s3', url_path])
 
         expected_body = {'genes': ['GENE1', 'GENE2']}
         responses.add(
             responses.GET, 'https://s3.amazonaws.com/igv.org.genomes/foo?query=true', match_querystring=True,
             content_type='application/json', body=json.dumps(expected_body))
 
-        response = self.client.get(url)
+        response = self.client.get(s3_url)
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(json.loads(response.content), expected_body)
         self.assertIsNone(responses.calls[0].request.headers.get('Range'))
 
         # test with range header proxy
+        gs_url = reverse(igv_genomes_proxy, args=['gs', 'test-bucket/foo.fasta'])
         expected_content = 'test file content'
-        responses.replace(
-            responses.GET, 'https://s3.amazonaws.com/igv.org.genomes/foo?query=true', match_querystring=True,
+        responses.add(
+            responses.GET, 'https://storage.googleapis.com/test-bucket/foo.fasta', match_querystring=True,
             body=expected_content)
 
-        response = self.client.get(url, HTTP_RANGE='bytes=100-200')
+        response = self.client.get(gs_url, HTTP_RANGE='bytes=100-200')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), expected_content)
         self.assertEqual(responses.calls[1].request.headers.get('Range'), 'bytes=100-200')

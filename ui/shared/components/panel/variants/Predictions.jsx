@@ -20,10 +20,10 @@ const PredictionValue = styled.span`
 const NUM_TO_SHOW_ABOVE_THE_FOLD = 6 // how many predictors to show immediately
 
 const predictionFieldValue = (
-  predictions, { field, dangerThreshold, warningThreshold, indicatorMap, noSeverity, infoField, infoTitle },
+  predictions, { field, dangerThreshold, warningThreshold, indicatorMap, infoField, infoTitle },
 ) => {
   let value = predictions[field]
-  if (noSeverity || value === null || value === undefined) {
+  if (value === null || value === undefined) {
     return { value }
   }
 
@@ -40,7 +40,7 @@ const predictionFieldValue = (
     return { value, color, infoValue, infoTitle, dangerThreshold, warningThreshold }
   }
 
-  return indicatorMap[value[0]]
+  return indicatorMap[value[0]] || indicatorMap[value]
 }
 
 const Prediction = ({ field, fieldTitle, value, color, infoValue, infoTitle, warningThreshold, dangerThreshold }) => {
@@ -58,7 +58,7 @@ const Prediction = ({ field, fieldTitle, value, color, infoValue, infoTitle, war
       content={
         <div>
           <div>{`Red > ${dangerThreshold}`}</div>
-          <div>{`Yellow > ${warningThreshold}`}</div>
+          {warningThreshold < dangerThreshold && <div>{`Yellow > ${warningThreshold}`}</div>}
         </div>
       }
       trigger={<span>{fieldName}</span>}

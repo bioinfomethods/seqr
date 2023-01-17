@@ -8,10 +8,11 @@ import { ButtonLink, NoBorderTable } from 'shared/components/StyledComponents'
 import FormWrapper from 'shared/components/form/FormWrapper'
 import FileUploadField, { validateUploadedFile } from 'shared/components/form/XHRUploaderField'
 import { BooleanCheckbox, Select } from 'shared/components/form/Inputs'
-import { DATASET_TYPE_VARIANT_CALLS, DATASET_TYPE_SV_CALLS } from 'shared/utils/constants'
+import AddWorkspaceDataForm from 'shared/components/panel/LoadWorkspaceDataForm'
+import { DATASET_TYPE_VARIANT_CALLS, DATASET_TYPE_SV_CALLS, DATASET_TYPE_MITO_CALLS } from 'shared/utils/constants'
 
 import { addVariantsDataset, addIGVDataset } from '../reducers'
-import { getProjectGuid } from '../selectors'
+import { getCurrentProject, getProjectGuid } from '../selectors'
 
 const UPLOADER_STYLES = { placeHolderStyle: { paddingLeft: '5%', paddingRight: '5%' } }
 
@@ -66,6 +67,7 @@ const UPLOAD_CALLSET_FIELDS = [
     options: [
       { value: DATASET_TYPE_VARIANT_CALLS, name: 'Haplotypecaller' },
       { value: DATASET_TYPE_SV_CALLS, name: 'SV Caller' },
+      { value: DATASET_TYPE_MITO_CALLS, name: 'Mitochondria Caller' },
     ],
     validate: value => (value ? undefined : 'Specify the caller type'),
   },
@@ -169,20 +171,34 @@ const PANES = [
 
 const IGV_ONLY_PANES = [PANES[1]]
 
-const EditDatasetsButton = React.memo(({ user }) => (
-  (user.isDataManager || user.isPm) ? (
-    <Modal
-      modalName={MODAL_NAME}
-      title="Datasets"
-      size="small"
-      trigger={<ButtonLink>Edit Datasets</ButtonLink>}
-    >
-      <Tab panes={user.isDataManager ? PANES : IGV_ONLY_PANES} />
-    </Modal>
-  ) : null
-))
+const mapAddDataStateToProps = state => ({
+  params: getCurrentProject(state),
+})
+
+const AddProjectWorkspaceDataForm = connect(mapAddDataStateToProps)(AddWorkspaceDataForm)
+
+const EditDatasetsButton = React.memo(({ showLoadWorkspaceData, user }) => {
+  const showEditDatasets = user.isDataManager || user.isPm
+  return (
+    (showEditDatasets || showLoadWorkspaceData) ? (
+      <Modal
+        modalName={MODAL_NAME}
+        title={showEditDatasets ? 'Datasets' : 'Load Additional Data From AnVIL Workspace'}
+        size="small"
+        trigger={<ButtonLink>{showEditDatasets ? 'Edit Datasets' : 'Load Additional Data'}</ButtonLink>}
+      >
+        {showEditDatasets ? <Tab panes={user.isDataManager ? PANES : IGV_ONLY_PANES} /> : (
+          <AddProjectWorkspaceDataForm
+            successMessage="Your request to load data has been submitted. Loading data from AnVIL to seqr is a slow process, and generally takes a week. You will receive an email letting you know once your new data is available."
+          />
+        )}
+      </Modal>
+    ) : null
+  )
+})
 
 EditDatasetsButton.propTypes = {
+  showLoadWorkspaceData: PropTypes.bool,
   user: PropTypes.object,
 }
 

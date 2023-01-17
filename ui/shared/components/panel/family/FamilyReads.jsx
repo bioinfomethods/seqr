@@ -15,6 +15,7 @@ import {
 } from 'redux/selectors'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { CheckboxGroup, RadioGroup } from '../../form/Inputs'
+import StateChangeForm from '../../form/StateChangeForm'
 import { ButtonLink, HelpIcon, ColoredIcon } from '../../StyledComponents'
 import { VerticalSpacer } from '../../Spacers'
 import { getLocus } from '../variants/VariantUtils'
@@ -23,7 +24,7 @@ import {
   ARCHIE_TYPE, ALIGNMENT_TYPE, COVERAGE_TYPE, GCNV_TYPE, JUNCTION_TYPE, BUTTON_PROPS, TRACK_OPTIONS,
   MAPPABILITY_TRACK_OPTIONS, CRAM_PROXY_TRACK_OPTIONS, BAM_TRACK_OPTIONS,
   DNA_TRACK_TYPE_OPTIONS, RNA_TRACK_TYPE_OPTIONS, IGV_OPTIONS, REFERENCE_LOOKUP, RNA_TRACK_TYPE_LOOKUP,
-  JUNCTION_VISIBILITY_OPTIONS, NORM_GTEX_TRACK_OPTIONS, AGG_GTEX_TRACK_OPTIONS,
+  JUNCTION_TRACK_FIELDS, NORM_GTEX_TRACK_OPTIONS, AGG_GTEX_TRACK_OPTIONS,
 } from './constants'
 
 const IGV = React.lazy(() => import('../../graph/IGV'))
@@ -258,11 +259,11 @@ const getGeneLocus = (variant, genesById, project) => {
 }
 
 const IgvPanel = React.memo((
-  { igvSampleIndividuals, sortedIndividuals, project, sampleTypes, rnaReferences, minJunctionEndsVisible, locus },
+  { igvSampleIndividuals, sortedIndividuals, project, sampleTypes, rnaReferences, junctionTrackOptions, locus },
 ) => {
   const tracks = applyUserTrackSettings(
     rnaReferences.concat(getIgvTracks(igvSampleIndividuals, sortedIndividuals, sampleTypes)),
-    { [JUNCTION_TYPE]: { minJunctionEndsVisible } },
+    { [JUNCTION_TYPE]: junctionTrackOptions },
   )
 
   return (
@@ -275,7 +276,7 @@ const IgvPanel = React.memo((
 IgvPanel.propTypes = {
   sampleTypes: PropTypes.arrayOf(PropTypes.string),
   rnaReferences: PropTypes.arrayOf(PropTypes.object),
-  minJunctionEndsVisible: PropTypes.number,
+  junctionTrackOptions: PropTypes.object,
   sortedIndividuals: PropTypes.arrayOf(PropTypes.object),
   igvSampleIndividuals: PropTypes.object,
   project: PropTypes.object,
@@ -301,7 +302,11 @@ class FamilyReads extends React.PureComponent {
     openFamily: null,
     sampleTypes: [],
     rnaReferences: [],
-    minJunctionEndsVisible: 0,
+    junctionTrackOptions: {
+      minJunctionEndsVisible: 0,
+      minUniquelyMappedReads: 0,
+      minTotalReads: 0,
+    },
     locus: null,
   }
 
@@ -346,8 +351,10 @@ class FamilyReads extends React.PureComponent {
     })
   }
 
-  junctionsOptionChange = (minJunctionEndsVisible) => {
-    this.setState({ minJunctionEndsVisible })
+  junctionsOptionChange = field => (value) => {
+    this.setState(prevState => (
+      { junctionTrackOptions: { ...prevState.junctionTrackOptions, [field]: value } }
+    ))
   }
 
   locusChange = (locus) => {
@@ -400,7 +407,7 @@ class FamilyReads extends React.PureComponent {
       variant, familyGuid, buttonProps, layout, igvSamplesByFamilySampleIndividual, familiesByGuid,
       projectsByGuid, genesById, sortedIndividualByFamily, archieApiRootUrl, ...props
     } = this.props
-    const { openFamily, sampleTypes, rnaReferences, minJunctionEndsVisible, locus } = this.state
+    const { openFamily, sampleTypes, rnaReferences, junctionTrackOptions, locus } = this.state
 
     const showReads = (
       <ReadButtons
@@ -473,10 +480,10 @@ class FamilyReads extends React.PureComponent {
                       onChange={this.updateRnaReferences}
                     />
                     <Divider horizontal>Junction Filters</Divider>
-                    <RadioGroup
-                      value={minJunctionEndsVisible}
-                      options={JUNCTION_VISIBILITY_OPTIONS}
-                      onChange={this.junctionsOptionChange}
+                    <StateChangeForm
+                      fields={JUNCTION_TRACK_FIELDS}
+                      initialValues={junctionTrackOptions}
+                      updateField={this.junctionsOptionChange}
                     />
                   </div>
                 )}
@@ -491,7 +498,7 @@ class FamilyReads extends React.PureComponent {
             igvSampleIndividuals={igvSampleIndividuals}
             sampleTypes={sampleTypes}
             rnaReferences={rnaReferences}
-            minJunctionEndsVisible={minJunctionEndsVisible}
+            junctionTrackOptions={junctionTrackOptions}
             sortedIndividuals={sortedIndividualByFamily[openFamily]}
             project={project}
             locus={locus}

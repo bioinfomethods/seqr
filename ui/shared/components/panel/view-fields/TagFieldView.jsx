@@ -10,7 +10,7 @@ import { ColoredLabel, ColoredOutlineLabel } from '../../StyledComponents'
 import { LargeMultiselect, Multiselect } from '../../form/Inputs'
 import OptionFieldView from './OptionFieldView'
 
-const NOTES_CATEGORY = 'Functional Data'
+const NOTES_METADATA_TITLE = 'Notes'
 
 const MODAL_STYLE = { minHeight: 'calc(90vh - 100px)' }
 
@@ -33,8 +33,8 @@ MultiselectField.propTypes = {
 }
 
 const METADATA_FIELD_PROPS = {
-  [NOTES_CATEGORY]: { width: 16, maxLength: 50, placeholder: 'Enter up to 50 characters' },
-  Collaboration: { width: 16, maxLength: 50, placeholder: 'Brief reason for excluding. Enter up to 50 characters' },
+  [NOTES_METADATA_TITLE]: { width: 16, maxLength: 50, placeholder: 'Enter up to 50 characters' },
+  Reason: { width: 16, maxLength: 50, placeholder: 'Brief reason for excluding. Enter up to 50 characters' },
   'Test Type(s)': {
     width: 16,
     component: MultiselectField,
@@ -53,7 +53,7 @@ const MetadataField = React.memo(({ value, name, error }) => {
     return null
   }
   const label = <ColoredOutlineLabel color={value.color} content={value.name} size="large" pointing="right" basic />
-  const fieldProps = METADATA_FIELD_PROPS[value.metadataTitle] || METADATA_FIELD_PROPS[value.category] || { width: 4, type: 'number', min: 0 }
+  const fieldProps = METADATA_FIELD_PROPS[value.metadataTitle] || { width: 4, type: 'number', min: 0 }
   return (
     <MetadataFormGroup>
       {value.description ? <Popup trigger={label} content={value.description} /> : label}
@@ -123,6 +123,7 @@ class TagFieldView extends React.PureComponent {
     tagAnnotation: PropTypes.func,
     simplifiedValue: PropTypes.bool,
     validate: PropTypes.func,
+    disabledTagType: PropTypes.string,
     linkTagType: PropTypes.string,
     tagLinkUrl: PropTypes.string,
   }
@@ -163,12 +164,16 @@ class TagFieldView extends React.PureComponent {
   }
 
   tagSelectOptions = () => {
-    const { tagOptions } = this.props
+    const { tagOptions, disabledTagType } = this.props
     const fieldValues = this.fieldValues()
 
-    return tagOptions.map(
-      (tag, i) => ({ ...tag, ...fieldValues.find(val => val.name === tag.name), optionIndex: i }),
-    )
+    return tagOptions.reduce((acc, tag, i) => {
+      const fieldValue = fieldValues.find(val => val.name === tag.name)
+      if (disabledTagType && tag.name === disabledTagType && !fieldValue) {
+        return acc
+      }
+      return [...acc, { ...tag, ...fieldValue, optionIndex: i }]
+    }, [])
   }
 
   fieldDisplay = (displayFieldValues) => {
@@ -194,7 +199,7 @@ class TagFieldView extends React.PureComponent {
       name: field,
       key: 'test',
       isArrayField: true,
-      validate: val => ((!val || !val.metadataTitle || val.category === NOTES_CATEGORY || val.metadata) ? undefined : 'Required'),
+      validate: val => ((!val || !val.metadataTitle || val.metadataTitle === NOTES_METADATA_TITLE || val.metadata) ? undefined : 'Required'),
       component: MetadataField,
     }] : []
 

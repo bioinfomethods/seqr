@@ -1,7 +1,9 @@
 import React from 'react'
 import { Form } from 'semantic-ui-react'
 import styled from 'styled-components'
-import { RadioGroup, BooleanCheckbox, Select } from 'shared/components/form/Inputs'
+
+import { CreateLocusListButton } from 'shared/components/buttons/LocusListButtons'
+import { RadioGroup, AlignedBooleanCheckbox, Select } from 'shared/components/form/Inputs'
 import { snakecaseToTitlecase, camelcaseToTitlecase } from 'shared/utils/stringUtils'
 import {
   VEP_GROUP_NONSENSE,
@@ -22,6 +24,7 @@ import {
   SPLICE_AI_FIELD,
   VEP_GROUP_SV_NEW,
   PANEL_APP_CONFIDENCE_LEVELS,
+  SCREEN_LABELS,
 } from 'shared/utils/constants'
 
 import LocusListItemsFilter from './LocusListItemsFilter'
@@ -241,6 +244,18 @@ export const ANNOTATION_GROUPS = Object.entries(GROUPED_VEP_CONSEQUENCES).map(([
   name, options, groupLabel: snakecaseToTitlecase(name),
 }))
 
+const SCREEN_GROUP = 'SCREEN'
+const SCREEN_VALUES = ['PLS', 'pELS', 'dELS', 'DNase-H3K4me3', 'CTCF-only', 'DNase-only', 'low-DNase']
+ANNOTATION_GROUPS.push({
+  name: SCREEN_GROUP,
+  groupLabel: SCREEN_GROUP,
+  options: SCREEN_VALUES.map(value => ({
+    value,
+    text: SCREEN_LABELS[value] || value,
+    description: 'SCREEN: Search Candidate cis-Regulatory Elements by ENCODE. Registry of cCREs V3’',
+  })),
+})
+
 export const ALL_IMPACT_GROUPS = [
   VEP_GROUP_NONSENSE,
   VEP_GROUP_ESSENTIAL_SPLICE_SITE,
@@ -269,6 +284,11 @@ export const MODERATE_IMPACT_GROUPS = [
 export const CODING_IMPACT_GROUPS = [
   VEP_GROUP_SYNONYMOUS,
   VEP_GROUP_EXTENDED_SPLICE_SITE,
+]
+export const CODING_IMPACT_GROUPS_SCREEN = [
+  VEP_GROUP_SYNONYMOUS,
+  VEP_GROUP_EXTENDED_SPLICE_SITE,
+  SCREEN_GROUP,
 ]
 export const ALL_ANNOTATION_FILTER = {
   text: 'All',
@@ -327,14 +347,23 @@ export const SNP_FREQUENCIES = [
   {
     name: THIS_CALLSET_FREQUENCY,
     label: 'This Callset',
-    homHemi: false,
+    homHemi: true,
     labelHelp: 'Filter by allele count (AC) or by allele frequency (AF) among the samples in this family plus the rest of the samples that were joint-called as part of variant calling for this project.',
+  },
+]
+
+export const MITO_FREQUENCIES = [
+  {
+    name: 'gnomad_mito',
+    label: 'gnomAD homoplasmic',
+    homHemi: false,
+    labelHelp: 'Filter by the gnomAD allele count (AC) and allele frequency (AF) restricted to variants with a heteroplasmy level >= 0.95',
   },
 ]
 
 export const SV_CALLSET_CRITERIA_MESSAGE = 'Only an SV that is estimated to be the same SV (type and breakpoints) among jointly genotyped samples will be counted as an allele. CNVs called on exomes have unknown breakpoints so similar overlapping CNVs may be counted as an allele.'
 export const GNOMAD_SV_CRITERIA_MESSAGE = 'The following criteria need to be met for an SV in gnomAD to be counted as an allele: Has the same SV type (deletion, duplication, etc) and either has sufficient reciprocal overlap (SVs >5Kb need 50%, SVs < 5Kb need 10%) or has insertion breakpoints within 100bp'
-const SV_FREQUENCIES = [
+export const SV_FREQUENCIES = [
   {
     name: 'gnomad_svs',
     label: 'gnomAD genome SVs',
@@ -349,7 +378,7 @@ const SV_FREQUENCIES = [
   },
 ]
 
-export const FREQUENCIES = [...SNP_FREQUENCIES, ...SV_FREQUENCIES]
+export const FREQUENCIES = [...SNP_FREQUENCIES, ...MITO_FREQUENCIES, ...SV_FREQUENCIES]
 
 export const LOCUS_FIELD_NAME = 'locus'
 export const PANEL_APP_FIELD_NAME = 'panelAppItems'
@@ -397,18 +426,32 @@ export const LOCATION_FIELDS = [
     shouldShow: locus => !!locus[PANEL_APP_FIELD_NAME],
   },
   {
+    name: 'create',
+    fullFieldValue: true,
+    component: LocusListItemsFilter,
+    control: CreateLocusListButton,
+    width: 4,
+    shouldShow: locus => !locus[PANEL_APP_FIELD_NAME],
+    shouldDisable: locus => !locus[LOCUS_LIST_ITEMS_FIELD.name],
+  },
+  {
     name: 'excludeLocations',
     component: LocusListItemsFilter,
-    filterComponent: BooleanCheckbox,
+    filterComponent: AlignedBooleanCheckbox,
     label: 'Exclude locations',
     labelHelp: 'Search for variants not in the specified genes/ intervals',
-    width: 6,
-    inline: true,
+    width: 10,
     shouldDisable: locus => !!locus[VARIANT_FIELD_NAME],
   },
 ]
 
-export const IN_SILICO_FIELDS = PREDICTOR_FIELDS.filter(({ displayOnly }) => !displayOnly).map(
+const REQUIRE_SCORE_FIELD = {
+  name: 'requireScore',
+  component: AlignedBooleanCheckbox,
+  label: 'Require Filtered Predictor',
+  labelHelp: 'Only return variants where at least one filtered predictor is present. By default, variants are returned if a predictor meets the filtered value or is missing entirely',
+}
+export const IN_SILICO_FIELDS = [REQUIRE_SCORE_FIELD, ...PREDICTOR_FIELDS.filter(({ displayOnly }) => !displayOnly).map(
   ({ field, fieldTitle, warningThreshold, dangerThreshold, indicatorMap, group, min, max }) => {
     const label = fieldTitle || snakecaseToTitlecase(field)
     const filterField = { name: field, label, group }
@@ -447,7 +490,7 @@ export const IN_SILICO_FIELDS = PREDICTOR_FIELDS.filter(({ displayOnly }) => !di
       ...filterField,
     }
   },
-)
+)]
 
 export const SNP_QUALITY_FILTER_FIELDS = [
   {
@@ -481,8 +524,19 @@ const DividedFormField = styled(Form.Field)`
   border-left: solid grey 1px;
 `
 
-export const QUALITY_FILTER_FIELDS = [
-  ...SNP_QUALITY_FILTER_FIELDS,
+export const MITO_QUALITY_FILTER_FIELDS = [
+  {
+    name: 'min_hl',
+    label: 'Heteroplasmy level',
+    labelHelp: 'Heteroplasmy level (HL) is the percentage of the alt alleles out of all alleles.',
+    min: 0,
+    max: 50,
+    step: 5,
+    component: DividedFormField,
+  },
+]
+
+export const SV_QUALITY_FILTER_FIELDS = [
   {
     name: 'min_qs',
     label: 'WES SV Quality Score',
@@ -500,6 +554,12 @@ export const QUALITY_FILTER_FIELDS = [
     max: 100,
     step: 10,
   },
+]
+
+export const QUALITY_FILTER_FIELDS = [
+  ...SNP_QUALITY_FILTER_FIELDS,
+  ...MITO_QUALITY_FILTER_FIELDS,
+  ...SV_QUALITY_FILTER_FIELDS,
 ]
 
 export const ALL_QUALITY_FILTER = {

@@ -79,7 +79,7 @@ build() {
     done
 
     # Tagging
-    SEQR_GIT_BRANCH_NAME=$(git branch --format='%(refname:short)')
+    SEQR_GIT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
     SEQR_GIT_BRANCH_TAG=${SEQR_GIT_BRANCH_NAME/\//_}
     SEQR_LONG_GIT_TAG=$(git describe --long --always)
 
@@ -115,7 +115,7 @@ build_seqr() {
     docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_LONG_GIT_TAG"
 
     if [[ "$1" == "seqr" ]]; then
-        SEQR_VERSION="v$(date +"%Y.%m.%d")_00"
+        SEQR_VERSION="$(git describe --always)"
         docker tag "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_IMAGE_TAG" "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
         docker push "$CONTAINER_REGISTRY/$SEQR_IMAGE_NAME:$SEQR_VERSION"
     fi
