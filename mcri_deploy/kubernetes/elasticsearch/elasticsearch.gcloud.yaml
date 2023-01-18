@@ -54,6 +54,14 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 2Gi
+            limits:
+              memory: 2Gi
+          # env:
+          # - name: ES_JAVA_OPTS
+          #   value: "-Xms1536m -Xmx1536m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
@@ -104,6 +112,14 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 1.5Gi
+            limits:
+              memory: 1.5Gi
+          # env:
+          # - name: ES_JAVA_OPTS
+          #   value: "-Xms1024m -Xmx1024m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data
@@ -150,14 +166,14 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
-          env:
-          - name: ES_JAVA_OPTS
-            value: "-Xms4096m -Xmx4096m"
           resources:
             requests:
               memory: 5Gi
             limits:
               memory: 5Gi
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms4096m -Xmx4096m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
@@ -171,7 +187,7 @@ spec:
         storageClassName: pd-standard-expandable-storage-class
         resources:
           requests:
-            storage: 700Gi
+            storage: 750Gi
   - name: data-loading-node
     count: 2
     config:
@@ -208,9 +224,14 @@ spec:
         containers:
         - name: elasticsearch
           imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 4Gi
+            limits:
+              memory: 4Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms1300m -Xmx1300m"
+            value: "-Xms3278m -Xmx3278m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data
@@ -233,7 +254,7 @@ metadata:
     cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
-  loadBalancerIP: 10.152.0.5
+  loadBalancerIP: 10.152.0.7
   ports:
     - name: http
       port: 9200
