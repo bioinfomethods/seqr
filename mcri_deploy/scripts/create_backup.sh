@@ -1,27 +1,21 @@
 #!/bin/bash
-(
-        set -ueo pipefail
-        export PATH="$PATH:/snap/bin"
 
-        datestamp=$(date +'%Y-%m-%d')
+set -ueo pipefail
+export PATH="$PATH:/snap/bin"
 
-        echo "Creating backup: $datestamp"
+datestamp="$(date +'%Y-%m-%d')"
 
-        cd /home/seqr/seqr
+BACKUP_PATH="/home/seqr/backups"
 
-        /usr/local/bin/docker-compose exec -T postgres /usr/lib/postgresql/12/bin/pg_dump -U postgres seqrdb | gzip -c > "/home/seqr/backups/seqrdb-${datestamp}.dmp.gz"
-        /usr/local/bin/docker-compose exec -T postgres /usr/lib/postgresql/12/bin/pg_dump -U postgres reference_data_db | gzip -c > "/home/seqr/backups/reference_data_db-${datestamp}.dmp.gz"
+echo "Creating backups to $BACKUP_PATH with date $datestamp"
 
-        cd /home/seqr/backups
+SEQRDB_BACKUP=$BACKUP_PATH/seqrdb-$datestamp.dmp.gz
+REFERENCE_DATA_DB_BACKUP=$BACKUP_PATH/reference_data_db-$datestamp.dmp.gz
 
-        # We expect the last good backup is our current backup but it may not be - so we only copy the most recent one that has
-        # expected size to the cloud
-        SEQRDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname "seqrdb*.dmp.gz" | sort -r | head -n 1)
-        REFERENCEDB_LAST_GOOD_BACKUP=$(find /home/seqr/backups -size +15000 -iname "reference_data_db*.dmp.gz" | sort -r | head -n 1)
+/usr/local/bin/docker-compose -f /home/seqr/seqr/docker-compose.yml --env-file /home/seqr/seqr/.env exec -T postgres /usr/lib/postgresql/12/bin/pg_dump -U postgres seqrdb | gzip -c > "$SEQRDB_BACKUP"
+/usr/local/bin/docker-compose -f /home/seqr/seqr/docker-compose.yml --env-file /home/seqr/seqr/.env exec -T postgres /usr/lib/postgresql/12/bin/pg_dump -U postgres reference_data_db | gzip -c > "$REFERENCE_DATA_DB_BACKUP"
 
-        gsutil cp "${SEQRDB_LAST_GOOD_BACKUP}" gs://mcri-seqr-backups/
-        gsutil cp "${REFERENCEDB_LAST_GOOD_BACKUP}" gs://mcri-seqr-backups/
-
-        echo "Done creating backup: $datestamp"
-
-) >> /home/seqr/backups/backup.log 2>&1
+gsutil cp "${SEQRDB_BACKUP}" gs://mcri-seqr-backups/
+echo "Backed up $SEQRDB_BACKUP to gs://mcri-seqr-backups/"
+gsutil cp "${REFERENCE_DATA_DB_BACKUP}" gs://mcri-seqr-backups/
+echo "Backed up $REFERENCE_DATA_DB_BACKUP to gs://mcri-seqr-backups/"
