@@ -52,10 +52,7 @@ class Command(BaseCommand):
         given_project = options.get('project')
         pedigree_path = options.get('pedigree')
 
-        if given_project.upper().startswith('R00'):
-            project = Project.objects.get(guid__iexact=given_project)
-        else:
-            project = Project.objects.get(name__iexact=given_project)
+        project = Project.objects.get(guid__iexact=given_project)
 
         file_contents = '\n'.join(file_iter(pedigree_path, user=None))
         individual_records = json.loads(file_contents)
