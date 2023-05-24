@@ -17,9 +17,9 @@ class McriKeycloakOAuth2(KeycloakOAuth2):  # pylint: disable=abstract-method
     name = 'keycloak'
     ID_KEY = 'username'
     ACCESS_TOKEN_METHOD = 'POST'
-    DEFAULT_SCOPE = ['openid', 'profile', 'email']
+    DEFAULT_SCOPE = ['openid', 'profile', 'email', 'ad_groups']
 
-    def user_data(self, access_token, *args, **kwargs):  # pylint: disable=unused-argument
+    def user_data(self, access_token, *args, **kwargs):
         result = jwt.decode(
             access_token,
             key=self.public_key(),

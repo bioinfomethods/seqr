@@ -194,13 +194,30 @@ LOGGING = {
 TERRA_API_ROOT_URL = os.environ.get('TERRA_API_ROOT_URL')
 ANVIL_UI_URL = 'https://anvil.terra.bio/'
 
-AUTHENTICATION_BACKENDS = (
-    'social_core.backends.google.GoogleOAuth2',
-    'oauth2_provider.backends.OAuth2Backend',
-    'mcri_ext.security.okta.McriOktaOpenIdConnect',
-    'django.contrib.auth.backends.ModelBackend',
-    'guardian.backends.ObjectPermissionBackend',
-)
+SOCIAL_AUTH_PROVIDER = os.environ.get('SOCIAL_AUTH_PROVIDER', 'google-oauth2')
+if SOCIAL_AUTH_PROVIDER == 'okta-openidconnect':
+    AUTHENTICATION_BACKENDS = (
+        'social_core.backends.google.GoogleOAuth2',
+        'oauth2_provider.backends.OAuth2Backend',
+        'mcri_ext.security.okta.McriOktaOpenIdConnect',
+        'django.contrib.auth.backends.ModelBackend',
+        'guardian.backends.ObjectPermissionBackend',
+    )
+elif SOCIAL_AUTH_PROVIDER == 'keycloak':
+    AUTHENTICATION_BACKENDS = (
+        'social_core.backends.google.GoogleOAuth2',
+        'oauth2_provider.backends.OAuth2Backend',
+        'mcri_ext.security.keycloak.McriKeycloakOAuth2',
+        'django.contrib.auth.backends.ModelBackend',
+        'guardian.backends.ObjectPermissionBackend',
+    )
+else:
+    AUTHENTICATION_BACKENDS = (
+        'social_core.backends.google.GoogleOAuth2',
+        'oauth2_provider.backends.OAuth2Backend',
+        'django.contrib.auth.backends.ModelBackend',
+        'guardian.backends.ObjectPermissionBackend',
+    )
 
 # set the secret key
 SECRET_KEY = os.environ.get('DJANGO_KEY')
@@ -380,9 +397,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'openid'
 ]
 
-SOCIAL_AUTH_PROVIDER = os.environ.get('SOCIAL_AUTH_PROVIDER', 'google-oauth2')
 GOOGLE_LOGIN_REQUIRED_URL = '/login/{}'.format(SOCIAL_AUTH_PROVIDER)
-
 
 # Use Google sub ID as the user ID, safer than using email
 USE_UNIQUE_USER_ID = True
@@ -395,14 +410,23 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
 LOGIN_URL = GOOGLE_LOGIN_REQUIRED_URL if SOCIAL_AUTH_GOOGLE_OAUTH2_KEY else '/login'
 
-
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+
 SOCIAL_AUTH_OKTA_OPENIDCONNECT_API_URL = SOCIAL_AUTH_API_URL
 SOCIAL_AUTH_OKTA_OPENIDCONNECT_KEY = SOCIAL_AUTH_CLIENT_ID
 SOCIAL_AUTH_OKTA_OPENIDCONNECT_SECRET = SOCIAL_AUTH_CLIENT_SECRET
+
+SOCIAL_AUTH_KEYCLOAK_API_URL = SOCIAL_AUTH_API_URL
+SOCIAL_AUTH_KEYCLOAK_KEY = SOCIAL_AUTH_CLIENT_ID
+SOCIAL_AUTH_KEYCLOAK_SECRET = SOCIAL_AUTH_CLIENT_SECRET
+SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY = os.environ.get('SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY')
+SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL = \
+    f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/auth"
+SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
+    f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token"
 
 SOCIAL_AUTH_PIPELINE_BASE = (
     'social_core.pipeline.social_auth.social_details',
@@ -477,9 +501,10 @@ SOCIAL_AUTH_PIPELINE = (
 #  Enables authorisation to API using bearer access tokens
 #  https://django-oauth-toolkit.readthedocs.io/en/latest/
 ##########################################################
+RESOURCE_SERVER_INTROSPECTION_URL = f"{SOCIAL_AUTH_API_URL}/protocol/openid-connect/token/introspect" if SOCIAL_AUTH_API_URL == 'keycloak' else f"{SOCIAL_AUTH_API_URL}/oauth2/v1/introspect"
 OAUTH2_PROVIDER = {
     'OAUTH2_VALIDATOR_CLASS': 'oauth2_provider.oauth2_validators.OAuth2Validator',
-    'RESOURCE_SERVER_INTROSPECTION_URL': f"{SOCIAL_AUTH_API_URL}/oauth2/v1/introspect",
+    'RESOURCE_SERVER_INTROSPECTION_URL': RESOURCE_SERVER_INTROSPECTION_URL,
     'RESOURCE_SERVER_INTROSPECTION_CREDENTIALS': (
         SOCIAL_AUTH_CLIENT_ID,
         SOCIAL_AUTH_CLIENT_SECRET
