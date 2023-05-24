@@ -43,7 +43,9 @@ def associate_groups(backend, response, user, details, *args, **kwargs):
 
 
 def _group_matches_settings_exclude_patterns(group_name: str) -> bool:
-    if settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS and isinstance(settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS, list):
+    if hasattr(settings,
+               'SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS') and settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS and isinstance(
+            settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS, list):
         for pattern in settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS:
             if re.match(pattern, group_name):
                 return True
