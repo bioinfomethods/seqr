@@ -30,8 +30,12 @@ class Migration(migrations.Migration):
         # Okta tokens are very long!
         # Since this is only increasing column length, it is probably the simplest approach even though this creates
         # a mismatch between the Django model and DB table.
-        migrations.RunSQL("ALTER TABLE oauth2_provider_accesstoken ALTER COLUMN token TYPE varchar(2048)"),
-        migrations.RunSQL("ALTER TABLE oauth2_provider_refreshtoken ALTER COLUMN token TYPE varchar(2048)"),
+        migrations.RunSQL("ALTER TABLE oauth2_provider_accesstoken ALTER COLUMN token TYPE varchar(5000)"),
+        migrations.RunSQL("ALTER TABLE oauth2_provider_refreshtoken ALTER COLUMN token TYPE varchar(5000)"),
+        migrations.RunSQL("DROP INDEX IF EXISTS oauth2_provider_accesstoken_token_8af090f8_like"),
+        migrations.RunSQL("DROP INDEX IF EXISTS oauth2_provider_accesstoken_token_like_idx"),
+        migrations.RunSQL("ALTER TABLE oauth2_provider_accesstoken DROP CONSTRAINT IF EXISTS oauth2_provider_accesstoken_token_key"),
+        migrations.RunSQL("CREATE UNIQUE INDEX oauth2_provider_accesstoken_token_like_idx ON public.oauth2_provider_accesstoken USING btree (LEFT(token,2680))"),
 
         migrations.RunPython(update_username_match_email, reverse_code=migrations.RunPython.noop),
     ]
