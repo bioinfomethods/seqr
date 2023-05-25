@@ -501,7 +501,7 @@ SOCIAL_AUTH_PIPELINE = (
 #  Enables authorisation to API using bearer access tokens
 #  https://django-oauth-toolkit.readthedocs.io/en/latest/
 ##########################################################
-RESOURCE_SERVER_INTROSPECTION_URL = f"{SOCIAL_AUTH_API_URL}/protocol/openid-connect/token/introspect" if SOCIAL_AUTH_API_URL == 'keycloak' else f"{SOCIAL_AUTH_API_URL}/oauth2/v1/introspect"
+RESOURCE_SERVER_INTROSPECTION_URL = f"{SOCIAL_AUTH_API_URL}/protocol/openid-connect/token/introspect" if SOCIAL_AUTH_PROVIDER == 'keycloak' else f"{SOCIAL_AUTH_API_URL}/oauth2/v1/introspect"
 OAUTH2_PROVIDER = {
     'OAUTH2_VALIDATOR_CLASS': 'oauth2_provider.oauth2_validators.OAuth2Validator',
     'RESOURCE_SERVER_INTROSPECTION_URL': RESOURCE_SERVER_INTROSPECTION_URL,
