@@ -76,6 +76,8 @@ services:
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files
+    extra_hosts:
+      - "keycloak.mcri.edu.au:172.17.0.1"
     depends_on:
       postgres:
         condition: service_healthy
