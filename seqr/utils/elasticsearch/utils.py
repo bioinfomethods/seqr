@@ -18,7 +18,7 @@ class InvalidSearchException(Exception):
     pass
 
 
-def get_es_client(timeout=60, **kwargs):
+def get_es_client(timeout=300, **kwargs):
     client_kwargs = {
         'hosts': [{'host': ELASTICSEARCH_SERVICE_HOSTNAME, 'port': ELASTICSEARCH_SERVICE_PORT}],
         'timeout': timeout,
