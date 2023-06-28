@@ -427,6 +427,9 @@ SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL = \
     f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/auth"
 SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
     f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token"
+OIDC_GROUPS_CLAIM = os.environ.get('ARCHIE_OIDC_GROUPS_CLAIM', 'ad_groups')
+OIDC_SCOPE = ['openid', 'profile', 'email', 'ad_groups', 'offline_access']
+SOCIAL_AUTH_KEYCLOAK_SCOPE = OIDC_SCOPE
 
 SOCIAL_AUTH_PIPELINE_BASE = (
     'social_core.pipeline.social_auth.social_details',
@@ -517,4 +520,3 @@ OAUTH2_PROVIDER = {
 ##########
 ARCHIE_API_ROOT_URL = os.environ.get('ARCHIE_API_ROOT_URL')
 ARCHIE_OIDC_ENDPOINT = SOCIAL_AUTH_API_URL
-ARCHIE_OIDC_GROUPS_CLAIM = os.environ.get('ARCHIE_OIDC_GROUPS_CLAIM', 'ad_groups')

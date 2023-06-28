@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.shortcuts import redirect
 from social_core.exceptions import AuthException
 
-from settings import ARCHIE_OIDC_GROUPS_CLAIM
+from settings import OIDC_GROUPS_CLAIM
 
 log = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ def validate_user_exist(backend, response, user=None, *args, **kwargs):
 
 def associate_groups(backend, response, user, details, *args, **kwargs):
     if user:
-        log.info('Associating %s to user %s', ARCHIE_OIDC_GROUPS_CLAIM, user.email)
-        ad_groups = details.get(ARCHIE_OIDC_GROUPS_CLAIM,
-                                response.get(ARCHIE_OIDC_GROUPS_CLAIM,
+        log.info('Associating %s to user %s', OIDC_GROUPS_CLAIM, user.email)
+        ad_groups = details.get(OIDC_GROUPS_CLAIM,
+                                response.get(OIDC_GROUPS_CLAIM,
                                              response.get('groups',
                                                           response.get('idp_groups', []))))
         filtered_ad_groups = [g for g in ad_groups if not _group_matches_settings_exclude_patterns(g)]
