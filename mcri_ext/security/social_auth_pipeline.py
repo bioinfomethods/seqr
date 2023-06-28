@@ -3,17 +3,43 @@ from seqr.utils.logging_utils import SeqrLogger
 logger = SeqrLogger(__name__)
 log = logger
 
+from django.conf import settings
+from django.contrib.auth.models import User, Group
+from django.db.models import Q
+from django.shortcuts import redirect
+from social_core.exceptions import AuthException
+
+from settings import OIDC_GROUPS_CLAIM
+
+log = logging.getLogger(__name__)
+
+
+def validate_user_exist(backend, response, user=None, *args, **kwargs):
+    if not user:
+        log.warning('User {} is trying to login without an existing account ({}).'.format(
+            response['email'], backend.name))
+        return redirect('/login')
+
 
 def associate_groups(backend, response, user, details, *args, **kwargs):
-    """
-    Example on how to add groups from IDP as auth groups.
-    """
     if user:
-        logger.info('Associating groups to user {}'.format(user.email), user)
-        # user.groups.clear()
-        # for idp_group in details.get('idp_groups', []):
-        #     db_group, _ = Group.objects.get_or_create(name=idp_group)
-        #     user.groups.add(db_group)
+        log.info('Associating %s to user %s', OIDC_GROUPS_CLAIM, user.email)
+        ad_groups = details.get(OIDC_GROUPS_CLAIM,
+                                response.get(OIDC_GROUPS_CLAIM,
+                                             response.get('groups',
+                                                          response.get('idp_groups', []))))
+        filtered_ad_groups = [g for g in ad_groups if not _group_matches_settings_exclude_patterns(g)]
+        if len(filtered_ad_groups) == 0:
+            log.warning('No groups were returned when authenticating user %s, before filter=%s, after filter=%s',
+                        user.email, ad_groups, filtered_ad_groups)
+            return
+
+        user.groups.clear()
+        for ad_group in ad_groups:
+            upper_ad_group = ad_group.upper()
+            db_group, _ = Group.objects.get_or_create(name__iexact=upper_ad_group, defaults={'name': upper_ad_group})
+            log.debug('Associating group=%s to user=%s', upper_ad_group, user.email)
+            user.groups.add(db_group)
     else:
         log.warning('Skipping associating groups as user was not given.')
 
