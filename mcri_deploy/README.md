@@ -8,9 +8,9 @@ The `docker-compose` folder contains docker-compose deployment descriptors for b
 
 ## Prerequisities
 
-* Python 3 installed, preferably using an environment manager such as
+* Python 3.9 installed, preferably using an environment manager such as
   [venv](https://docs.python.org/3/library/venv.html)
-* Node.js 11.8.0 installed, preferably using an environment such as [nvm](https://github.com/nvm-sh/nvm)
+* Node.js lts/fermium (v14) installed, preferably using an environment such as [nvm](https://github.com/nvm-sh/nvm)
 
 ## Getting Started
 
