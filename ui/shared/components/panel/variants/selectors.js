@@ -23,7 +23,7 @@ export const getIndividualGeneDataByFamilyGene = createSelector(
   getIndividualsByGuid,
   getRnaSeqDataByIndividual,
   getPhenotypeGeneScoresByIndividual,
-  (individualsByGuid, rnaSeqDataByIndividual, phenotypeGeneScoresByIndividual) => (
+  (individualsByGuid, rnaSeqDataByIndividual = {}, phenotypeGeneScoresByIndividual = {}) => (
     Object.entries(individualsByGuid).reduce((acc, [individualGuid, { familyGuid, displayName }]) => {
       const rnaSeqData = rnaSeqDataByIndividual[individualGuid]?.outliers
       const phenotypeGeneScores = phenotypeGeneScoresByIndividual[individualGuid]
@@ -52,23 +52,6 @@ export const getIndividualGeneDataByFamilyGene = createSelector(
       }
       return acc
     }, {})
-  ),
-)
-
-export const getIndividualPhenotypeGeneScores = createSelector(
-  getGenesById,
-  getPhenotypeGeneScoresByIndividual,
-  (genesById, phenotypeGeneScoresByIndividual) => (
-    Object.entries(phenotypeGeneScoresByIndividual || {}).reduce((acc, [individualGuid, dataByGene]) => ({
-      ...acc,
-      [individualGuid]: Object.entries(dataByGene).reduce((acc2, [geneId, dataByTool]) => ([
-        ...acc2,
-        ...Object.entries(dataByTool).reduce((acc3, [tool, data]) => ([
-          ...acc3,
-          ...data.map(d => ({ ...d, tool, gene: genesById[geneId], rowId: `${geneId}${d.diseaseId}` })),
-        ]), []),
-      ]), []),
-    }), {})
   ),
 )
 
@@ -234,12 +217,13 @@ export const getVisibleSortedSavedVariants = createSelector(
   getVariantTagsByGuid,
   getFamiliesByGuid,
   getProjectsByGuid,
+  getIndividualGeneDataByFamilyGene,
   (pairedFilteredSavedVariants, { sort = SORT_BY_FAMILY_GUID }, visibleIndices, genesById, user, variantTagsByGuid,
-    familiesByGuid, projectsByGuid) => {
+    familiesByGuid, projectsByGuid, individualGeneDataByFamilyGene) => {
     // Always secondary sort on xpos
     pairedFilteredSavedVariants.sort((a, b) => VARIANT_SORT_LOOKUP[sort](
       Array.isArray(a) ? a[0] : a, Array.isArray(b) ? b[0] : b,
-      genesById, variantTagsByGuid, user, familiesByGuid, projectsByGuid,
+      genesById, variantTagsByGuid, user, familiesByGuid, projectsByGuid, individualGeneDataByFamilyGene,
     ) || (Array.isArray(a) ? a[0] : a).xpos - (Array.isArray(b) ? b[0] : b).xpos)
     return pairedFilteredSavedVariants.slice(...visibleIndices)
   },

@@ -1,16 +1,18 @@
 from datetime import datetime
-from django.db.models import Q, prefetch_related_objects
+from django.db.models import CharField, F, Value
+from django.db.models.functions import Coalesce, Concat, JSONObject, NullIf
 import json
 from random import randint
 
 from matchmaker.matchmaker_utils import get_mme_gene_phenotype_ids_for_submissions, parse_mme_features, \
     get_mme_metrics, get_hpo_terms_by_id
 from matchmaker.models import MatchmakerSubmission
-from seqr.models import Family, VariantTagType, SavedVariant, FamilyAnalysedBy
+from seqr.models import Family, Individual, VariantTagType, SavedVariant, FamilyAnalysedBy
 from seqr.views.utils.file_utils import load_uploaded_file
 from seqr.utils.gene_utils import get_genes
 from seqr.views.utils.json_utils import create_json_response
-from seqr.views.utils.orm_to_json_utils import get_json_for_matchmaker_submissions, get_json_for_saved_variants
+from seqr.views.utils.orm_to_json_utils import get_json_for_matchmaker_submissions, get_json_for_saved_variants,\
+    add_individual_hpo_details, INDIVIDUAL_DISPLAY_NAME_EXPR
 from seqr.views.utils.permissions_utils import analyst_required, user_is_analyst, get_project_guids_user_can_view, \
     login_and_policies_required
 from seqr.views.utils.variant_utils import get_variants_response
@@ -103,6 +105,25 @@ def saved_variants_page(request, tag):
     return create_json_response(response_json)
 
 
+@login_and_policies_required
+def hpo_summary_data(request, hpo_id):
+    data = Individual.objects.filter(
+        family__project__guid__in=get_project_guids_user_can_view(request.user),
+        features__contains=[{'id': hpo_id}],
+    ).order_by('id').values(
+        'features', individualGuid=F('guid'), displayName=INDIVIDUAL_DISPLAY_NAME_EXPR, familyId=F('family__family_id'),
+         familyData=JSONObject(
+            projectGuid=F('family__project__guid'),
+            genomeVersion=F('family__project__genome_version'),
+            familyGuid=F('family__guid'),
+            analysisStatus=F('family__analysis_status'),
+            displayName=Coalesce(NullIf('family__display_name', Value('')), 'family__family_id'),
+        ))
+    add_individual_hpo_details(data)
+
+    return create_json_response({'data': list(data)})
+
+
 @analyst_required
 def bulk_update_family_analysed_by(request):
     request_json = json.loads(request.body)
@@ -111,25 +132,24 @@ def bulk_update_family_analysed_by(request):
     header = [col.split()[0].lower() for col in family_upload_data[0]]
     if not ('project' in header and 'family' in header):
         return create_json_response({'error': 'Project and Family columns are required'}, status=400)
-    families_data = [dict(zip(header, row)) for row in family_upload_data[1:]]
+    requested_families = {(row[header.index('project')], row[header.index('family')]) for row in family_upload_data[1:]}
 
-    family_qs = [Q(family_id=row['family'], project__name=row['project']) for row in families_data]
-    family_filter_q = family_qs[0]
-    for f_q in family_qs[1:]:
-        family_filter_q |= f_q
-    families = Family.objects.filter(family_filter_q)
+    family_db_id_lookup = {
+        (f['project__name'], f['family_id']): f['id'] for f in Family.objects.annotate(
+            project_family=Concat('project__name', 'family_id', output_field=CharField())
+        ).filter(project_family__in=[f'{project}{family}' for project, family in requested_families])
+        .values('id', 'family_id', 'project__name')
+    }
 
     warnings = []
-    if len(families) < len(families_data):
-        prefetch_related_objects(families, 'project')
-        family_models_set = {(f.family_id, f.project.name) for f in families}
-        requested_family_set = {(row['family'], row['project']) for row in families_data}
-        missing_families = ', '.join([f'{fam[0]} ({fam[1]})' for fam in sorted(requested_family_set - family_models_set)])
+    missing_from_db = requested_families - set(family_db_id_lookup.keys())
+    if missing_from_db:
+        missing_families = ', '.join([f'{family} ({project})' for project, family in sorted(missing_from_db)])
         warnings.append(f'No match found for the following families: {missing_families}')
 
     analysed_by_models = [
-        FamilyAnalysedBy(family=family, data_type=data_type, last_modified_date=datetime.now())
-        for family in families
+        FamilyAnalysedBy(family_id=family_db_id_lookup[family_key], data_type=data_type, last_modified_date=datetime.now())
+        for family_key in requested_families if family_key in family_db_id_lookup
     ]
     for ab in analysed_by_models:
         ab.guid = f'FAB{randint(10**5, 10**6)}_{ab}'[:FamilyAnalysedBy.MAX_GUID_SIZE] # nosec
@@ -137,5 +157,5 @@ def bulk_update_family_analysed_by(request):
 
     return create_json_response({
         'warnings': warnings,
-        'info': [f'Updated "analysed by" for {len(families)} families'],
+        'info': [f'Updated "analysed by" for {len(analysed_by_models)} families'],
     })

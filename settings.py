@@ -79,7 +79,9 @@ SECURE_BROWSER_XSS_FILTER = True
 
 CSP_INCLUDE_NONCE_IN = ['script-src', 'style-src', 'style-src-elem']
 CSP_FONT_SRC = ('https://fonts.gstatic.com', 'data:', "'self'")
-CSP_CONNECT_SRC = ("'self'", 'https://gtexportal.org', 'https://www.google-analytics.com', 'https://igv.org', 'https://storage.googleapis.com') # google storage used by IGV
+CSP_CONNECT_SRC = ("'self'", 'https://gtexportal.org', 'https://www.google-analytics.com', 'https://igv.org',
+                   'https://storage.googleapis.com',  # google storage used by IGV
+                   'https://reg.genome.network')
 CSP_SCRIPT_SRC = ("'self'", "'unsafe-eval'", 'https://www.googletagmanager.com')
 CSP_IMG_SRC = ("'self'", 'https://www.google-analytics.com', 'https://storage.googleapis.com', 'data:')
 CSP_OBJECT_SRC = ("'none'")
@@ -324,6 +326,8 @@ SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 AIRTABLE_URL = 'https://api.airtable.com/v0'
 AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")
 
+GREGOR_DATA_MODEL_URL = os.environ.get('GREGOR_DATA_MODEL_URL', 'https://raw.githubusercontent.com/UW-GAC/gregor_data_models/main/GREGoR_data_model.json')
+
 API_LOGIN_REQUIRED_URL = '/api/login-required-error'
 API_POLICY_REQUIRED_URL = '/api/policy-required-error'
 POLICY_REQUIRED_URL = '/accept_policies'
@@ -337,7 +341,7 @@ ANVIL_LOADING_DELAY_EMAIL_START_DATE = os.environ.get('ANVIL_LOADING_DELAY_EMAIL
 SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'archie@mcri.edu.au')
 
 # External service settings
-ELASTICSEARCH_SERVICE_HOSTNAME = os.environ.get('ELASTICSEARCH_SERVICE_HOSTNAME', 'localhost')
+ELASTICSEARCH_SERVICE_HOSTNAME = os.environ.get('ELASTICSEARCH_SERVICE_HOSTNAME')
 ELASTICSEARCH_SERVICE_PORT = os.environ.get('ELASTICSEARCH_SERVICE_PORT', '9200')
 ELASTICSEARCH_SERVER = '{host}:{port}'.format(
     host=ELASTICSEARCH_SERVICE_HOSTNAME, port=ELASTICSEARCH_SERVICE_PORT)
@@ -357,6 +361,9 @@ KIBANA_SERVER = '{host}:{port}'.format(
     port=os.environ.get('KIBANA_SERVICE_PORT', 5601)
 )
 KIBANA_ELASTICSEARCH_PASSWORD = os.environ.get('KIBANA_ES_PASSWORD')
+
+HAIL_BACKEND_SERVICE_HOSTNAME = os.environ.get('HAIL_BACKEND_SERVICE_HOSTNAME')
+HAIL_BACKEND_SERVICE_PORT = int(os.environ.get('HAIL_BACKEND_SERVICE_PORT', '5000'))
 
 REDIS_SERVICE_HOSTNAME = os.environ.get('REDIS_SERVICE_HOSTNAME', 'localhost')
 REDIS_SERVICE_PORT = int(os.environ.get('REDIS_SERVICE_PORT', '6379'))

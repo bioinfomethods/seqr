@@ -1,10 +1,9 @@
 from django.db import connections
 import logging
 import redis
-from urllib3.connectionpool import connection_from_url
 
-from settings import SEQR_VERSION, KIBANA_SERVER, REDIS_SERVICE_HOSTNAME, REDIS_SERVICE_PORT, DATABASES
-from seqr.utils.elasticsearch.utils import get_es_client
+from settings import SEQR_VERSION, REDIS_SERVICE_HOSTNAME, REDIS_SERVICE_PORT, DATABASES
+from seqr.utils.search.utils import ping_search_backend, ping_search_backend_admin
 from seqr.views.utils.json_utils import create_json_response
 
 logger = logging.getLogger(__name__)
@@ -30,22 +29,19 @@ def status_view(request):
         secondary_services_ok = False
         logger.error('Redis connection error: {}'.format(str(e)))
 
-    # Test elasticsearch connection
+    # Test search backend connection
     try:
-        if not get_es_client(timeout=3, max_retries=0).ping():
-            raise ValueError('No response from elasticsearch ping')
+        ping_search_backend()
     except Exception as e:
         dependent_services_ok = False
-        logger.error('Elasticsearch connection error: {}'.format(str(e)))
+        logger.error('Search backend connection error: {}'.format(str(e)))
 
-    # Test kibana connection
+    # Test search admin view connection
     try:
-        resp = connection_from_url('http://{}'.format(KIBANA_SERVER)).urlopen('HEAD', '/status', timeout=3, retries=3)
-        if resp.status >= 400:
-            raise ValueError('Error {}: {}'.format(resp.status, resp.reason))
+        ping_search_backend_admin()
     except Exception as e:
         secondary_services_ok = False
-        logger.error('Kibana connection error: {}'.format(str(e)))
+        logger.error('Search Admin connection error: {}'.format(str(e)))
 
 
     return create_json_response(

@@ -5,9 +5,16 @@ import { connect } from 'react-redux'
 import { Popup, Icon, Header, Divider, Label } from 'semantic-ui-react'
 
 import { getSortedIndividualsByFamily, getGenesById } from 'redux/selectors'
+import {
+  INDIVIDUAL_FIELD_FEATURES,
+  INDIVIDUAL_FIELD_FILTER_FLAGS,
+  INDIVIDUAL_FIELD_POP_FILTERS,
+  INDIVIDUAL_FIELD_SV_FLAGS,
+  INDIVIDUAL_FIELD_LOOKUP,
+} from 'shared/utils/constants'
+import BaseFieldView from '../view-fields/BaseFieldView'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { VerticalSpacer } from '../../Spacers'
-import HpoPanel from '../HpoPanel'
 import { ColoredDiv } from '../../StyledComponents'
 
 const IndividualsContainer = styled.div`
@@ -62,6 +69,8 @@ const AlleleContainer = styled(Header).attrs({ size: 'medium' })`
      }
   }
 `
+
+const WarningIcon = styled(Icon).attrs({ name: 'warning sign', color: 'yellow' })``
 
 const PAR_REGIONS = {
   37: {
@@ -130,14 +139,21 @@ const copyNumberGenotype = (cn, newline, isHemiX) => (isCalled(cn) && (
   </span>
 ))
 
+const svNumAltGenotype = (numAlt, isHemiX) => (
+  <span>
+    {isHemiX || numAlt < 2 ? 'ref' : <b><i>alt</i></b>}
+    /
+    {numAlt > 0 ? <b><i>alt</i></b> : 'ref'}
+  </span>
+)
+
 const svGenotype = (genotype, isHemiX) => {
   if (!isCalled(genotype.numAlt)) {
     return copyNumberGenotype(genotype.cn, false, isHemiX)
   }
   return (
     <span>
-      {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
-      {isHemiX || genotype.numAlt < 2 ? 'ref' : <b><i>alt</i></b>}/{genotype.numAlt > 0 ? <b><i>alt</i></b> : 'ref'}
+      {svNumAltGenotype(genotype.numAlt, isHemiX)}
       {copyNumberGenotype(genotype.cn, true, isHemiX)}
     </span>
   )
@@ -148,7 +164,7 @@ export const Alleles = React.memo(({ genotype, variant, isHemiX, warning }) => (
     {warning && (
       <Popup
         wide
-        trigger={<Icon name="warning sign" color="yellow" />}
+        trigger={<WarningIcon />}
         content={
           <div>
             <b>Warning: </b>
@@ -291,6 +307,21 @@ const Genotype = React.memo(({ variant, individual, isCompoundHet, genesById }) 
     previousCall = { content: 'Identical Call', hover: 'Identical call in previous callset', color: 'blue' }
   } else if (genotype.prevOverlap) {
     previousCall = { content: 'Overlapping Call', hover: 'Overlapping call in previous callset', color: 'teal' }
+  } else if (Number.isInteger(genotype.prevNumAlt)) {
+    const hasSameHemiXGenotype = isHemiX && (genotype.numAlt === 1 || genotype.numAlt === 2) &&
+      (genotype.prevNumAlt === 1 || genotype.prevNumAlt === 2)
+    previousCall = {
+      content: 'New Genotype',
+      color: 'olive',
+      hover: (
+        <span>
+          Previous callset:
+          <AlleleContainer>{svNumAltGenotype(genotype.prevNumAlt, isHemiX)}</AlleleContainer>
+          {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
+          {hasSameHemiXGenotype && <i>Hemi alt allele change: {genotype.prevNumAlt} to {genotype.numAlt}</i>}
+        </span>
+      ),
+    }
   }
 
   const hasConflictingNumAlt = genotype.otherSample && genotype.otherSample.numAlt !== genotype.numAlt
@@ -298,6 +329,8 @@ const Genotype = React.memo(({ variant, individual, isCompoundHet, genesById }) 
 
   const showSecondaryQuality = !variant.svType && genotype.numAlt >= 0
   const secondaryQuality = genotype.ab || genotype.hl
+
+  const quality = Number.isInteger(genotype.gq) ? genotype.gq : genotype.qs
 
   const content = (
     <span>
@@ -323,10 +356,11 @@ const Genotype = React.memo(({ variant, individual, isCompoundHet, genesById }) 
       {previousCall && (
         <Popup
           content={previousCall.hover}
+          position="bottom"
           trigger={<Label horizontal size="mini" content={previousCall.content} color={previousCall.color} />}
         />
       )}
-      {genotype.gq || genotype.qs || '-'}
+      {Number.isInteger(quality) ? quality : '-'}
       {showSecondaryQuality && `, ${secondaryQuality ? secondaryQuality.toPrecision(2) : '-'}`}
       {variant.genotypeFilters && (
         <small>
@@ -347,6 +381,32 @@ Genotype.propTypes = {
   genesById: PropTypes.object,
 }
 
+const INDIVIDUAL_DETAIL_FIELDS = [INDIVIDUAL_FIELD_FEATURES]
+const VARIANT_INDIVIDUAL_DETAIL_FIELDS = [
+  INDIVIDUAL_FIELD_FILTER_FLAGS, INDIVIDUAL_FIELD_POP_FILTERS, ...INDIVIDUAL_DETAIL_FIELDS,
+]
+const SV_INDIVIDUAL_DETAIL_FIELDS = [INDIVIDUAL_FIELD_SV_FLAGS, ...INDIVIDUAL_DETAIL_FIELDS]
+
+const IndividualDetailField = ({ field, individual }) => {
+  const { individualFields, ...fieldProps } = INDIVIDUAL_FIELD_LOOKUP[field]
+  const individualProps = individualFields ? individualFields(individual) : {}
+  return (
+    <BaseFieldView
+      field={field}
+      initialValues={individual}
+      {...individualProps}
+      {...fieldProps}
+      compact
+      blockDisplay
+    />
+  )
+}
+
+IndividualDetailField.propTypes = {
+  individual: PropTypes.object,
+  field: PropTypes.string,
+}
+
 const BaseVariantIndividuals = React.memo(({ variant, individuals, isCompoundHet, genesById }) => (
   <IndividualsContainer>
     {(individuals || []).map(individual => (
@@ -354,11 +414,16 @@ const BaseVariantIndividuals = React.memo(({ variant, individuals, isCompoundHet
         <PedigreeIcon
           sex={individual.sex}
           affected={individual.affected}
-          label={<small>{individual.displayName}</small>}
+          label={(
+            <small>
+              {individual.displayName}
+              {variant.svType && individual[INDIVIDUAL_FIELD_SV_FLAGS] && <WarningIcon />}
+            </small>
+          )}
           popupHeader={individual.displayName}
-          popupContent={
-            individual.features ? <HpoPanel individual={individual} /> : null
-          }
+          popupContent={(variant.svType ? SV_INDIVIDUAL_DETAIL_FIELDS : VARIANT_INDIVIDUAL_DETAIL_FIELDS).map(field => (
+            <IndividualDetailField key={field} field={field} individual={individual} />
+          ))}
         />
         <br />
         <Genotype variant={variant} individual={individual} isCompoundHet={isCompoundHet} genesById={genesById} />

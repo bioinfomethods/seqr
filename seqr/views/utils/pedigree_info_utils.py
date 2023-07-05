@@ -4,6 +4,7 @@ import os
 import json
 import tempfile
 import openpyxl as xl
+from collections import defaultdict
 from datetime import date
 
 from seqr.utils.communication_utils import send_html_email
@@ -16,17 +17,18 @@ from seqr.models import Individual
 logger = SeqrLogger(__name__)
 
 
+NO_VALIDATE_MANIFEST_PROJECT_CATEGORIES = ['CMG', 'TGG_Non-Report']
 RELATIONSHIP_REVERSE_LOOKUP = {v.lower(): k for k, v in Individual.RELATIONSHIP_LOOKUP.items()}
 
 
-def parse_pedigree_table(parsed_file, filename, user, project=None, fail_on_warnings=False, required_columns=None):
+def parse_pedigree_table(parsed_file, filename, user, project):
     """Validates and parses pedigree information from a .fam, .tsv, or Excel file.
 
     Args:
         parsed_file (array): The parsed output from the raw file.
         filename (string): The original filename - used to determine the file format based on the suffix.
-        user (User): (optional) Django User object
-        project (Project): (optional) Django Project object
+        user (User): Django User object
+        project (Project): Django Project object
 
     Return:
         A 3-tuple that contains:
@@ -37,37 +39,55 @@ def parse_pedigree_table(parsed_file, filename, user, project=None, fail_on_warn
             warnings (list): list of warning message strings
         )
     """
+    header_string = str(parsed_file[0])
+    is_merged_pedigree_sample_manifest = "do not modify" in header_string.lower() and "Broad" in header_string
+    if is_merged_pedigree_sample_manifest:
+        if not user_is_pm(user):
+            raise ValueError('Unsupported file format')
+        if not project:
+            raise ValueError('Project argument required for parsing sample manifest')
+        header, rows = _parse_merged_pedigree_sample_manifest_rows(parsed_file[1:])
+    else:
+        header = None
+        rows = None
 
+    rows, header = _parse_pedigree_table_rows(parsed_file, filename, header=header, rows=rows)
+
+    # convert to json and validate
+    errors = None
+    column_map = None
+    try:
+        if is_merged_pedigree_sample_manifest:
+            logger.info("Parsing merged pedigree-sample-manifest file", user)
+            sample_manifest_rows, kit_id, errors = _parse_merged_pedigree_sample_manifest_format(rows, project)
+            column_map = MergedPedigreeSampleManifestConstants.MERGED_PEDIGREE_COLUMN_MAP
+        elif 'participant_guid' in header:
+            logger.info("Parsing RGP DSM export file", user)
+            rows = _parse_rgp_dsm_export_format(rows)
+            header = None
+    except Exception as e:
+        raise ErrorsWarningsException(['Error while converting {} rows to json: {}'.format(filename, e)], [])
+
+    json_records, warnings = _parse_pedigree_table_json(rows, header=header, column_map=column_map, errors=errors)
+
+    if is_merged_pedigree_sample_manifest:
+        _set_proband_relationship(json_records)
+        _send_sample_manifest(sample_manifest_rows, kit_id, filename, parsed_file, user, project)
+
+    return json_records, warnings
+
+
+def parse_basic_pedigree_table(parsed_file, filename, required_columns=None):
+    rows, header = _parse_pedigree_table_rows(parsed_file, filename)
+    return _parse_pedigree_table_json(rows, header=header, fail_on_warnings=True, required_columns=required_columns)
+
+
+def _parse_pedigree_table_rows(parsed_file, filename, header=None, rows=None):
     # parse rows from file
     try:
-        rows = [row for row in parsed_file[1:] if row and not (row[0] or '').startswith('#')]
-
-        header_string = str(parsed_file[0])
-        is_merged_pedigree_sample_manifest = "do not modify" in header_string.lower() and "Broad" in header_string
-        if is_merged_pedigree_sample_manifest:
-            if not user_is_pm(user):
-                raise ValueError('Unsupported file format')
-            if not project:
-                raise ValueError('Project argument required for parsing sample manifest')
-            # the merged pedigree/sample manifest has 3 header rows, so use the known header and skip the next 2 rows.
-            headers = rows[:2]
-            rows = rows[2:]
-
-            # validate manifest_header_row1
-            expected_header_columns = MergedPedigreeSampleManifestConstants.MERGED_PEDIGREE_SAMPLE_MANIFEST_COLUMN_NAMES
-            expected_header_1_columns = expected_header_columns[:4] + ["Alias", "Alias"] + expected_header_columns[6:]
-
-            expected = expected_header_1_columns
-            actual = headers[0]
-            if expected == actual:
-                expected = expected_header_columns[4:6]
-                actual = headers[1][4:6]
-            unexpected_header_columns = '|'.join(difflib.unified_diff(expected, actual)).split('\n')[3:]
-            if unexpected_header_columns:
-                raise ValueError("Expected vs. actual header columns: {}".format("\t".join(unexpected_header_columns)))
-
-            header = expected_header_columns
-        else:
+        rows = rows or [row for row in parsed_file[1:] if row and not (row[0] or '').startswith('#')]
+        if not header:
+            header_string = str(parsed_file[0])
             if _is_header_row(header_string):
                 header_row = parsed_file[0]
             else:
@@ -83,30 +103,20 @@ def parse_pedigree_table(parsed_file, filename, user, project=None, fail_on_warn
                     i + 1, len(row), ', '.join(row), len(header), ', '.join(header)
                 ))
 
-        rows = [dict(zip(header, row)) for row in rows]
+        return [dict(zip(header, row)) for row in rows], header
     except Exception as e:
         raise ErrorsWarningsException(['Error while parsing file: {}. {}'.format(filename, e)], [])
 
+
+def _parse_pedigree_table_json(rows, header=None, column_map=None, errors=None, fail_on_warnings=False, required_columns=None):
     # convert to json and validate
-    try:
-        if is_merged_pedigree_sample_manifest:
-            logger.info("Parsing merged pedigree-sample-manifest file", user)
-            rows, sample_manifest_rows, kit_id = _parse_merged_pedigree_sample_manifest_format(rows, project)
-        elif 'participant_guid' in header:
-            logger.info("Parsing RGP DSM export file", user)
-            rows = _parse_rgp_dsm_export_format(rows)
-        else:
-            logger.info("Parsing regular pedigree file", user)
+    column_map = column_map or (_parse_header_columns(header) if header else None)
+    if column_map:
+        json_records = _convert_fam_file_rows_to_json(column_map, rows, required_columns=required_columns)
+    else:
+        json_records = rows
 
-        json_records = _convert_fam_file_rows_to_json(rows, required_columns=required_columns)
-    except Exception as e:
-        raise ErrorsWarningsException(['Error while converting {} rows to json: {}'.format(filename, e)], [])
-
-    warnings = validate_fam_file_records(json_records, fail_on_warnings=fail_on_warnings)
-
-    if is_merged_pedigree_sample_manifest:
-        _send_sample_manifest(sample_manifest_rows, kit_id, filename, parsed_file, user, project)
-
+    warnings = validate_fam_file_records(json_records, fail_on_warnings=fail_on_warnings, errors=errors)
     return json_records, warnings
 
 
@@ -130,7 +140,7 @@ def _parse_affected(affected):
     return None
 
 
-def _convert_fam_file_rows_to_json(rows, required_columns=None):
+def _convert_fam_file_rows_to_json(column_map, rows, required_columns=None):
     """Parse the values in rows and convert them to a json representation.
 
     Args:
@@ -157,31 +167,42 @@ def _convert_fam_file_rows_to_json(rows, required_columns=None):
     Raises:
         ValueError: if there are unexpected values or row sizes
     """
+    required_columns = [JsonConstants.FAMILY_ID_COLUMN, JsonConstants.INDIVIDUAL_ID_COLUMN] + (required_columns or [])
+    missing_cols = set(required_columns) - set(column_map.values())
+    if missing_cols:
+        raise ErrorsWarningsException(
+            [f"Missing required columns: {', '.join([_to_title_case(_to_snake_case(col)) for col in sorted(missing_cols)])}"])
+
     json_results = []
+    errors = []
     for i, row_dict in enumerate(rows):
+        json_record = {}
+        for key, column in column_map.items():
+            value = (row_dict.get(key) or '').strip()
+            if column in required_columns and not value:
+                errors.append(f'Missing {_to_title_case(_to_snake_case(column))} in row #{i + 1}')
+                continue
 
-        json_record = _parse_row_dict(row_dict, i)
+            try:
+                value = _format_value(value, column)
+            except ValueError:
+                errors.append(f'Invalid value "{value}" for {_to_title_case(_to_snake_case(column))} in row #{i + 1}')
+                continue
 
-        # validate
-        columns = [JsonConstants.FAMILY_ID_COLUMN, JsonConstants.INDIVIDUAL_ID_COLUMN]
-        if required_columns:
-            columns += required_columns
-        missing_cols = [col for col in columns if not json_record.get(col)]
-        if missing_cols:
-            raise ValueError(f"{', '.join([_to_title_case(_to_snake_case(col)) for col in missing_cols])} not specified in row #{i + 1}")
+            json_record[column] = value
 
         json_results.append(json_record)
 
+    if errors:
+        raise ErrorsWarningsException(errors)
     return json_results
 
 
-def _parse_row_dict(row_dict, i):
-    json_record = {}
-    for key, value in row_dict.items():
+def _parse_header_columns(header):
+    column_map = {}
+    for key in header:
         full_key = key
         key = key.lower()
-        value = (value or '').strip()
-
         if full_key in JsonConstants.JSON_COLUMNS:
             column = full_key
         elif key == JsonConstants.FAMILY_NOTES_COLUMN.lower():
@@ -195,20 +216,23 @@ def _parse_row_dict(row_dict, i):
             ), None)
 
         if column:
-            format_func = JsonConstants.FORMAT_COLUMNS.get(column)
-            if format_func:
-                if (value or column in {JsonConstants.SEX_COLUMN, JsonConstants.AFFECTED_COLUMN}):
-                    parsed_value = format_func(value)
-                    if parsed_value is None and column not in JsonConstants.JSON_COLUMNS:
-                        raise ValueError(f'Invalid value "{value}" for {_to_snake_case(column)} in row #{i + 1}')
-                    value = parsed_value
-            elif value == '':
-                value = None
-            json_record[column] = value
-    return json_record
+            column_map[full_key] = column
+    return column_map
 
 
-def validate_fam_file_records(records, fail_on_warnings=False):
+def _format_value(value, column):
+    format_func = JsonConstants.FORMAT_COLUMNS.get(column)
+    if format_func:
+        if (value or column in {JsonConstants.SEX_COLUMN, JsonConstants.AFFECTED_COLUMN}):
+            value = format_func(value)
+            if value is None and column not in JsonConstants.JSON_COLUMNS:
+                raise ValueError()
+    elif value == '':
+        value = None
+    return value
+
+
+def validate_fam_file_records(records, fail_on_warnings=False, errors=None):
     """Basic validation such as checking that parents have the same family id as the child, etc.
 
     Args:
@@ -226,10 +250,12 @@ def validate_fam_file_records(records, fail_on_warnings=False):
                      if r.get(JsonConstants.PREVIOUS_INDIVIDUAL_ID_COLUMN)}
     records_by_id.update({r[JsonConstants.INDIVIDUAL_ID_COLUMN]: r for r in records})
 
-    errors = []
+    errors = errors or []
     warnings = []
+    individual_id_counts = defaultdict(int)
     for r in records:
         individual_id = r[JsonConstants.INDIVIDUAL_ID_COLUMN]
+        individual_id_counts[individual_id] += 1
         family_id = r.get(JsonConstants.FAMILY_ID_COLUMN) or r['family']['familyId']
 
         # check proband relationship has valid gender
@@ -279,6 +305,11 @@ def validate_fam_file_records(records, fail_on_warnings=False):
             if parent_family_id != family_id:
                 errors.append("%(parent_id)s is recorded as the %(parent_id_type)s of %(individual_id)s but they have different family ids: %(parent_family_id)s and %(family_id)s" % locals())
 
+    errors += [
+        f'{individual_id} is included as {count} separate records, but must be unique within the project'
+        for individual_id, count in individual_id_counts.items() if count > 1
+    ]
+
     if fail_on_warnings:
         errors += warnings
         warnings = []
@@ -302,6 +333,27 @@ def _is_header_row(row):
         return False
 
 
+def _parse_merged_pedigree_sample_manifest_rows(rows):
+    # the merged pedigree/sample manifest has 3 header rows, so use the known header and skip the next 2 rows.
+    headers = rows[:2]
+    rows = rows[2:]
+
+    # validate manifest_header_row1
+    expected_header_columns = MergedPedigreeSampleManifestConstants.MERGED_PEDIGREE_SAMPLE_MANIFEST_COLUMN_NAMES
+    expected_header_1_columns = expected_header_columns[:4] + ["Alias", "Alias"] + expected_header_columns[6:]
+
+    expected = expected_header_1_columns
+    actual = headers[0]
+    if expected == actual:
+        expected = expected_header_columns[4:6]
+        actual = headers[1][4:6]
+    unexpected_header_columns = '|'.join(difflib.unified_diff(expected, actual)).split('\n')[3:]
+    if unexpected_header_columns:
+        raise ValueError("Expected vs. actual header columns: {}".format("\t".join(unexpected_header_columns)))
+
+    return expected_header_columns, rows
+
+
 def _parse_merged_pedigree_sample_manifest_format(rows, project):
     """Does post-processing of rows from Broad's sample manifest + pedigree table format. Expected columns are:
 
@@ -315,36 +367,88 @@ def _parse_merged_pedigree_sample_manifest_format(rows, project):
     Returns:
          3-tuple: rows, sample_manifest_rows, kit_id
     """
-
     c = MergedPedigreeSampleManifestConstants
     kit_id = rows[0][c.KIT_ID_COLUMN]
 
-    pedigree_rows = []
+    is_no_validate_project = project.projectcategory_set.filter(name__in=NO_VALIDATE_MANIFEST_PROJECT_CATEGORIES).exists()
     sample_manifest_rows = []
+    errors = []
     consent_codes = set()
     for row in rows:
         sample_manifest_rows.append({
-            column_name: row[column_name] for column_name in MergedPedigreeSampleManifestConstants.SAMPLE_MANIFEST_COLUMN_NAMES
+            column_name: row[column_name] for column_name in c.SAMPLE_MANIFEST_COLUMN_NAMES
         })
 
-        pedigree_rows.append({
-            key: row[column_name] for column_name, key in MergedPedigreeSampleManifestConstants.MERGED_PEDIGREE_COLUMN_MAP.items()
-        })
+        if not is_no_validate_project:
+            missing_cols = {col for col in c.REQUIRED_COLUMNS if not row[col]}
+            if missing_cols:
+                individual_id = row[c.COLLABORATOR_SAMPLE_ID_COLUMN]
+                errors.append(f'{individual_id} is missing the following required columns: {", ".join(sorted(missing_cols))}')
 
-        consent_code = row[MergedPedigreeSampleManifestConstants.CONSENT_CODE_COLUMN]
+        consent_code = row[c.CONSENT_CODE_COLUMN]
         if consent_code:
             consent_codes.add(consent_code)
 
-    if consent_codes:
-        if len(consent_codes) > 1:
-            raise ValueError(f'Multiple consent codes specified in manifest: {", ".join(sorted(consent_codes))}')
+    if len(consent_codes) > 1:
+        errors.append(f'Multiple consent codes specified in manifest: {", ".join(sorted(consent_codes))}')
+    elif len(consent_codes) == 1:
         consent_code = consent_codes.pop()
         project_consent_code = project.get_consent_code_display()
         if consent_code != project_consent_code:
-            raise ValueError(
+            errors.append(
                 f'Consent code in manifest "{consent_code}" does not match project consent code "{project_consent_code}"')
 
-    return pedigree_rows, sample_manifest_rows, kit_id
+    return sample_manifest_rows, kit_id, errors
+
+
+def _set_proband_relationship(json_records):
+    records_by_family = defaultdict(list)
+    for r in json_records:
+        records_by_family[r[JsonConstants.FAMILY_ID_COLUMN]].append(r)
+
+    family_relationships = {}
+    for family_id, records in records_by_family.items():
+        affected = [r for r in records if r[JsonConstants.AFFECTED_COLUMN] == 'A']
+        if len(affected) > 1:
+            affected_children = sorted(
+                [r for r in affected if r[JsonConstants.PATERNAL_ID_COLUMN] or r[JsonConstants.MATERNAL_ID_COLUMN]],
+                key=lambda r: bool(r[JsonConstants.PATERNAL_ID_COLUMN]) and bool(r[JsonConstants.MATERNAL_ID_COLUMN]),
+                reverse=True
+            )
+            if affected_children:
+                affected = affected_children
+        if not affected:
+            continue
+        affected = affected[0]
+
+        relationships = {
+            affected[JsonConstants.MATERNAL_ID_COLUMN]: Individual.MOTHER_RELATIONSHIP,
+            affected[JsonConstants.PATERNAL_ID_COLUMN]: Individual.FATHER_RELATIONSHIP,
+        }
+
+        maternal_siblings = {
+            r[JsonConstants.INDIVIDUAL_ID_COLUMN] for r in records
+            if affected[JsonConstants.MATERNAL_ID_COLUMN] and affected[JsonConstants.MATERNAL_ID_COLUMN] == r[JsonConstants.MATERNAL_ID_COLUMN]
+        }
+        paternal_siblings = {
+            r[JsonConstants.INDIVIDUAL_ID_COLUMN] for r in records
+            if affected[JsonConstants.PATERNAL_ID_COLUMN] and affected[JsonConstants.PATERNAL_ID_COLUMN] == r[JsonConstants.PATERNAL_ID_COLUMN]
+        }
+        relationships.update({r_id: Individual.MATERNAL_SIBLING_RELATIONSHIP for r_id in maternal_siblings})
+        relationships.update({r_id: Individual.PATERNAL_SIBLING_RELATIONSHIP for r_id in paternal_siblings})
+        relationships.update({r_id: Individual.SIBLING_RELATIONSHIP for r_id in paternal_siblings.intersection(maternal_siblings)})
+
+        relationships.update({
+            r[JsonConstants.INDIVIDUAL_ID_COLUMN]: Individual.CHILD_RELATIONSHIP for r in records
+            if affected[JsonConstants.INDIVIDUAL_ID_COLUMN] in {r[JsonConstants.MATERNAL_ID_COLUMN], r[JsonConstants.PATERNAL_ID_COLUMN]}
+        })
+
+        relationships[affected[JsonConstants.INDIVIDUAL_ID_COLUMN]] = Individual.SELF_RELATIONSHIP
+        family_relationships[family_id] = relationships
+
+    for r in json_records:
+        r[JsonConstants.PROBAND_RELATIONSHIP] = family_relationships.get(
+            r[JsonConstants.FAMILY_ID_COLUMN], {}).get(r[JsonConstants.INDIVIDUAL_ID_COLUMN])
 
 
 def _send_sample_manifest(sample_manifest_rows, kit_id, original_filename, original_file_rows, user, project):
@@ -411,21 +515,21 @@ def _parse_rgp_dsm_export_format(rows):
             JsonConstants.INDIVIDUAL_ID_COLUMN: '{}_3'.format(family_id),
             JsonConstants.MATERNAL_ID_COLUMN: maternal_id,
             JsonConstants.PATERNAL_ID_COLUMN: paternal_id,
-            JsonConstants.AFFECTED_COLUMN: 'A',
+            JsonConstants.AFFECTED_COLUMN: Individual.AFFECTED_STATUS_AFFECTED,
         }
         proband_row.update(_get_rgp_dsm_proband_fields(row))
 
         mother_row = {
             JsonConstants.FAMILY_ID_COLUMN: family_id,
             JsonConstants.INDIVIDUAL_ID_COLUMN: maternal_id,
-            JsonConstants.SEX_COLUMN: 'F',
-            JsonConstants.AFFECTED_COLUMN: 'U',
+            JsonConstants.SEX_COLUMN: Individual.SEX_FEMALE,
+            JsonConstants.AFFECTED_COLUMN: Individual.AFFECTED_STATUS_UNAFFECTED,
         }
         father_row = {
             JsonConstants.FAMILY_ID_COLUMN: family_id,
             JsonConstants.INDIVIDUAL_ID_COLUMN: paternal_id,
-            JsonConstants.SEX_COLUMN: 'M',
-            JsonConstants.AFFECTED_COLUMN: 'U',
+            JsonConstants.SEX_COLUMN: Individual.SEX_MALE,
+            JsonConstants.AFFECTED_COLUMN: Individual.AFFECTED_STATUS_UNAFFECTED,
         }
         pedigree_rows += [mother_row, father_row, proband_row]
 
@@ -569,8 +673,7 @@ def _get_rgp_dsm_family_notes(row):
 * __Father:__ {father}
 * __Siblings:__ {siblings}
 * __Children:__ {children}
-* __Relatives:__ {relatives}
-    """.format(
+* __Relatives:__ {relatives}""".format(
         specified_relationship=row[DC.RELATIONSHIP_SPECIFY_COLUMN] or 'Unspecified other relationship'
             if row[DC.RELATIONSHIP_COLUMN] == DC.OTHER else '',
         relationship=DC.RELATIONSHIP_MAP[row[DC.RELATIONSHIP_COLUMN]][row[DC.SEX_COLUMN] or DC.PREFER_NOT_ANSWER],
@@ -643,14 +746,14 @@ def _get_rgp_dsm_proband_fields(row):
         for relative in [DC.SIBLINGS, DC.CHILDREN])
 
     return {
-        JsonConstants.SEX_COLUMN: row[DC.SEX_COLUMN],
+        JsonConstants.SEX_COLUMN: _parse_sex(row[DC.SEX_COLUMN]),
         JsonConstants.FAMILY_NOTES_COLUMN: _get_rgp_dsm_family_notes(row),
-        JsonConstants.MATERNAL_ETHNICITY: json.dumps(_get_rgp_dsm_parent_ethnicity(row, DC.MOTHER)),
-        JsonConstants.PATERNAL_ETHNICITY: json.dumps(_get_rgp_dsm_parent_ethnicity(row, DC.FATHER)),
-        JsonConstants.BIRTH_YEAR: json.dumps(birth_year),
-        JsonConstants.DEATH_YEAR: json.dumps(death_year),
-        JsonConstants.ONSET_AGE: json.dumps(onset_age),
-        JsonConstants.AFFECTED_RELATIVES: json.dumps(affected_relatives),
+        JsonConstants.MATERNAL_ETHNICITY: _get_rgp_dsm_parent_ethnicity(row, DC.MOTHER),
+        JsonConstants.PATERNAL_ETHNICITY: _get_rgp_dsm_parent_ethnicity(row, DC.FATHER),
+        JsonConstants.BIRTH_YEAR: birth_year,
+        JsonConstants.DEATH_YEAR: death_year,
+        JsonConstants.ONSET_AGE: onset_age,
+        JsonConstants.AFFECTED_RELATIVES: affected_relatives,
     }
 
 
@@ -666,6 +769,7 @@ class JsonConstants:
     NOTES_COLUMN = 'notes'
     FAMILY_NOTES_COLUMN = 'familyNotes'
     CODED_PHENOTYPE_COLUMN = 'codedPhenotype'
+    MONDO_ID_COLUMN = 'mondoId'
     PROBAND_RELATIONSHIP = 'probandRelationship'
     MATERNAL_ETHNICITY = 'maternalEthnicity'
     PATERNAL_ETHNICITY = 'paternalEthnicity'
@@ -707,6 +811,7 @@ class JsonConstants:
         (ANALYTE_TYPE, ['analyte', 'type']),
         (AFFECTED_COLUMN, ['affected']),
         (CODED_PHENOTYPE_COLUMN, ['coded', 'phenotype']),
+        (MONDO_ID_COLUMN, ['mondo', 'id']),
         (PROBAND_RELATIONSHIP, ['proband', 'relation']),
     ]
 
@@ -731,7 +836,8 @@ class MergedPedigreeSampleManifestConstants:
     VOLUME_COLUMN = "Volume"
     CONCENTRATION_COLUMN = "Concentration"
     NOTES_COLUMN = "Notes"
-    CODED_PHENOTYPE_COLUMN = "Coded Phenotype"
+    CODED_PHENOTYPE_COLUMN = 'MONDO Label'
+    MONDO_ID_COLUMN = 'MONDO ID'
     CONSENT_CODE_COLUMN = 'Consent Code'
     DATA_USE_RESTRICTIONS_COLUMN = "Data Use Restrictions"
 
@@ -755,6 +861,7 @@ class MergedPedigreeSampleManifestConstants:
         CONCENTRATION_COLUMN,
         NOTES_COLUMN,
         CODED_PHENOTYPE_COLUMN,
+        MONDO_ID_COLUMN,
         CONSENT_CODE_COLUMN,
         DATA_USE_RESTRICTIONS_COLUMN,
     ]
@@ -768,10 +875,22 @@ class MergedPedigreeSampleManifestConstants:
         AFFECTED_COLUMN: JsonConstants.AFFECTED_COLUMN,
         NOTES_COLUMN: JsonConstants.NOTES_COLUMN,
         CODED_PHENOTYPE_COLUMN: JsonConstants.CODED_PHENOTYPE_COLUMN,
+        MONDO_ID_COLUMN: JsonConstants.MONDO_ID_COLUMN,
         BIOSAMPLE_COLUMN: JsonConstants.PRIMARY_BIOSAMPLE,
         ANALYTE_TYPE_COLUMN: JsonConstants.ANALYTE_TYPE,
         TISSUE_AFFECTED_COLUMN: JsonConstants.TISSUE_AFFECTED_STATUS,
     }
+
+    REQUIRED_COLUMNS = [
+        COLLABORATOR_SAMPLE_ID_COLUMN,
+        SEX_COLUMN,
+        AFFECTED_COLUMN,
+        BIOSAMPLE_COLUMN,
+        ANALYTE_TYPE_COLUMN,
+        TISSUE_AFFECTED_COLUMN,
+        CODED_PHENOTYPE_COLUMN,
+        MONDO_ID_COLUMN,
+    ]
 
     SAMPLE_MANIFEST_COLUMN_NAMES = [
         WELL_POSITION_COLUMN,

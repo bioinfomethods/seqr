@@ -2,8 +2,11 @@
 import json
 import time
 import tempfile
+import os
+import re
 from datetime import datetime
 from functools import wraps
+from collections import defaultdict
 import requests
 
 from google.auth.transport.requests import Request
@@ -18,14 +21,15 @@ from reference_data.models import GENOME_VERSION_LOOKUP
 from seqr.models import Project, CAN_EDIT, Sample
 from seqr.views.react_app import render_app_html
 from seqr.views.utils.airtable_utils import AirtableSession
-from seqr.views.utils.dataset_utils import VCF_FILE_EXTENSIONS
+from seqr.utils.search.constants import VCF_FILE_EXTENSIONS, SEQR_DATSETS_GS_PATH
+from seqr.utils.search.utils import get_search_samples
 from seqr.views.utils.json_to_orm_utils import create_model_from_json
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.file_utils import load_uploaded_file
 from seqr.views.utils.terra_api_utils import add_service_account, has_service_account_access, TerraAPIException, \
     TerraRefreshTokenFailedException
-from seqr.views.utils.pedigree_info_utils import parse_pedigree_table, JsonConstants
-from seqr.views.utils.individual_utils import add_or_update_individuals_and_families, get_updated_pedigree_json
+from seqr.views.utils.pedigree_info_utils import parse_basic_pedigree_table, JsonConstants
+from seqr.views.utils.individual_utils import add_or_update_individuals_and_families
 from seqr.utils.communication_utils import safe_post_to_slack, send_html_email
 from seqr.utils.file_utils import does_file_exist, mv_file_to_gs, get_gs_file_list
 from seqr.utils.vcf_utils import validate_vcf_and_get_samples
@@ -127,6 +131,7 @@ def get_anvil_vcf_list(request, namespace, name, workspace_meta):
     bucket_path = 'gs://{bucket}'.format(bucket=bucket_name.rstrip('/'))
     data_path_list = [path.replace(bucket_path, '') for path in get_gs_file_list(bucket_path, request.user)
                       if path.endswith(VCF_FILE_EXTENSIONS)]
+    data_path_list = _merge_sharded_vcf(data_path_list)
 
     return create_json_response({'dataPathList': data_path_list})
 
@@ -144,12 +149,21 @@ def validate_anvil_vcf(request, namespace, name, workspace_meta):
     if not data_path.endswith(VCF_FILE_EXTENSIONS):
         error = 'Invalid VCF file format - file path must end with {}'.format(' or '.join(VCF_FILE_EXTENSIONS))
         return create_json_response({'error': error}, status=400, reason=error)
-    if not does_file_exist(data_path, user=request.user):
+
+    file_to_check = None
+    if '*' in data_path:
+        files = get_gs_file_list(data_path, request.user, check_subfolders=False, allow_missing=True)
+        if files:
+            file_to_check = files[0]
+    elif does_file_exist(data_path, user=request.user):
+        file_to_check = data_path
+
+    if not file_to_check:
         error = 'Data file or path {} is not found.'.format(path)
         return create_json_response({'error': error}, status=400, reason=error)
 
     # Validate the VCF to see if it contains all the required samples
-    samples = validate_vcf_and_get_samples(data_path)
+    samples = validate_vcf_and_get_samples(file_to_check)
 
     return create_json_response({'vcfSamples': sorted(samples), 'fullDataPath': data_path})
 
@@ -178,7 +192,7 @@ def create_project_from_workspace(request, namespace, name):
         error = 'Field(s) "{}" are required'.format(', '.join(missing_fields))
         return create_json_response({'error': error}, status=400, reason=error)
 
-    pedigree_records = _parse_uploaded_pedigree(request_json, request.user)
+    pedigree_records = _parse_uploaded_pedigree(request_json)
 
     # Create a new Project in seqr
     project_args = {
@@ -218,11 +232,15 @@ def add_workspace_data(request, project_guid):
         error = 'Field(s) "{}" are required'.format(', '.join(missing_fields))
         return create_json_response({'error': error}, status=400, reason=error)
 
-    pedigree_records = _parse_uploaded_pedigree(request_json, request.user)
+    pedigree_records = _parse_uploaded_pedigree(request_json)
 
-    previous_samples = Sample.objects.filter(
-        individual__family__project=project, is_active=True, elasticsearch_index__isnull=False,
+    previous_samples = get_search_samples([project]).filter(
         dataset_type=Sample.DATASET_TYPE_VARIANT_CALLS).prefetch_related('individual')
+    if not previous_samples:
+        return create_json_response({
+            'error': 'New data cannot be added to this project until the previously requested data is loaded',
+        }, status=400)
+
     previous_loaded_individuals = {s.individual.individual_id for s in previous_samples}
     missing_loaded_samples = [individual_id for individual_id in previous_loaded_individuals if
                               individual_id not in request_json['vcfSamples']]
@@ -232,20 +250,18 @@ def add_workspace_data(request, project_guid):
                      ' The following samples were previously loaded in this project but are missing from the VCF: {}'.format(
                 ', '.join(sorted(missing_loaded_samples)))}, status=400)
 
-    updated_individuals, updated_families, updated_notes = _trigger_add_workspace_data(
+    pedigree_json = _trigger_add_workspace_data(
         project, pedigree_records, request.user, request_json['fullDataPath'], previous_samples.first().sample_type,
-        previous_loaded_ids=previous_loaded_individuals)
-
-    pedigree_json = get_updated_pedigree_json(updated_individuals, updated_families, updated_notes, request.user)
+        previous_loaded_ids=previous_loaded_individuals, get_pedigree_json=True)
 
     return create_json_response(pedigree_json)
 
 
-def _parse_uploaded_pedigree(request_json, user):
+def _parse_uploaded_pedigree(request_json):
     # Parse families/individuals in the uploaded pedigree file
     json_records = load_uploaded_file(request_json['uploadedFileId'])
-    pedigree_records, _ = parse_pedigree_table(
-        json_records, 'uploaded pedigree file', user=user, fail_on_warnings=True, required_columns=[
+    pedigree_records, _ = parse_basic_pedigree_table(
+        json_records, 'uploaded pedigree file', required_columns=[
             JsonConstants.SEX_COLUMN, JsonConstants.AFFECTED_COLUMN,
         ])
 
@@ -260,16 +276,16 @@ def _parse_uploaded_pedigree(request_json, user):
     return pedigree_records
 
 
-def _trigger_add_workspace_data(project, pedigree_records, user, data_path, sample_type, previous_loaded_ids=None):
+def _trigger_add_workspace_data(project, pedigree_records, user, data_path, sample_type, previous_loaded_ids=None, get_pedigree_json=False):
     # add families and individuals according to the uploaded individual records
-    updated_individuals, updated_families, updated_notes = add_or_update_individuals_and_families(
-        project, individual_records=pedigree_records, user=user
+    pedigree_json, sample_ids = add_or_update_individuals_and_families(
+        project, individual_records=pedigree_records, user=user, get_update_json=get_pedigree_json, get_updated_individual_ids=True,
     )
+    num_updated_individuals = len(sample_ids)
 
     # Upload sample IDs to a file on Google Storage
     ids_path = '{}base/{guid}_ids.txt'.format(_get_loading_project_path(project, sample_type), guid=project.guid)
-    sample_ids = [individual.individual_id for individual in updated_individuals]
-    sample_ids += previous_loaded_ids if previous_loaded_ids else []
+    sample_ids.update(previous_loaded_ids or [])
     try:
         temp_path = save_temp_data('\n'.join(['s'] + sorted(sample_ids)))
         mv_file_to_gs(temp_path, ids_path, user=user)
@@ -280,7 +296,7 @@ def _trigger_add_workspace_data(project, pedigree_records, user, data_path, samp
     # use airflow api to trigger AnVIL dags
     trigger_success = _trigger_data_loading(project, data_path, sample_type, user)
     # Send a slack message to the slack channel
-    _send_load_data_slack_msg(project, ids_path, data_path, len(updated_individuals), sample_type, user)
+    _send_load_data_slack_msg(project, ids_path, data_path, num_updated_individuals, sample_type, user)
     AirtableSession(user, base=AirtableSession.ANVIL_BASE).safe_create_record(
         'AnVIL Seqr Loading Requests Tracking', {
             'Requester Name': user.get_full_name(),
@@ -305,7 +321,7 @@ def _trigger_add_workspace_data(project, pedigree_records, user, data_path, samp
         except Exception as e:
             logger.error('AnVIL loading delay email error: {}'.format(e), user)
 
-    return updated_individuals, updated_families, updated_notes
+    return pedigree_json
 
 def _wait_for_service_account_access(user, namespace, name):
     for _ in range(2):
@@ -316,11 +332,8 @@ def _wait_for_service_account_access(user, namespace, name):
 
 
 def _get_loading_project_path(project, sample_type):
-    return 'gs://seqr-datasets/v02/{genome_version}/AnVIL_{sample_type}/{guid}/'.format(
-        guid=project.guid,
-        sample_type=sample_type,
-        genome_version=GENOME_VERSION_LOOKUP.get(project.genome_version),
-    )
+    return f'{SEQR_DATSETS_GS_PATH}/{project.get_genome_version_display()}/AnVIL_{sample_type}/{project.guid}/'
+
 
 def _get_seqr_project_url(project):
     return f'{BASE_URL}project/{project.guid}/project_page'
@@ -451,4 +464,20 @@ def _make_airflow_api_request(endpoint, method='GET', timeout=90, **kwargs):
     return resp.json()
 
 
+def _merge_sharded_vcf(vcf_files):
+    files_by_path = defaultdict(list)
 
+    for vcf_file in vcf_files:
+        subfolder_path, file = vcf_file.rsplit('/', 1)
+        files_by_path[subfolder_path].append(file)
+
+    # discover the sharded VCF files in each folder, replace the sharded VCF files with a single path with '*'
+    for subfolder_path, files in files_by_path.items():
+        if len(files) < 2:
+            continue
+        prefix = os.path.commonprefix(files)
+        suffix = re.fullmatch(r'{}\d*(?P<suffix>\D.*)'.format(prefix), files[0]).groupdict()['suffix']
+        if all([re.fullmatch(r'{}\d+{}'.format(prefix, suffix), file) for file in files]):
+            files_by_path[subfolder_path] = [f'{prefix}*{suffix}']
+
+    return [f'{path}/{file}' for path, files in files_by_path.items() for file in files]

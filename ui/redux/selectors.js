@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect'
-import uniqBy from 'lodash/uniqBy'
+import uniqWith from 'lodash/uniqWith'
 
 import { compHetGene } from 'shared/components/panel/variants/VariantUtils'
 import { compareObjects } from 'shared/utils/sortUtils'
@@ -38,6 +38,7 @@ export const getUserOptionsByUsername = state => state.userOptionsByUsername
 export const getUserOptionsIsLoading = state => state.userOptionsLoading.isLoading
 export const getVersion = state => state.meta.version
 export const getGoogleLoginEnabled = state => state.meta.googleLoginEnabled
+export const getElasticsearchEnabled = state => state.meta.elasticsearchEnabled
 export const getHijakEnabled = state => state.meta.hijakEnabled
 export const getWarningMessages = state => state.meta.warningMessages
 export const getAnvilLoadingDelayDate = state => state.meta.anvilLoadingDelayDate
@@ -318,7 +319,7 @@ export const getDisplayVariants = createSelector(
     const flattened = flattenCompoundHet.all ? searchedVariants.flat() : searchedVariants.reduce((acc, variant) => (
       (Array.isArray(variant) && flattenCompoundHet[compHetGene(variant)]) ? [...acc, ...variant] : [...acc, variant]
     ), [])
-    return uniqBy(flattened, 'variantId')
+    return uniqWith(flattened, (a, b) => !Array.isArray(a) && !Array.isArray(b) && a.variantId === b.variantId)
   },
 )
 
@@ -392,6 +393,10 @@ export const getLocusListTableData = createSelector(
       const { locusListGuids = [] } = projectsByGuid[omitProjectGuid] || {}
       data = data.filter(locusList => !locusListGuids.includes(locusList.locusListGuid))
     }
+
+    data = data.map(({ items, ...locusList }) => (items ?
+      { geneNames: items.map(({ gene }) => (gene || {}).geneSymbol), ...locusList } :
+      locusList))
 
     return data.reduce((acc, locusList) => {
       if (locusList.canEdit) {

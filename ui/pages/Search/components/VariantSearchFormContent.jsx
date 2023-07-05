@@ -5,6 +5,7 @@ import { FormSpy } from 'react-final-form'
 import styled from 'styled-components'
 import { Header, List, Grid } from 'semantic-ui-react'
 
+import { getElasticsearchEnabled } from 'redux/selectors'
 import { ButtonLink } from 'shared/components/StyledComponents'
 import { configuredField } from 'shared/components/form/FormHelpers'
 import { Select } from 'shared/components/form/Inputs'
@@ -240,9 +241,11 @@ const getPanels = (hasHgmdPermission, inheritance, datasetTypes) => (
   (PANEL_MAP[datasetTypes] || PANEL_MAP[ALL_DATASET_TYPE])[hasHgmdPermission][hasSecondaryAnnotation(inheritance)]
 )
 
-const VariantSearchFormContent = React.memo(({ hasHgmdPermission, inheritance, datasetTypes }) => (
+const VariantSearchFormContent = React.memo((
+  { hasHgmdPermission, inheritance, datasetTypes, noEditProjects, esEnabled },
+) => (
   <div>
-    <ProjectFamiliesField />
+    {!noEditProjects && <ProjectFamiliesField />}
     <Header size="huge" block>
       <Grid padded="horizontally" relaxed>
         <Grid.Row>
@@ -254,7 +257,7 @@ const VariantSearchFormContent = React.memo(({ hasHgmdPermission, inheritance, d
       </Grid>
     </Header>
     <Header content="Customize Search:" />
-    <VariantSearchFormPanels panels={getPanels(hasHgmdPermission, inheritance, datasetTypes)} />
+    <VariantSearchFormPanels esEnabled={esEnabled} panels={getPanels(hasHgmdPermission, inheritance, datasetTypes)} />
   </div>
 ))
 
@@ -262,11 +265,14 @@ VariantSearchFormContent.propTypes = {
   hasHgmdPermission: PropTypes.bool,
   inheritance: PropTypes.object,
   datasetTypes: PropTypes.string,
+  noEditProjects: PropTypes.bool,
+  esEnabled: PropTypes.bool,
 }
 
 const mapStateToProps = (state, ownProps) => ({
   hasHgmdPermission: getHasHgmdPermission(state, ownProps),
   datasetTypes: getDatasetTypes(state, ownProps),
+  esEnabled: getElasticsearchEnabled(state),
 })
 
 const ConnectedVariantSearchFormContent = connect(mapStateToProps)(VariantSearchFormContent)

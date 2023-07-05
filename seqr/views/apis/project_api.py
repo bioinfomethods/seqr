@@ -6,11 +6,12 @@ import json
 from collections import defaultdict
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q, Case, When, Value
+from django.db.models.functions import JSONObject
 from django.utils import timezone
 
 from matchmaker.models import MatchmakerSubmission
-from seqr.models import Project, Family, Individual, Sample, IgvSample, VariantTag, VariantNote, \
+from seqr.models import Project, Family, Individual, Sample, IgvSample, VariantTag, SavedVariant, \
     FamilyNote, CAN_EDIT
 from seqr.views.utils.json_utils import create_json_response, _to_snake_case
 from seqr.views.utils.json_to_orm_utils import update_project_from_json, create_model_from_json, update_model_from_json
@@ -19,8 +20,8 @@ from seqr.views.utils.orm_to_json_utils import _get_json_for_project, get_json_f
     get_json_for_family_notes, _get_json_for_individuals, get_json_for_project_collaborator_groups
 from seqr.views.utils.permissions_utils import get_project_and_check_permissions, check_project_permissions, \
     check_user_created_object_permissions, pm_required, user_is_pm, login_and_policies_required, \
-    has_workspace_perm
-from seqr.views.utils.project_context_utils import get_projects_child_entities, families_discovery_tags, \
+    has_workspace_perm, has_case_review_permissions
+from seqr.views.utils.project_context_utils import families_discovery_tags, \
     add_project_tag_types, get_project_analysis_groups, get_project_locus_lists, MME_TAG_NAME
 from seqr.views.utils.terra_api_utils import is_anvil_authenticated
 
@@ -179,22 +180,26 @@ def project_page_data(request, project_guid):
 @login_and_policies_required
 def project_families(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user)
-    family_models = Family.objects.filter(project=project)
+    family_models = Family.objects.filter(project=project).annotate(
+        metadata_individual_count=Count('individual', filter=Q(
+            individual__features__0__isnull=False, individual__birth_year__isnull=False,
+            individual__population__isnull=False, individual__proband_relationship__isnull=False,
+        ))
+    )
+    family_annotations = dict(
+        caseReviewStatuses=ArrayAgg('individual__case_review_status', distinct=True, filter=~Q(individual__case_review_status='')),
+        caseReviewStatusLastModified=Max('individual__case_review_status_last_modified_date'),
+        hasRequiredMetadata=Case(When(metadata_individual_count__gt=0, then=Value(True)), default=Value(False)),
+        parents=ArrayAgg(
+            JSONObject(paternalGuid='individual__father__guid', maternalGuid='individual__mother__guid'),
+            filter=Q(individual__mother__isnull=False) | Q(individual__father__isnull=False), distinct=True,
+        ),
+    )
     families = _get_json_for_families(
-        family_models, request.user, project_guid=project_guid, add_individual_guids_field=True
+        family_models, request.user, has_case_review_perm=has_case_review_permissions(project, request.user),
+        project_guid=project_guid, add_individual_guids_field=True, additional_values=family_annotations,
     )
     response = families_discovery_tags(families)
-    has_features_families = set(family_models.filter(individual__features__isnull=False).values_list('guid', flat=True))
-    annotated_models = family_models.annotate(
-        case_review_statuses=ArrayAgg('individual__case_review_status', distinct=True),
-        case_review_status_last_modified=Max('individual__case_review_status_last_modified_date')
-    )
-    for family in annotated_models:
-        response['familiesByGuid'][family.guid].update({
-            'caseReviewStatuses': family.case_review_statuses,
-            'caseReviewStatusLastModified': family.case_review_status_last_modified,
-            'hasFeatures': family.guid in has_features_families,
-        })
     return create_json_response(response)
 
 
@@ -241,7 +246,8 @@ def project_collaborators(request, project_guid):
 def project_individuals(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user)
     individuals = _get_json_for_individuals(
-        Individual.objects.filter(family__project=project), user=request.user, project_guid=project_guid, add_hpo_details=True)
+        Individual.objects.filter(family__project=project), user=request.user, project_guid=project_guid,
+        add_hpo_details=True, has_case_review_perm=has_case_review_permissions(project, request.user))
 
     return create_json_response({
         'individualsByGuid': {i['individualGuid']: i for i in individuals},
@@ -298,9 +304,6 @@ def project_mme_submisssions(request, project_guid):
 
 def _add_tag_type_counts(project, project_variant_tags):
     family_tag_type_counts = defaultdict(dict)
-    note_counts_by_family = VariantNote.objects.filter(saved_variants__family__project=project)\
-        .values('saved_variants__family__guid').annotate(count=Count('*'))
-    num_tags = sum(count['count'] for count in note_counts_by_family)
     note_tag_type = {
         'variantTagTypeGuid': 'notes',
         'name': 'Has Notes',
@@ -308,7 +311,7 @@ def _add_tag_type_counts(project, project_variant_tags):
         'description': '',
         'color': 'grey',
         'order': 100,
-        'numTags': num_tags,
+        'numTags': SavedVariant.objects.filter(family__project=project, variantnote__isnull=False).distinct().count(),
     }
 
     project_variants = VariantTag.objects.filter(saved_variants__family__project=project)

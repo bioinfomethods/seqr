@@ -8,7 +8,7 @@ from seqr.models import SavedVariant, VariantNote, VariantTag, VariantFunctional
 from seqr.views.apis.saved_variant_api import saved_variant_data, create_variant_note_handler, create_saved_variant_handler, \
     update_variant_note_handler, delete_variant_note_handler, update_variant_tags_handler, update_saved_variant_json, \
     update_variant_main_transcript, update_variant_functional_data_handler, update_variant_acmg_classification_handler
-from seqr.views.utils.orm_to_json_utils import get_json_for_saved_variant
+from seqr.views.utils.orm_to_json_utils import get_json_for_saved_variants
 from seqr.views.utils.test_utils import AuthenticationTestCase, SAVED_VARIANT_DETAIL_FIELDS, TAG_FIELDS, GENE_VARIANT_FIELDS, \
     TAG_TYPE_FIELDS, LOCUS_LIST_FIELDS, PA_LOCUS_LIST_FIELDS, FAMILY_FIELDS, INDIVIDUAL_FIELDS, IGV_SAMPLE_FIELDS, \
     FAMILY_NOTE_FIELDS, MATCHMAKER_SUBMISSION_FIELDS, AnvilAuthenticationTestCase
@@ -137,6 +137,7 @@ class SavedVariantAPITest(object):
         fields = {'mainTranscriptId', 'mmeSubmissions'}
         fields.update(SAVED_VARIANT_DETAIL_FIELDS)
         self.assertSetEqual(set(variant.keys()), fields)
+        self.assertListEqual(variant['familyGuids'], ['F000001_1'])
         self.assertSetEqual(set(variant['genotypes'].keys()), {'I000003_na19679', 'I000001_na19675', 'I000002_na19678'})
         self.assertSetEqual(
             set(variant['tagGuids']), {'VT1708633_2103343353_r0390_100', 'VT1726961_2103343353_r0390_100'},
@@ -210,9 +211,10 @@ class SavedVariantAPITest(object):
         self.assertSetEqual(set(response_json.keys()), family_context_response_keys)
         self.assertEqual(len(response_json['savedVariantsByGuid']), 2)
         self.assertEqual(set(response_json['familiesByGuid'].keys()), {'F000001_1', 'F000002_2'})
-        family_fields = {'individualGuids', 'hasRnaTpmData'}
+        family_fields = {'individualGuids', 'tpmGenes'}
         family_fields.update(FAMILY_FIELDS)
         self.assertSetEqual(set(response_json['familiesByGuid']['F000001_1'].keys()), family_fields)
+        self.assertSetEqual(set(response_json['familiesByGuid']['F000001_1']['tpmGenes']), {'ENSG00000135953'})
         individual_fields = {'igvSampleGuids'}
         individual_fields.update(INDIVIDUAL_FIELDS)
         self.assertSetEqual(set(next(iter(response_json['individualsByGuid'].values())).keys()), individual_fields)
@@ -280,6 +282,7 @@ class SavedVariantAPITest(object):
             'createdBy': None,
         }]
         self.assertListEqual(variants['SV0000002_1248367227_r0390_100']['discoveryTags'], discovery_tags)
+        self.assertListEqual(variants['SV0000002_1248367227_r0390_100']['familyGuids'], ['F000002_2'])
         self.assertSetEqual(set(response_json['familiesByGuid'].keys()), {'F000012_12'})
 
         # Test discovery tags with family context
@@ -292,6 +295,7 @@ class SavedVariantAPITest(object):
             {'SV0000002_1248367227_r0390_100', 'SV0000001_2103343353_r0390_100'}
         )
         self.assertListEqual(variants['SV0000002_1248367227_r0390_100']['discoveryTags'], discovery_tags)
+        self.assertListEqual(variants['SV0000002_1248367227_r0390_100']['familyGuids'], ['F000002_2'])
         self.assertEqual(set(response_json['familiesByGuid'].keys()), {'F000001_1', 'F000002_2', 'F000012_12'})
 
     def test_create_saved_variant(self):
@@ -777,7 +781,7 @@ class SavedVariantAPITest(object):
         self.assertEqual(functional_data['VFD0000023_1248367227_r0390_10']['name'], 'Biochemical Function')
         self.assertEqual(functional_data['VFD0000023_1248367227_r0390_10']['metadata'], 'An updated note')
         self.assertEqual(functional_data[new_guid]['name'], 'Bonferroni corrected p-value')
-        self.assertEqual(functional_data[new_guid]['metadata'], 0.05)
+        self.assertEqual(functional_data[new_guid]['metadata'], '0.05')
 
         variant_functional_data = VariantFunctionalData.objects.filter(saved_variants__guid__contains=VARIANT_GUID)
         self.assertSetEqual(
@@ -839,7 +843,7 @@ class SavedVariantAPITest(object):
             'functionalData': [
                 {'name': 'Biochemical Function',
                  'metadata': 'An updated note'},
-                {'name': 'Bonferroni corrected p-value', 'metadata': 0.05}
+                {'name': 'Bonferroni corrected p-value', 'metadata': '0.05'}
             ],
             'familyGuid': 'F000001_1'
         }))
@@ -853,7 +857,7 @@ class SavedVariantAPITest(object):
             {"Biochemical Function", "Bonferroni corrected p-value"},
             {vt['name'] for vt in response.json()['variantFunctionalDataByGuid'].values()})
         self.assertSetEqual(
-            {"An updated note", 0.05},
+            {"An updated note", '0.05'},
             {vt['metadata'] for vt in response.json()['variantFunctionalDataByGuid'].values()})
         variant_functional_data = VariantFunctionalData.objects.filter(
             saved_variants__guid__in=[COMPOUND_HET_1_GUID, COMPOUND_HET_2_GUID])
@@ -872,7 +876,7 @@ class SavedVariantAPITest(object):
 
     @mock.patch('seqr.views.utils.variant_utils.MAX_VARIANTS_FETCH', 3)
     @mock.patch('seqr.views.apis.saved_variant_api.logger')
-    @mock.patch('seqr.views.utils.variant_utils.get_es_variants_for_variant_ids')
+    @mock.patch('seqr.views.utils.variant_utils.get_variants_for_variant_ids')
     def test_update_saved_variant_json(self, mock_get_variants, mock_logger):
         mock_get_variants.side_effect = lambda families, variant_ids, **kwargs: \
             [{'variantId': variant_id, 'familyGuids': [family.guid for family in families]}
@@ -912,9 +916,10 @@ class SavedVariantAPITest(object):
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {'savedVariantsByGuid': {VARIANT_GUID: {'selectedMainTranscriptId': transcript_id}}})
 
-        saved_variant = SavedVariant.objects.get(guid=VARIANT_GUID)
-        self.assertEqual(saved_variant.selected_main_transcript_id, transcript_id)
-        self.assertEqual(get_json_for_saved_variant(saved_variant, add_details=True)['selectedMainTranscriptId'], transcript_id)
+        saved_variants = SavedVariant.objects.filter(guid=VARIANT_GUID)
+        self.assertEqual(len(saved_variants), 1)
+        self.assertEqual(saved_variants.first().selected_main_transcript_id, transcript_id)
+        self.assertEqual(get_json_for_saved_variants(saved_variants, add_details=True)[0]['selectedMainTranscriptId'], transcript_id)
 
     def test_update_variant_acmg_classification(self):
         update_variant_acmg_classification_url = reverse(update_variant_acmg_classification_handler, args=[VARIANT_GUID])

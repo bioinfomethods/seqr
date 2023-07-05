@@ -2,6 +2,27 @@
 
 ## dev
 
+## 6/23/23
+* Add a 'rank' field to the RnaSeqSpliceOutlier model (REQUIRES DB MIGRATION)
+* Remove hail python dependency
+
+## 6/2/23
+* Update Clinvar filtering and display
+
+* Add support for Gencode v39
+  * To add new data, run the `update_gencode_latest`
+
+## 4/26/23
+* Add RnaSeqSpliceOutlier model (REQUIRES DB MIGRATION)
+* Add db index to improve Rna Sample Metadata performance (REQUIRES DB MIGRATION)
+
+## 2/24/23
+* Updated Gregor sample manifest (REQUIRES DB MIGRATION)
+* Bumps python to 3.9
+
+## 2/15/23
+* Support sharded VCFs in AnVIL loading
+
 ## 1/11/23
 * Require PHI disclaimer when uploading AnVIL pedigree
 

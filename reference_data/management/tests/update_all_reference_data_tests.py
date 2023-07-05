@@ -84,6 +84,7 @@ class UpdateAllReferenceDataTest(TestCase):
 
         calls = [
             mock.call(40, reset=True),
+            mock.call(39),
             mock.call(31),
             mock.call(29),
             mock.call(28),

@@ -20,7 +20,7 @@ import {
   getAnalysisGroupsGroupedByProjectGuid, getSavedVariantsByGuid, getSortedIndividualsByFamily,
   getMmeResultsByGuid, getMmeSubmissionsByGuid, getHasActiveSearchableSampleByFamily, getSelectableTagTypesByProject,
   getVariantTagsByGuid, getUserOptionsByUsername, getSamplesByFamily, getNotesByFamilyType,
-  getSamplesGroupedByProjectGuid, getVariantTagNotesByFamilyVariants,
+  getSamplesGroupedByProjectGuid, getVariantTagNotesByFamilyVariants, getPhenotypeGeneScoresByIndividual,
 } from 'redux/selectors'
 
 import {
@@ -105,16 +105,26 @@ export const getProjectAnalysisGroupFamiliesByGuid = createSelector(
 
 export const getProjectAnalysisGroupFamilyIndividualCounts = createSelector(
   getProjectAnalysisGroupFamiliesByGuid,
-  familiesByGuid => Object.values(familiesByGuid).map(family => (family.individualGuids || []).length),
+  familiesByGuid => Object.values(familiesByGuid).map(family => ({
+    size: (family.individualGuids || []).length,
+    numParents: (family.parents || []).length === 1 ?
+      [family.parents[0].maternalGuid, family.parents[0].paternalGuid].filter(g => g).length : 0,
+  })),
 )
 
 export const getProjectAnalysisGroupDataLoadedFamilyIndividualCounts = createSelector(
   getProjectAnalysisGroupFamiliesByGuid,
   getSamplesByFamily,
-  (familiesByGuid, samplesByFamily) => Object.keys(familiesByGuid).map((familyGuid) => {
-    const sampleIndividuals = new Set((samplesByFamily[familyGuid] || []).map(sample => sample.individualGuid))
-    return sampleIndividuals.size
-  }).filter(size => size > 0),
+  (familiesByGuid, samplesByFamily) => Object.values(familiesByGuid).map(((family) => {
+    const sampleIndividuals = new Set((samplesByFamily[family.familyGuid] || []).map(sample => sample.individualGuid))
+    const hasSampleParentCounts = (family.parents || []).map(
+      ({ maternalGuid, paternalGuid }) => [maternalGuid, paternalGuid].filter(guid => sampleIndividuals.has(guid)),
+    ).filter(parents => parents.length > 0)
+    return {
+      size: sampleIndividuals.size,
+      numParents: hasSampleParentCounts.length === 1 ? hasSampleParentCounts[0].length : 0,
+    }
+  })).filter(({ size }) => size > 0),
 )
 
 export const getProjectAnalysisGroupIndividualsByGuid = createSelector(
@@ -704,6 +714,22 @@ export const getMmeDefaultContactEmail = createSelector(
   },
 )
 
+const individualOption = ({ individualGuid, displayName }) => ({ value: individualGuid, text: displayName })
+
+export const getParentOptionsByIndividual = createSelector(
+  getSortedIndividualsByFamily,
+  individualsByFamily => Object.values(individualsByFamily).reduce((acc, individuals) => ({
+    ...acc,
+    ...individuals.reduce((indAcc, { individualGuid }) => ({
+      ...indAcc,
+      [individualGuid]: {
+        M: individuals.filter(i => i.sex === 'M' && i.individualGuid !== individualGuid).map(individualOption),
+        F: individuals.filter(i => i.sex === 'F' && i.individualGuid !== individualGuid).map(individualOption),
+      },
+    }), {}),
+  }), {}),
+)
+
 // user options selectors
 export const getUserOptions = createSelector(
   getUserOptionsByUsername,
@@ -828,4 +854,23 @@ export const getPageHeaderEntityLinks = createSelector(
     }
     return entityLinks
   },
+)
+
+export const getIndividualPhenotypeGeneScores = createSelector(
+  getGenesById,
+  getIndividualsByGuid,
+  getPhenotypeGeneScoresByIndividual,
+  (genesById, individualsByGuid, phenotypeGeneScoresByIndividual) => (
+    Object.entries(phenotypeGeneScoresByIndividual || {}).reduce((acc, [individualGuid, dataByGene]) => ({
+      ...acc,
+      [individualGuid]: Object.entries(dataByGene).reduce((acc2, [geneId, dataByTool]) => ([
+        ...acc2,
+        ...Object.entries(dataByTool).reduce((acc3, [tool, data]) => ([
+          ...acc3, ...data.map(d => (
+            { ...d, tool, familyGuid: individualsByGuid[individualGuid].familyGuid, gene: genesById[geneId], rowId: `${geneId}-${tool}-${d.diseaseId}` }
+          )),
+        ]), []),
+      ]), []),
+    }), {})
+  ),
 )

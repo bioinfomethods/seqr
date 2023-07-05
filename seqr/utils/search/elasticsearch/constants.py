@@ -1,15 +1,18 @@
+from django.db.models import Min
+
 from reference_data.models import Omim, GeneConstraint
-from seqr.models import Individual, Sample
+from seqr.models import Individual, Sample, PhenotypePrioritization
+from seqr.utils.search.constants import COMPOUND_HET, RECESSIVE, XPOS_SORT_KEY, PATHOGENICTY_SORT_KEY, \
+    PATHOGENICTY_HGMD_SORT_KEY, PRIORITIZED_GENE_SORT
+
 
 MAX_VARIANTS = 10000
 MAX_COMPOUND_HET_GENES = 1000
 MAX_INDEX_NAME_LENGTH = 4000
 MAX_SEARCH_CLAUSES = 1024
-MAX_NO_LOCATION_COMP_HET_FAMILIES = 100
 MAX_INDEX_SEARCHES = 75
 PREFILTER_SEARCH_SIZE = 200
 
-XPOS_SORT_KEY = 'xpos'
 
 AFFECTED = Individual.AFFECTED_STATUS_AFFECTED
 UNAFFECTED = Individual.AFFECTED_STATUS_UNAFFECTED
@@ -29,10 +32,8 @@ GENOTYPE_QUERY_MAP = {
     },
 }
 
-RECESSIVE = 'recessive'
 X_LINKED_RECESSIVE = 'x_linked_recessive'
 HOMOZYGOUS_RECESSIVE = 'homozygous_recessive'
-COMPOUND_HET = 'compound_het'
 ANY_AFFECTED = 'any_affected'
 RECESSIVE_FILTER = {
     AFFECTED: ALT_ALT,
@@ -54,20 +55,7 @@ INHERITANCE_FILTERS = {
 
 PATH_FREQ_OVERRIDE_CUTOFF = 0.05
 
-CLINVAR_SIGNFICANCE_MAP = {
-    'pathogenic': ['Pathogenic', 'Pathogenic/Likely_pathogenic'],
-    'likely_pathogenic': ['Likely_pathogenic', 'Pathogenic/Likely_pathogenic'],
-    'benign': ['Benign', 'Benign/Likely_benign'],
-    'likely_benign': ['Likely_benign', 'Benign/Likely_benign'],
-    'vus_or_conflicting': [
-        'Conflicting_interpretations_of_pathogenicity',
-        'Uncertain_significance',
-        'not_provided',
-        'other'
-    ],
-}
-CLINVAR_PATH_SIGNIFICANCES = set(CLINVAR_SIGNFICANCE_MAP['pathogenic'])
-CLINVAR_PATH_SIGNIFICANCES.update(CLINVAR_SIGNFICANCE_MAP['likely_pathogenic'])
+CLINVAR_PATH_SIGNIFICANCES = {'pathogenic', 'likely_pathogenic'}
 
 HGMD_CLASS_MAP = {
     'disease_causing': ['DM'],
@@ -151,9 +139,6 @@ DEFAULT_POP_FIELD_CONFIG = {
 }
 POPULATION_RESPONSE_FIELD_CONFIGS = {k: dict(DEFAULT_POP_FIELD_CONFIG, **v) for k, v in POPULATION_FIELD_CONFIGS.items()}
 
-
-PATHOGENICTY_SORT_KEY = 'pathogenicity'
-PATHOGENICTY_HGMD_SORT_KEY = 'pathogenicity_hgmd'
 CLINVAR_SORT = {
     '_script': {
         'type': 'number',
@@ -173,6 +158,14 @@ CLINVAR_SORT = {
         }
     }
 }
+
+
+def _get_phenotype_priority_ranks_by_gene(samples, *args):
+    families = {s.individual.family for s in samples}
+    family_ranks = PhenotypePrioritization.objects.filter(
+        individual__family=list(families)[0], rank__lte=100).values('gene_id').annotate(min_rank=Min('rank'))
+    return {agg['gene_id']: agg['min_rank'] for agg in family_ranks}
+
 
 SORT_FIELDS = {
     PATHOGENICTY_SORT_KEY: [CLINVAR_SORT],
@@ -206,6 +199,25 @@ SORT_FIELDS = {
                         }
                     } 
                     return 1
+                """
+            }
+        }
+    }],
+    PRIORITIZED_GENE_SORT: [{
+        '_script': {
+            'type': 'number',
+            'script': {
+                'params': {
+                    'prioritized_ranks_by_gene': _get_phenotype_priority_ranks_by_gene,
+                },
+                'source': """
+                    int min_rank = 1000000;
+                    for (int i = 0; i < doc['geneIds'].length; ++i) {
+                        if (params.prioritized_ranks_by_gene.getOrDefault(doc['geneIds'][i], 1000000) < min_rank) {
+                            min_rank = params.prioritized_ranks_by_gene.get(doc['geneIds'][i])
+                        }
+                    }
+                    return min_rank;
                 """
             }
         }
@@ -292,7 +304,6 @@ NESTED_FIELDS = {
 GRCH38_LOCUS_FIELD = 'rg37_locus'
 XSTOP_FIELD = 'xstop'
 SPLICE_AI_FIELD = 'splice_ai'
-NEW_SV_FIELD = 'new_structural_variants'
 CORE_FIELDS_CONFIG = {
     'alt': {},
     'contig': {'response_key': 'chrom'},
@@ -400,6 +411,7 @@ SV_GENOTYPE_FIELDS_CONFIG = {
     'prev_call': {'format_value': bool},
     'prev_overlap': {'format_value': bool},
     'new_call': {'format_value': bool},
+    'prev_num_alt': {'format_value': lambda i: None if i is None else int(i)},
 }
 SV_GENOTYPE_FIELDS_CONFIG.update(BASE_GENOTYPE_FIELDS_CONFIG)
 SV_GENOTYPE_FIELDS_CONFIG.update({field: {} for field in SV_QUALITY_FIELDS.keys()})

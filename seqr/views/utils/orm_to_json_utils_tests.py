@@ -1,15 +1,13 @@
 from django.contrib.auth.models import User
 import mock
 from copy import deepcopy
-from seqr.models import Project, Family, Individual, Sample, IgvSample, SavedVariant, VariantTag, VariantFunctionalData, \
-    VariantNote, LocusList, VariantSearch
-from seqr.views.utils.orm_to_json_utils import get_json_for_user, _get_json_for_project, _get_json_for_family, \
-    _get_json_for_individual, get_json_for_sample, get_json_for_saved_variant, get_json_for_variant_tags, \
-    get_json_for_variant_functional_data_tags, get_json_for_variant_note, get_json_for_locus_list, \
-    get_json_for_saved_search, get_json_for_saved_variants_with_tags, get_json_for_current_user
+from seqr.models import Project, Sample, IgvSample, SavedVariant, VariantNote, LocusList, VariantSearch
+from seqr.views.utils.orm_to_json_utils import get_json_for_user, _get_json_for_project, \
+    get_json_for_sample, get_json_for_saved_variants, get_json_for_variant_note, get_json_for_locus_list, \
+    get_json_for_saved_searches, get_json_for_saved_variants_with_tags, get_json_for_current_user
 from seqr.views.utils.test_utils import AuthenticationTestCase, AnvilAuthenticationTestCase, \
-    PROJECT_FIELDS, FAMILY_FIELDS, INTERNAL_FAMILY_FIELDS, \
-    INDIVIDUAL_FIELDS, INTERNAL_INDIVIDUAL_FIELDS, INDIVIDUAL_FIELDS_NO_FEATURES, SAMPLE_FIELDS, SAVED_VARIANT_FIELDS,  \
+    PROJECT_FIELDS,  INTERNAL_FAMILY_FIELDS, \
+    INDIVIDUAL_FIELDS, INTERNAL_INDIVIDUAL_FIELDS, SAMPLE_FIELDS, SAVED_VARIANT_FIELDS,  \
     FUNCTIONAL_FIELDS, SAVED_SEARCH_FIELDS, LOCUS_LIST_DETAIL_FIELDS, PA_LOCUS_LIST_FIELDS, IGV_SAMPLE_FIELDS, \
     CASE_REVIEW_FAMILY_FIELDS, TAG_FIELDS, VARIANT_NOTE_FIELDS, NO_INTERNAL_CASE_REVIEW_INDIVIDUAL_FIELDS
 
@@ -98,43 +96,6 @@ class JSONUtilsTest(object):
 
         self.assertSetEqual(set(json.keys()), PROJECT_FIELDS)
 
-    def test_json_for_family(self):
-        family = Family.objects.filter(project__has_case_review=False).first()
-        json = _get_json_for_family(family)
-        self.assertSetEqual(set(json.keys()), FAMILY_FIELDS)
-
-        user = User.objects.get(username='test_user')
-        json = _get_json_for_family(family, user, add_individual_guids_field=True)
-        self.assertSetEqual(set(json.keys()), INTERNAL_FAMILY_FIELDS)
-
-        case_review_family = Family.objects.filter(project__has_case_review=True).first()
-        json = _get_json_for_family(case_review_family)
-        self.assertSetEqual(set(json.keys()), FAMILY_FIELDS)
-
-        fields = set()
-        fields.update(INTERNAL_FAMILY_FIELDS)
-        fields.update(CASE_REVIEW_FAMILY_FIELDS)
-        json = _get_json_for_family(case_review_family, user, add_individual_guids_field=True)
-        self.assertSetEqual(set(json.keys()), fields)
-
-        self.mock_analyst_group.__str__.return_value = ''
-        json = _get_json_for_family(family, user)
-        self.assertSetEqual(set(json.keys()), FAMILY_FIELDS)
-
-    def test_json_for_individual(self):
-        individual = Individual.objects.first()
-        json = _get_json_for_individual(individual)
-        self.assertSetEqual(set(json.keys()), INDIVIDUAL_FIELDS_NO_FEATURES)
-
-        json = _get_json_for_individual(individual, add_hpo_details=True)
-        self.assertSetEqual(set(json.keys()), INDIVIDUAL_FIELDS)
-
-        json = _get_json_for_individual(individual, self.manager_user, add_hpo_details=True)
-        self.assertSetEqual(set(json.keys()), NO_INTERNAL_CASE_REVIEW_INDIVIDUAL_FIELDS)
-
-        json = _get_json_for_individual(individual, self.analyst_user, add_hpo_details=True)
-        self.assertSetEqual(set(json.keys()), INTERNAL_INDIVIDUAL_FIELDS)
-
     def test_json_for_sample(self):
         sample = Sample.objects.first()
         json = get_json_for_sample(sample)
@@ -148,8 +109,8 @@ class JSONUtilsTest(object):
         self.assertSetEqual(set(json.keys()), IGV_SAMPLE_FIELDS)
 
     def test_json_for_saved_variant(self):
-        variant = SavedVariant.objects.get(guid='SV0000001_2103343353_r0390_100')
-        json = get_json_for_saved_variant(variant)
+        variants = SavedVariant.objects.filter(guid='SV0000001_2103343353_r0390_100')
+        json = get_json_for_saved_variants(variants)[0]
 
         self.assertSetEqual(set(json.keys()), SAVED_VARIANT_FIELDS)
         self.assertListEqual(json['familyGuids'], ["F000001_1"])
@@ -157,8 +118,8 @@ class JSONUtilsTest(object):
 
         fields = set()
         fields.update(SAVED_VARIANT_FIELDS)
-        fields.update(list(variant.saved_variant_json.keys()))
-        json = get_json_for_saved_variant(variant, add_details=True)
+        fields.update(list(variants.first().saved_variant_json.keys()))
+        json = get_json_for_saved_variants(variants, add_details=True)[0]
         self.assertSetEqual(set(json.keys()), fields)
         self.assertListEqual(json['familyGuids'], ["F000001_1"])
         self.assertEqual(json['variantId'], '21-3343353-GAGA-G')
@@ -169,7 +130,7 @@ class JSONUtilsTest(object):
         variant_guid_2 = 'SV0000002_1248367227_r0390_100'
         v1_tag_guids = {'VT1708633_2103343353_r0390_100', 'VT1726961_2103343353_r0390_100'}
         v2_tag_guids = {'VT1726945_2103343353_r0390_100', 'VT1726970_2103343353_r0004_tes'}
-        v2_note_guids = ['VN0714935_2103343353_r0390_100']
+        v2_note_guids = ['VN0714935_2103343353_r0390_100', 'VN0714937_2103343353_r0390_100']
         v1_functional_guids = {
             'VFD0000023_1248367227_r0390_10', 'VFD0000024_1248367227_r0390_10', 'VFD0000025_1248367227_r0390_10',
             'VFD0000026_1248367227_r0390_10'}
@@ -191,7 +152,7 @@ class JSONUtilsTest(object):
         var_2 = json['savedVariantsByGuid'][variant_guid_2]
         self.assertEqual(var_2['variantId'], '12-48367227-TC-T')
         self.assertSetEqual(set(var_2['tagGuids']), v2_tag_guids)
-        self.assertListEqual(var_2['noteGuids'], v2_note_guids)
+        self.assertSetEqual(set(var_2['noteGuids']), set(v2_note_guids))
 
         self.assertSetEqual(set(json['variantTagsByGuid'].keys()), v1_tag_guids | v2_tag_guids)
         self.assertSetEqual(set(next(iter(json['variantTagsByGuid'].values())).keys()), TAG_FIELDS)
@@ -200,7 +161,7 @@ class JSONUtilsTest(object):
         for tag_guid in v2_tag_guids:
             self.assertListEqual(json['variantTagsByGuid'][tag_guid]['variantGuids'], [variant_guid_2])
 
-        self.assertListEqual(list(json['variantNotesByGuid'].keys()), v2_note_guids)
+        self.assertSetEqual(set(json['variantNotesByGuid'].keys()), set(v2_note_guids))
         self.assertSetEqual(set(json['variantNotesByGuid'][v2_note_guids[0]].keys()), VARIANT_NOTE_FIELDS)
         self.assertListEqual(json['variantNotesByGuid'][v2_note_guids[0]]['variantGuids'], [variant_guid_2])
 
@@ -209,31 +170,23 @@ class JSONUtilsTest(object):
         for tag_guid in v1_functional_guids:
             self.assertListEqual(json['variantFunctionalDataByGuid'][tag_guid]['variantGuids'], [variant_guid_1])
 
-    def test_json_for_variant_tags(self):
-        tags = VariantTag.objects.all()[:1]
-        json = get_json_for_variant_tags(tags)[0]
-        self.assertSetEqual(set(json.keys()), TAG_FIELDS)
-
-    def test_json_for_variant_functional_data(self):
-        tags = VariantFunctionalData.objects.all()[:1]
-        json = get_json_for_variant_functional_data_tags(tags)[0]
-        self.assertSetEqual(set(json.keys()), FUNCTIONAL_FIELDS)
-
     def test_json_for_variant_note(self):
         tag = VariantNote.objects.first()
         json = get_json_for_variant_note(tag)
-        self.assertSetEqual(set(json.keys()), VARIANT_NOTE_FIELDS)
+        fields = deepcopy(VARIANT_NOTE_FIELDS)
+        fields.remove('variantGuids')
+        self.assertSetEqual(set(json.keys()), fields)
 
     def test_json_for_saved_search(self):
-        search = VariantSearch.objects.first()
+        searches = VariantSearch.objects.filter(id=1)
         user = User.objects.get(username='test_user')
-        json = get_json_for_saved_search(search, user)
+        json = get_json_for_saved_searches(searches, user)[0]
 
         self.assertSetEqual(set(json.keys()), SAVED_SEARCH_FIELDS)
         self.assertTrue('hgmd' in json['search']['pathogenicity'])
 
         user = User.objects.get(username='test_user_collaborator')
-        json = get_json_for_saved_search(search, user)
+        json = get_json_for_saved_searches(searches, user)[0]
         self.assertSetEqual(set(json.keys()), SAVED_SEARCH_FIELDS)
         self.assertFalse('hgmd' in json['search']['pathogenicity'])
 

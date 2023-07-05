@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from django.contrib.auth.models import User
 from django.db.models import Count
+from django.db.models.fields.files import ImageFieldFile
 
 from matchmaker.models import MatchmakerSubmission
 from seqr.utils.gene_utils import get_genes_for_variant_display
@@ -14,12 +15,12 @@ from seqr.views.utils.json_to_orm_utils import update_family_from_json, update_m
     get_or_create_model_from_json, create_model_from_json
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.note_utils import create_note_handler, update_note_handler, delete_note_handler
-from seqr.views.utils.orm_to_json_utils import _get_json_for_family,  get_json_for_family_note, get_json_for_samples, \
-    get_json_for_matchmaker_submissions, get_json_for_analysis_groups
+from seqr.views.utils.orm_to_json_utils import _get_json_for_model,  get_json_for_family_note, get_json_for_samples, \
+    get_json_for_matchmaker_submissions, get_json_for_analysis_groups, _get_json_for_families, get_json_for_queryset
 from seqr.views.utils.project_context_utils import add_families_context, families_discovery_tags, add_project_tag_types, \
     MME_TAG_NAME
 from seqr.models import Family, FamilyAnalysedBy, Individual, FamilyNote, Sample, VariantTag, AnalysisGroup, RnaSeqTpm, \
-    PhenotypePrioritization
+    PhenotypePrioritization, Project
 from seqr.views.utils.permissions_utils import check_project_permissions, get_project_and_check_pm_permissions, \
     login_and_policies_required, user_is_analyst, has_case_review_permissions
 from seqr.views.utils.variant_utils import get_phenotype_prioritization
@@ -30,7 +31,8 @@ PREVIOUS_FAMILY_ID_FIELD = 'previousFamilyId'
 
 @login_and_policies_required
 def family_page_data(request, family_guid):
-    family = Family.objects.get(guid=family_guid)
+    families = Family.objects.filter(guid=family_guid)
+    family = families.first()
     project = family.project
     check_project_permissions(project, request.user)
     is_analyst = user_is_analyst(request.user)
@@ -42,15 +44,13 @@ def family_page_data(request, family_guid):
         'samplesByGuid': {s['sampleGuid']: s for s in samples},
     }
 
-    add_families_context(response, [family], project.guid, request.user, is_analyst, has_case_review_perm)
+    add_families_context(response, families, project.guid, request.user, is_analyst, has_case_review_perm)
     response['familiesByGuid'][family_guid]['detailsLoaded'] = True
 
     outlier_samples = sample_models.filter(sample_type=Sample.SAMPLE_TYPE_RNA).exclude(rnaseqoutlier=None)
     for sample in outlier_samples:
         individual_guid = response['samplesByGuid'][sample.guid]['individualGuid']
         response['individualsByGuid'][individual_guid]['hasRnaOutlierData'] = True
-    if sample_models.filter(sample_type=Sample.SAMPLE_TYPE_RNA).exclude(rnaseqtpm=None):
-        response['familiesByGuid'][family_guid]['hasRnaTpmData'] = True
 
     has_phentoype_score_indivs = PhenotypePrioritization.objects.filter(individual__family=family).values_list(
         'individual__guid', flat=True)
@@ -139,7 +139,7 @@ def edit_families_handler(request, project_guid):
                 {'error': 'Invalid previous family ids: {}'.format(', '.join(missing_ids))}, status=400)
         family_models.update(prev_id_models)
 
-    updated_families = []
+    updated_family_ids = []
     for fields in modified_families:
         if fields.get('familyGuid'):
             family = family_models[fields['familyGuid']]
@@ -151,11 +151,12 @@ def edit_families_handler(request, project_guid):
                 update_json=None, user=request.user)
 
         update_family_from_json(family, fields, user=request.user, allow_unknown_keys=True)
-        updated_families.append(family)
+        updated_family_ids.append(family.id)
 
     updated_families_by_guid = {
         'familiesByGuid': {
-            family.guid: _get_json_for_family(family, request.user, add_individual_guids_field=True) for family in updated_families
+            family['familyGuid']: family for family in _get_json_for_families(
+                Family.objects.filter(id__in=updated_family_ids), request.user, add_individual_guids_field=True)
         }
     }
 
@@ -218,7 +219,7 @@ def update_family_fields_handler(request, family_guid):
     ])
 
     return create_json_response({
-        family.guid: _get_json_for_family(family, request.user)
+        family.guid: _get_json_for_model(family, user=request.user)
     })
 
 
@@ -247,7 +248,10 @@ def update_family_assigned_analyst(request, family_guid):
     update_model_from_json(family, {'assigned_analyst': assigned_analyst}, request.user)
 
     return create_json_response({
-        family.guid: _get_json_for_family(family, request.user)
+        family.guid: {'assignedAnalyst': {
+            'fullName': family.assigned_analyst.get_full_name(),
+            'email': family.assigned_analyst.email,
+        } if family.assigned_analyst else None}
     })
 
 
@@ -268,7 +272,7 @@ def update_family_analysed_by(request, family_guid):
     create_model_from_json(FamilyAnalysedBy, {'family': family, 'data_type': request_json['dataType']}, request.user)
 
     return create_json_response({
-        family.guid: _get_json_for_family(family, request.user)
+        family.guid: {'analysedBy': list(get_json_for_queryset(family.familyanalysedby_set.all()))}
     })
 
 
@@ -294,8 +298,15 @@ def update_family_pedigree_image(request, family_guid):
 
     update_model_from_json(family, {'pedigree_image': pedigree_image}, request.user)
 
+    updated_image = family.pedigree_image
+    if isinstance(family.pedigree_image, ImageFieldFile):
+        try:
+            updated_image = family.pedigree_image.url
+        except Exception:
+            updated_image = None
+
     return create_json_response({
-        family.guid: _get_json_for_family(family, request.user)
+        family.guid: {'pedigreeImage': updated_image}
     })
 
 
@@ -345,10 +356,12 @@ def receive_families_table_handler(request, project_guid):
                     column_map[FAMILY_ID_FIELD] = i
             elif 'display' in key:
                 column_map['displayName'] = i
-            elif 'description' in key:
-                column_map['description'] = i
             elif 'phenotype' in key:
                 column_map['codedPhenotype'] = i
+            elif 'mondo' in key and 'id' in key:
+                column_map['mondoId'] = i
+            elif 'description' in key:
+                column_map['description'] = i
         if FAMILY_ID_FIELD not in column_map:
             raise ValueError('Invalid header, missing family id column')
 
@@ -435,10 +448,10 @@ def get_family_rna_seq_data(request, family_guid, gene_id):
 
 @login_and_policies_required
 def get_family_phenotype_gene_scores(request, family_guid):
-    family = Family.objects.get(guid=family_guid)
-    check_project_permissions(family.project, request.user)
+    project = Project.objects.get(family__guid=family_guid)
+    check_project_permissions(project, request.user)
 
-    phenotype_prioritization = get_phenotype_prioritization([family])
+    phenotype_prioritization = get_phenotype_prioritization([family_guid])
     gene_ids = {gene_id for indiv in phenotype_prioritization.values() for gene_id in indiv.keys()}
     return create_json_response({
         'phenotypeGeneScores': phenotype_prioritization,

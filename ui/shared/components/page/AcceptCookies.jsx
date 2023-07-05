@@ -1,6 +1,7 @@
 import React from 'react'
 import Cookies from 'js-cookie'
 import { Modal } from 'semantic-ui-react'
+import { PUBLIC_PAGES } from 'shared/utils/constants'
 import { Route, Switch } from 'react-router-dom'
 
 const COOKIE_ACTIONS = [{
@@ -31,11 +32,9 @@ const AcceptCookies = () => (
   )
 )
 
-const NO_COOKIE_PAGES = ['/matchmaker', '/privacy_policy', '/terms_of_service']
-
 export default () => (
   <Switch>
-    {NO_COOKIE_PAGES.map(page => <Route key={page} path={page} component={null} />)}
+    {PUBLIC_PAGES.map(page => <Route key={page} path={page} component={null} />)}
     <Route component={AcceptCookies} />
   </Switch>
 )
