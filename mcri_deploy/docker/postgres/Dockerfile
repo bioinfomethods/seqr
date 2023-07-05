@@ -1,4 +1,4 @@
-FROM postgres:12.6
+FROM postgres:13.11
 
 LABEL maintainer="MCRI Bioinformatics"
 
