@@ -2,7 +2,7 @@ version: '2.4'
 
 services:
   postgres:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-postgres}:${POSTGRES_IMAGE_TAG:-12.6}
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-mcri-seqr-postgres}:${POSTGRES_IMAGE_TAG:-13.11}
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
     environment:
@@ -18,7 +18,7 @@ services:
 
 
   redis:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-redis}:${REDIS_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-mcri-seqr-redis}:${REDIS_IMAGE_TAG:-latest}
     healthcheck:
       test: redis-cli ping
       interval: 3s
@@ -40,7 +40,7 @@ services:
 
 
   seqr:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-seqr}:${SEQR_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-mcri-seqr}:${SEQR_IMAGE_TAG:-latest}
     ports:
       - ${SEQR_SERVICE_PORT:-80}:8000
     environment:
@@ -65,15 +65,15 @@ services:
       - PGUSER=postgres
       - GUNICORN_WORKER_THREADS=4
       - SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID=${SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID}
-      - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-okta-openidconnect}
-      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://dev-000000.okta.com/oauth2/default}
-      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-okta-client-id}
-      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-okta-client-secret}
-      - SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY=${SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY:-secret}
+      - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-keycloak}
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://keycloaktest.mcri.edu.au/realms/bioinfomethods}
+      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-archietest}
+      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-keycloak-client-secret}
+      - SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY=${SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY:-keycloak-public-key}
       - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
       - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
-      - ARCHIE_API_ROOT_URL
+      - ARCHIE_API_ROOT_URL=${ARCHIE_API_ROOT_URL:-https://archietest.mcri.edu.au}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files
