@@ -35,7 +35,6 @@ check_command() {
 
 check_command "git"
 check_command "docker"
-check_command "docker-compose"
 
 if [ -z "$1" ]; then
     usage
@@ -96,13 +95,13 @@ build() {
 build_seqr() {
     info "Building seqr component only"
     set -x
-    docker-compose --verbose \
+    docker compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
       build $BUILD_OPTS seqr
 
-    docker-compose --verbose \
+    docker compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
@@ -124,13 +123,13 @@ build_seqr() {
 build_all() {
     info "Building all components"
     set -x
-    docker-compose --verbose \
+    docker compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
       build $BUILD_OPTS
 
-    docker-compose --verbose \
+    docker compose --verbose \
       -f "$COMPOSE_FILE" \
       -f "$COMPOSE_BUILD_FILE" \
       --env-file="$COMPOSE_ENV_FILE" \
