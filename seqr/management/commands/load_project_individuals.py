@@ -58,13 +58,11 @@ class Command(BaseCommand):
         individual_records = json.loads(file_contents)
 
         try:
-            updated_individuals, updated_families, updated_notes = add_or_update_individuals_and_families(
-                project, individual_records, None
-            )
+            pedigree_json = add_or_update_individuals_and_families(project, individual_records, None)
         except Exception as e:
             logger.error(str(e), exc_info=e)
             sys.exit(1)
 
         logger.info(
-            'Successfuly loaded pedigree=%s into project=%s, updated_individuals=%s, updated_families=%s, updated_notes=%s',
-            pedigree_path, given_project, updated_individuals, updated_families, updated_notes)
+            'Successfuly loaded pedigree=%s into project=%s, pedigree_json=%s',
+            pedigree_path, given_project, pedigree_json)
