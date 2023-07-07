@@ -49,7 +49,7 @@ def es_backend_enabled():
     return bool(ELASTICSEARCH_SERVICE_HOSTNAME)
 
 
-def get_es_client(timeout=60, **kwargs):
+def get_es_client(timeout=300, **kwargs):
     client_kwargs = {
         'hosts': [{'host': ELASTICSEARCH_SERVICE_HOSTNAME, 'port': ELASTICSEARCH_SERVICE_PORT}],
         'timeout': timeout,
