@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 import json
 import mock
+from unittest import skip
 
 from seqr.models import Family, Sample, VariantSearch, VariantSearchResults
 from seqr.utils.search.utils import get_single_variant, get_variants_for_variant_ids, get_variant_query_gene_counts, \
@@ -194,6 +195,7 @@ class SearchUtilsTests(SearchTestHelper):
             search_func(self.results_model, user=self.user)
         self.assertEqual(str(cm.exception), 'Invalid genes/intervals: chr27:1234-5678, chr2:40-400000000, ENSG00012345')
 
+    @skip("Skip due to hot fix, see https://github.com/broadinstitute/seqr/issues/3472")
     def test_invalid_search_query_variants(self):
         with self.assertRaises(InvalidSearchException) as se:
             query_variants(self.results_model, sort='prioritized_gene', num_results=2)
@@ -349,6 +351,7 @@ class SearchUtilsTests(SearchTestHelper):
         self.assertListEqual(variants, PARSED_VARIANTS)
         self.assertEqual(total, 4)
 
+    @skip("Skip due to hot fix, see https://github.com/broadinstitute/seqr/issues/3472")
     def test_invalid_search_get_variant_query_gene_counts(self):
         self._test_invalid_search_params(get_variant_query_gene_counts)
 

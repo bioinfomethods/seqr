@@ -352,13 +352,10 @@ def _parse_inheritance(search, samples, previous_search_results):
         raise InvalidSearchException('Inheritance must be specified if custom affected status is set')
 
     samples = samples.select_related('individual')
-    if inheritance_filter.get('genotype') and not inheritance_filter.get(Individual.AFFECTED_STATUS_AFFECTED):
-        samples = _filter_genotype_samples(samples, inheritance_filter)
-    else:
-        skipped_samples = _filter_affected_family_samples(samples, inheritance_filter)
-        if skipped_samples:
-            search['skipped_samples'] = skipped_samples
-            samples = samples.exclude(id__in=[s.id for s in skipped_samples])
+    skipped_samples = _filter_affected_family_samples(samples, inheritance_filter)
+    if skipped_samples:
+        search['skipped_samples'] = skipped_samples
+        samples = samples.exclude(id__in=[s.id for s in skipped_samples])
 
     has_comp_het_search = inheritance_mode in {RECESSIVE, COMPOUND_HET} and not previous_search_results.get('grouped_results')
     if has_comp_het_search:
