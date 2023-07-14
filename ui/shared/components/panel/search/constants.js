@@ -323,6 +323,7 @@ export const ALL_ANNOTATION_FILTER_DETAILS =
     ), {}),
   }))[0]
 
+export const MCRI_CALLSET_FREQUENCY = 'pop_mcri'
 export const THIS_CALLSET_FREQUENCY = 'callset'
 export const SV_CALLSET_FREQUENCY = 'sv_callset'
 export const SNP_FREQUENCIES = [
@@ -343,6 +344,12 @@ export const SNP_FREQUENCIES = [
     label: 'TOPMed',
     homHemi: false,
     labelHelp: 'Filter by allele count (AC) or allele frequency (AF) in TOPMed',
+  },
+  {
+    name: MCRI_CALLSET_FREQUENCY,
+    label: 'MCRI callset',
+    homHemi: false,
+    labelHelp: 'Filter by allele count (AC) or by allele frequency (AF) among the samples in this instance of MCRI Seqr.',
   },
   {
     name: THIS_CALLSET_FREQUENCY,

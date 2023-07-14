@@ -1,3 +1,5 @@
+from typing import Dict
+
 import json
 import jmespath
 from collections import defaultdict
@@ -26,6 +28,24 @@ from seqr.views.utils.permissions_utils import check_project_permissions, get_pr
 from seqr.views.utils.project_context_utils import get_projects_child_entities
 from seqr.views.utils.variant_utils import get_variant_key, get_variants_response
 
+MCRI_POPULATION_STATS_CACHE = {
+    'variantId': {
+        'ac': 1,
+        'an': 2,
+        'af': 0.5,
+    },
+}
+
+BLANK_MCRI_POP_STAT_VARIANT = {
+    'af': None,
+    'filter_af': None,
+    'ac': None,
+    'an': None,
+    'hom': None,
+    'het': None,
+    'id': None,
+    'max_hl': None,
+}
 
 GENOTYPE_AC_LOOKUP = {
     'ref_ref': [0, 0],
@@ -518,7 +538,21 @@ def _flatten_variants(variants):
     for variant in variants:
         if isinstance(variant, list):
             for compound_het in variant:
-                flattened_variants.append(compound_het)
+                flattened_variants.append(_annotate_variant_with_pop_mcri(compound_het))
         else:
-            flattened_variants.append(variant)
+            flattened_variants.append(_annotate_variant_with_pop_mcri(variant))
     return flattened_variants
+
+
+def _annotate_variant_with_pop_mcri(variant):
+    """
+    Mutates given variant and adds 'pop_mcri' population frequencies from cache
+    """
+    v_pop_stats: Dict = MCRI_POPULATION_STATS_CACHE.get(variant.get('variantId')) if variant else None
+    if v_pop_stats:
+        pop_mcri = BLANK_MCRI_POP_STAT_VARIANT.copy()
+        pop_mcri.update(v_pop_stats)
+        pop_mcri['filter_af'] = pop_mcri.get('af')
+        variant['populations']['pop_mcri'] = pop_mcri
+
+    return variant

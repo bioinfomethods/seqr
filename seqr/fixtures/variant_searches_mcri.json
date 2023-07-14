@@ -41,6 +41,10 @@
                         "ac": null,
                         "af": 0.001
                     },
+                    "pop_mcri": {
+                        "ac": null,
+                        "af": 1.0
+                    },
                     "callset": {
                         "ac": null,
                         "af": 1.0

@@ -159,12 +159,14 @@ const HET_SECTION = 'Heteroplasmy'
 
 const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
 const CALLSET_POP = { field: 'callset', fieldTitle: 'This Callset', acDisplay: 'AC' }
+const MCRI_POP = { field: 'pop_mcri', fieldTitle: 'MCRI Callset', acDisplay: 'AC' }
 const SEQR_POP = { ...CALLSET_POP, field: 'seqr', fieldTitle: 'seqr' }
 
 const POPULATIONS = [
   SV_CALLSET_POP,
   { ...SV_CALLSET_POP, field: 'sv_seqr', fieldTitle: 'seqr' },
   CALLSET_POP,
+  MCRI_POP,
   SEQR_POP,
   {
     field: 'exac',
@@ -260,7 +262,7 @@ const MITO_POPULATIONS = [
 const DETAIL_SECTIONS = [
   {
     name: 'Global AFs',
-    hasDetail: pop => pop && pop.filter_af && (pop.filter_af !== pop.af),
+    hasDetail: pop => pop && pop.filter_af,
     display: () => [{ valueField: 'af' }],
   },
   {
@@ -280,7 +282,7 @@ const MITO_DETAIL_SECTIONS = [
     name: HET_SECTION,
     hasDetail: pop => pop && (pop.ac || pop.max_hl),
     display: pop => ([
-      pop.ac && { valueField: 'ac' },
+      pop.ac && { valueField: 'ac' }, 
       pop.max_hl && { subTitle: ' max observed heteroplasmy', valueField: 'max_hl' },
     ].filter(d => d)),
   },
