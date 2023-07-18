@@ -77,12 +77,6 @@ POPULATIONS = {
         'AN': 'AN',
         'Hom': 'homozygote_count',
     },
-    'pop_mcri': {
-        'AF': 'pop_mcri_AF',
-        'filter_AF': ['pop_mcri_AF'],
-        'AC': 'pop_mcri_AC',
-        'AN': 'pop_mcri_AN',
-    },
     'topmed': {
         'filter_AF': [],
         'Het': None,

@@ -522,8 +522,9 @@ OAUTH2_PROVIDER = {
     'ALWAYS_RELOAD_OAUTHLIB_CORE': DEBUG,
 }
 
-##########
-# ARCHIE #
-##########
+########
+# MCRI #
+########
 ARCHIE_API_ROOT_URL = os.environ.get('ARCHIE_API_ROOT_URL')
 ARCHIE_OIDC_ENDPOINT = SOCIAL_AUTH_API_URL
+SHOW_MCRI_OBS_COUNTS: bool = os.environ.get('SHOW_MCRI_OBS_COUNTS', 'False').lower() in ('true', '1', 'y')

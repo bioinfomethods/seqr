@@ -10,6 +10,10 @@ services:
     build:
       context: ../../mcri_deploy/docker/redis
 
+  redis-cache-obs:
+    build:
+      context: ../../mcri_deploy/docker/redis-cache-obs
+
   seqr:
     build:
       dockerfile: deploy/docker/seqr/Dockerfile

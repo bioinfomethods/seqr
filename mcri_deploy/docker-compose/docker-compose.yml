@@ -18,11 +18,22 @@ services:
 
   redis:
     image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-mcri-seqr-redis}:${REDIS_IMAGE_TAG:-latest}
+    ports:
+      - "0.0.0.0:${SEQR_REDIS_PORT:-6379}:6379"
     healthcheck:
       test: redis-cli ping
       interval: 3s
       timeout: 5s
       retries: 100
+
+  redis-cache-obs:
+    profiles:
+        - "cache"
+    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_CACHE_OBS_IMAGE_NAME:-mcri-redis-cache-obs}:${REDIS_CACHE_OBS_IMAGE_TAG:-latest}
+#    volumes:
+#      - ../../../tmp:/opt/tmp
+    depends_on:
+        - redis
 
   kibana:
     image: docker.elastic.co/kibana/${KIBANA_IMAGE_NAME:-kibana}:${KIBANA_IMAGE_TAG:-latest}
@@ -71,6 +82,7 @@ services:
       - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
       - ARCHIE_API_ROOT_URL=${ARCHIE_API_ROOT_URL:-https://archietest.mcri.edu.au}
+      - SHOW_MCRI_OBS_COUNTS=${SHOW_MCRI_OBS_COUNTS:-True}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files

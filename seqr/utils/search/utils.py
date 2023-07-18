@@ -12,7 +12,9 @@ from seqr.utils.search.elasticsearch.es_utils import ping_elasticsearch, delete_
 from seqr.utils.search.hail_search_utils import get_hail_variants, get_hail_variants_for_variant_ids, ping_hail_backend
 from seqr.utils.gene_utils import parse_locus_list_items
 from seqr.utils.xpos_utils import get_xpos
+from seqr.utils.logging_utils import SeqrLogger
 
+logger = SeqrLogger(__name__)
 
 class InvalidSearchException(Exception):
     pass
@@ -36,7 +38,6 @@ DATASET_TYPES_LOOKUP = {
     ]
 }
 DATASET_TYPES_LOOKUP[ALL_DATA_TYPES] = [dt for dts in DATASET_TYPES_LOOKUP.values() for dt in dts]
-
 
 def _raise_search_error(error):
     def _wrapped(*args, **kwargs):

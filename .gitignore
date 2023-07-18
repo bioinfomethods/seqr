@@ -28,3 +28,5 @@ seqr.*.env
 tmp
 
 .env
+.run
+parsed_omim_records.txt

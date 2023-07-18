@@ -166,3 +166,5 @@ environs==9.5.0
     # Conveniently manage environment variables with types
 social-auth-core[openidconnect]
     # Extra, required for openid
+pymemcache==4.0.0
+    # Used for caching data in memory on startup

@@ -282,7 +282,7 @@ const MITO_DETAIL_SECTIONS = [
     name: HET_SECTION,
     hasDetail: pop => pop && (pop.ac || pop.max_hl),
     display: pop => ([
-      pop.ac && { valueField: 'ac' }, 
+      pop.ac && { valueField: 'ac' },
       pop.max_hl && { subTitle: ' max observed heteroplasmy', valueField: 'max_hl' },
     ].filter(d => d)),
   },

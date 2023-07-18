@@ -1,6 +1,6 @@
-FROM redis:6.2.6
+FROM redis:6.2-bullseye
 
-LABEL maintainer="Broad TGG"
+LABEL maintainer="MCRI Bioinfomethods Group"
 
 COPY bashrc /root/.bashrc
 

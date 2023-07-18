@@ -1,5 +1,3 @@
-from typing import Dict
-
 import json
 import jmespath
 from collections import defaultdict
@@ -13,7 +11,9 @@ from math import ceil
 
 from reference_data.models import GENOME_VERSION_GRCh37
 from seqr.models import Project, Family, Individual, SavedVariant, VariantSearch, VariantSearchResults, ProjectCategory
-from seqr.utils.search.utils import query_variants, get_single_variant, get_variant_query_gene_counts, get_search_samples
+from seqr.utils.search.utils import query_variants, get_single_variant, get_variant_query_gene_counts, \
+    get_search_samples
+from mcri_ext.utils.search.utils import filter_mcri_pop_stats
 from seqr.utils.search.constants import XPOS_SORT_KEY, PATHOGENICTY_SORT_KEY, PATHOGENICTY_HGMD_SORT_KEY
 from seqr.utils.xpos_utils import get_xpos
 from seqr.views.utils.export_utils import export_table
@@ -28,24 +28,7 @@ from seqr.views.utils.permissions_utils import check_project_permissions, get_pr
 from seqr.views.utils.project_context_utils import get_projects_child_entities
 from seqr.views.utils.variant_utils import get_variant_key, get_variants_response
 
-MCRI_POPULATION_STATS_CACHE = {
-    'variantId': {
-        'ac': 1,
-        'an': 2,
-        'af': 0.5,
-    },
-}
-
-BLANK_MCRI_POP_STAT_VARIANT = {
-    'af': None,
-    'filter_af': None,
-    'ac': None,
-    'an': None,
-    'hom': None,
-    'het': None,
-    'id': None,
-    'max_hl': None,
-}
+from settings import SHOW_MCRI_OBS_COUNTS
 
 GENOTYPE_AC_LOOKUP = {
     'ref_ref': [0, 0],
@@ -80,7 +63,7 @@ def query_variants_handler(request, search_hash):
     variants, total_results = query_variants(results_model, sort=sort, page=page, num_results=per_page,
                                              skip_genotype_filter=skip_genotype_filter, user=request.user)
 
-    response = _process_variants(variants or [], results_model.families.all(), request)
+    response = _process_variants(variants or [], results_model.families.all(), request, search=results_model.variant_search.search)
     response['search'] = _get_search_context(results_model)
     response['search']['totalResults'] = total_results
 
@@ -150,17 +133,21 @@ def query_single_variant_handler(request, variant_id):
     return create_json_response(response)
 
 
-def _process_variants(variants, families, request, add_all_context=False, add_locus_list_detail=False):
+def _process_variants(variants, families, request, add_all_context=False, add_locus_list_detail=False, search=None):
     if not variants:
         return {'searchedVariants': variants}
 
     flat_variants = _flatten_variants(variants)
+    if SHOW_MCRI_OBS_COUNTS:
+        flat_variants = filter_mcri_pop_stats(flat_variants, request.user, search=search)
+        if len(flat_variants) == 0:
+            return {'searchedVariants': []}
     saved_variants, variants_by_id = _get_saved_variant_models(flat_variants, families)
 
     response_json = get_variants_response(
         request, saved_variants, response_variants=flat_variants, add_all_context=add_all_context,
         add_locus_list_detail=add_locus_list_detail)
-    response_json['searchedVariants'] = variants
+    response_json['searchedVariants'] = flat_variants if SHOW_MCRI_OBS_COUNTS else variants
 
     for saved_variant in response_json['savedVariantsByGuid'].values():
         family_guids = saved_variant['familyGuids']
@@ -538,21 +525,7 @@ def _flatten_variants(variants):
     for variant in variants:
         if isinstance(variant, list):
             for compound_het in variant:
-                flattened_variants.append(_annotate_variant_with_pop_mcri(compound_het))
+                flattened_variants.append(compound_het)
         else:
-            flattened_variants.append(_annotate_variant_with_pop_mcri(variant))
+            flattened_variants.append(variant)
     return flattened_variants
-
-
-def _annotate_variant_with_pop_mcri(variant):
-    """
-    Mutates given variant and adds 'pop_mcri' population frequencies from cache
-    """
-    v_pop_stats: Dict = MCRI_POPULATION_STATS_CACHE.get(variant.get('variantId')) if variant else None
-    if v_pop_stats:
-        pop_mcri = BLANK_MCRI_POP_STAT_VARIANT.copy()
-        pop_mcri.update(v_pop_stats)
-        pop_mcri['filter_af'] = pop_mcri.get('af')
-        variant['populations']['pop_mcri'] = pop_mcri
-
-    return variant
