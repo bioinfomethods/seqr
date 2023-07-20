@@ -12,6 +12,7 @@ from django.conf.urls import url, include
 from django.contrib import admin
 from django.views.generic.base import RedirectView
 from mcri_ext.views.echo import echo
+from mcri_ext.views.apis.users_api import get_user
 
 import django.views.static
 
@@ -292,6 +293,7 @@ api_endpoints = {
     'matchmaker/update_project_contact/(?P<project_guid>[^/]+)': update_mme_project_contact,
 
     'login': login_view,
+    'users/current': get_user,
     'users/forgot_password': forgot_password,
     'users/(?P<username>[^/]+)/set_password': set_password,
     'users/update': update_user,
