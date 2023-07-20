@@ -42,7 +42,8 @@ from seqr.views.apis.individual_api import \
     receive_individuals_table_handler, \
     save_individuals_table_handler, \
     receive_individuals_metadata_handler, \
-    save_individuals_metadata_table_handler
+    save_individuals_metadata_table_handler, \
+    load_individuals_from_staging
 
 from seqr.views.apis.case_review_api import \
     update_case_review_discussion, \
@@ -226,6 +227,7 @@ api_endpoints = {
 
     'project/(?P<project_guid>[^/]+)/upload_individuals_table': receive_individuals_table_handler,
     'project/(?P<project_guid>[^/]+)/save_individuals_table/(?P<upload_file_id>[^/]+)': save_individuals_table_handler,
+    'project/(?P<project_guid>[^/]+)/load_individuals_from_staging': load_individuals_from_staging,
     'project/(?P<project_guid>[^/]+)/upload_igv_dataset': receive_igv_table_handler,
     'project/(?P<project_guid>[^/]+)/add_dataset/variants': add_variants_dataset_handler,
 

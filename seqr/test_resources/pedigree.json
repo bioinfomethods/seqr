@@ -1,0 +1,26 @@
+[
+    {
+        "familyId": "1",
+        "individualId": "NA19675_1",
+        "paternalId": "NA19678",
+        "maternalId": "NA19679",
+        "sex": "F",
+        "affected": "A"
+    },
+    {
+        "familyId": "1",
+        "individualId": "NA19678",
+        "paternalId": "",
+        "maternalId": "",
+        "sex": "M",
+        "affected": "N"
+    },
+    {
+        "familyId": "1",
+        "individualId": "NA19679",
+        "paternalId": "",
+        "maternalId": "",
+        "sex": "F",
+        "affected": "N"
+    }
+]

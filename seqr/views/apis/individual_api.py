@@ -21,6 +21,7 @@ from seqr.views.utils.permissions_utils import get_project_and_check_permissions
     get_project_and_check_pm_permissions, login_and_policies_required, has_project_permissions, project_has_anvil, \
     is_internal_anvil_project
 from seqr.views.utils.individual_utils import delete_individuals, get_parsed_feature, add_or_update_individuals_and_families
+from mcri_ext.views.utils.individual_utils import load_pedigree_to_project
 
 
 _SEX_TO_EXPORTED_VALUE = dict(Individual.SEX_LOOKUP)
@@ -346,6 +347,33 @@ def save_individuals_table_handler(request, project_guid, upload_file_id):
 
     json_records = load_uploaded_file(upload_file_id)
     return _update_and_parse_individuals_and_families(project, individual_records=json_records, user=request.user)
+
+
+@login_and_policies_required
+def load_individuals_from_staging(request, project_guid):
+    """Load project individuals from given staging area, can be local or Google Cloud Storage
+
+    Args:
+        request: Django request object
+        project_guid (string): GUID of the project that should be updated
+
+    HTTP POST
+        Request body - should contain the following json structure:
+        {
+            'pedigreePath': <String> (required)
+        }
+
+        Response body - same as save_individuals_table_handler()
+
+    """
+
+    project = get_project_and_check_pm_permissions(project_guid, request.user)
+    request_json = json.loads(request.body)
+    pedigree_path = request_json.get('pedigreePath')
+
+    pedigree_json = load_pedigree_to_project(project, pedigree_path, request.user)
+
+    return create_json_response(pedigree_json)
 
 
 def _update_and_parse_individuals_and_families(project, individual_records, user):
