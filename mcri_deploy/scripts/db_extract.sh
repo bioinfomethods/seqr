@@ -18,7 +18,7 @@
 
     cd "$(dirname "$outfile")"
 
-    gsutil cp "$outfile" gs://mcri-seqr-backups/extracts/
+    gsutil cp "$outfile" gs://mcri-seqrdb-backups/extracts/
 
     echo "Done creating extract: $outfile"
 

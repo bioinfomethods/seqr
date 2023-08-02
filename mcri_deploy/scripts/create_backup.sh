@@ -15,7 +15,7 @@ REFERENCE_DATA_DB_BACKUP=$BACKUP_PATH/reference_data_db-$datestamp.dmp.gz
 /usr/bin/docker compose -f /home/seqr/seqr/docker-compose.yml --env-file /home/seqr/seqr/.env exec -T postgres /usr/lib/postgresql/13/bin/pg_dump -U postgres seqrdb | gzip -c > "$SEQRDB_BACKUP"
 /usr/bin/docker compose -f /home/seqr/seqr/docker-compose.yml --env-file /home/seqr/seqr/.env exec -T postgres /usr/lib/postgresql/13/bin/pg_dump -U postgres reference_data_db | gzip -c > "$REFERENCE_DATA_DB_BACKUP"
 
-gsutil cp "${SEQRDB_BACKUP}" gs://mcri-seqr-backups/
-echo "Backed up $SEQRDB_BACKUP to gs://mcri-seqr-backups/"
-gsutil cp "${REFERENCE_DATA_DB_BACKUP}" gs://mcri-seqr-backups/
-echo "Backed up $REFERENCE_DATA_DB_BACKUP to gs://mcri-seqr-backups/"
+gsutil cp "${SEQRDB_BACKUP}" gs://mcri-seqrdb-backups/
+echo "Backed up $SEQRDB_BACKUP to gs://mcri-seqrdb-backups/"
+gsutil cp "${REFERENCE_DATA_DB_BACKUP}" gs://mcri-seqrdb-backups/
+echo "Backed up $REFERENCE_DATA_DB_BACKUP to gs://mcri-seqrdb-backups/"
