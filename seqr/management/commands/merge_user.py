@@ -38,7 +38,8 @@ class Command(BaseCommand):
         VariantSearchResults.objects.filter(created_by=from_user).update(created_by=to_user)
         VariantTag.objects.filter(created_by=from_user).update(created_by=to_user)
         VariantTagType.objects.filter(created_by=from_user).update(created_by=to_user)
-        UserPolicy.objects.filter(user=from_user).update(user=to_user)
+        if to_user.userpolicy is None:
+            to_user.userpolicy = from_user.userpolicy
         AccessToken.objects.filter(user=from_user).delete()
         AccessToken.objects.filter(user=to_user).delete()
         UserSocialAuth.objects.filter(user=from_user).update(user=to_user)
