@@ -32,7 +32,9 @@ def associate_groups(backend, response, user, details, *args, **kwargs):
                         user.email, ad_groups, filtered_ad_groups)
             return
 
-        user.groups.clear()
+        for ag in user.groups.filter(name__iendswith='.DL'):
+            user.groups.remove(ag)
+            ag.user_set.remove(user)
         for ad_group in ad_groups:
             upper_ad_group = ad_group.upper()
             db_group, _ = Group.objects.get_or_create(name__iexact=upper_ad_group, defaults={'name': upper_ad_group})
@@ -43,9 +45,7 @@ def associate_groups(backend, response, user, details, *args, **kwargs):
 
 
 def _group_matches_settings_exclude_patterns(group_name: str) -> bool:
-    if hasattr(settings,
-               'SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS') and settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS and isinstance(
-            settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS, list):
+    if settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS and isinstance(settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS, list):
         for pattern in settings.SOCIAL_AUTH_GROUP_EXCLUDE_PATTERNS:
             if re.match(pattern, group_name):
                 return True
@@ -55,9 +55,9 @@ def _group_matches_settings_exclude_patterns(group_name: str) -> bool:
 
 def associate_by_email_or_username(backend, details, user=None, *args, **kwargs):
     """
-    This is only safe because we're using MCRI Okta where accounts are maintained by MCRI IT
+    This is only safe because we're using MCRI's identity provider where accounts are maintained by MCRI IT
     and users cannot simply register themselves.  This means we can safely trust the email and username
-    association coming from MCRI Okta.
+    association coming from MCRI's identity provider.
     """
     if user:
         return None
