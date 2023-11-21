@@ -30,3 +30,4 @@ tmp
 .env
 .run
 parsed_omim_records.txt
+test_data
