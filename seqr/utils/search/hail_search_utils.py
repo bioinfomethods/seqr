@@ -2,9 +2,9 @@ from collections import defaultdict
 from django.db.models import F, Min
 
 import requests
-from reference_data.models import Omim, GeneConstraint, GENOME_VERSION_LOOKUP
+from reference_data.models import Omim, GeneConstraint, GENOME_VERSION_LOOKUP, GENOME_VERSION_GRCh38
 from seqr.models import Sample, PhenotypePrioritization
-from seqr.utils.search.constants import PRIORITIZED_GENE_SORT
+from seqr.utils.search.constants import PRIORITIZED_GENE_SORT, X_LINKED_RECESSIVE
 from seqr.utils.xpos_utils import MIN_POS, MAX_POS
 from settings import HAIL_BACKEND_SERVICE_HOSTNAME, HAIL_BACKEND_SERVICE_PORT
 
@@ -13,9 +13,13 @@ def _hail_backend_url(path):
     return f'{HAIL_BACKEND_SERVICE_HOSTNAME}:{HAIL_BACKEND_SERVICE_PORT}/{path}'
 
 
-def _execute_search(search_body, user, path='search'):
+def _execute_search(search_body, user, path='search', exception_map=None):
     response = requests.post(_hail_backend_url(path), json=search_body, headers={'From': user.email}, timeout=300)
-    response.raise_for_status()
+
+    if response.status_code >= 400:
+        error = (exception_map or {}).get(response.status_code) or response.text or response.reason
+        raise requests.HTTPError(error, response=response)
+
     return response.json()
 
 
@@ -70,25 +74,34 @@ def get_hail_variants_for_variant_ids(samples, genome_version, parsed_variant_id
     return response_json['results']
 
 
+def hail_variant_lookup(user, variant_id, genome_version=None, **kwargs):
+    return _execute_search({
+        'genome_version': GENOME_VERSION_LOOKUP[genome_version or GENOME_VERSION_GRCh38],
+        'variant_id': variant_id,
+        **kwargs,
+    }, user, path='lookup', exception_map={404: 'Variant not present in seqr'})
+
+
 def _format_search_body(samples, genome_version, num_results, search):
     search_body = {
         'genome_version': GENOME_VERSION_LOOKUP[genome_version],
         'num_results': num_results,
     }
     search_body.update(search)
-    search_body['sample_data'] = _get_sample_data(samples, search_body.get('inheritance_filter'))
+    search_body['sample_data'] = _get_sample_data(samples, **search_body)
     return search_body
 
 
-def _get_sample_data(samples, inheritance_filter):
-    sample_data = samples.order_by('id').values(
-        'sample_id', 'dataset_type', 'sample_type',
+def _get_sample_data(samples, inheritance_filter=None, inheritance_mode=None, **kwargs):
+    sample_values = dict(
         individual_guid=F('individual__guid'),
         family_guid=F('individual__family__guid'),
         project_guid=F('individual__family__project__guid'),
         affected=F('individual__affected'),
-        sex=F('individual__sex'),
     )
+    if inheritance_mode == X_LINKED_RECESSIVE:
+        sample_values['sex'] = F('individual__sex')
+    sample_data = samples.order_by('id').values('sample_id', 'dataset_type', 'sample_type', **sample_values)
 
     custom_affected = (inheritance_filter or {}).pop('affected', None)
     if custom_affected:

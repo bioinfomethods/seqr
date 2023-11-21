@@ -12,14 +12,15 @@ import {
   getFamiliesByGuid,
   getProjectsByGuid,
   getGenesById,
+  getSpliceOutliersByChromFamily,
 } from 'redux/selectors'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { CheckboxGroup, RadioGroup } from '../../form/Inputs'
 import StateChangeForm from '../../form/StateChangeForm'
 import { ButtonLink, HelpIcon, ColoredIcon } from '../../StyledComponents'
 import { VerticalSpacer } from '../../Spacers'
-import { getLocus } from '../variants/VariantUtils'
-import { AFFECTED, GENOME_VERSION_38, getVariantMainGeneId } from '../../../utils/constants'
+import { getLocus, getOverlappedSpliceOutliers } from '../variants/VariantUtils'
+import { AFFECTED, GENOME_VERSION_38, getVariantMainGeneId, RNASEQ_JUNCTION_PADDING } from '../../../utils/constants'
 import {
   ARCHIE_TYPE, ALIGNMENT_TYPE, COVERAGE_TYPE, GCNV_TYPE, JUNCTION_TYPE, BUTTON_PROPS, TRACK_OPTIONS,
   MAPPABILITY_TRACK_OPTIONS, BAM_TRACK_OPTIONS,
@@ -279,6 +280,30 @@ IgvPanel.propTypes = {
   locus: PropTypes.string,
 }
 
+const TISSUE_REFERENCE_KEY = {
+  WB: 'Blood',
+  F: 'Fibs',
+  M: 'Muscle',
+  L: 'Lymph',
+}
+
+const TISSUE_REFERENCES_LOOKUP = Object.entries(TISSUE_REFERENCE_KEY).reduce((acc, [tissueType, key]) => ({
+  ...acc,
+  [tissueType]: [...NORM_GTEX_TRACK_OPTIONS, ...AGG_GTEX_TRACK_OPTIONS].filter(track => track.text.includes(key))
+    .map(track => track.value),
+}), {})
+
+const getSpliceOutlierLocus = (variant, spliceOutliersByFamily) => {
+  const overlappedOutliers = getOverlappedSpliceOutliers(variant, spliceOutliersByFamily)
+  if (overlappedOutliers.length < 1) {
+    return null
+  }
+  const { chrom } = variant
+  const minPos = Math.min(...overlappedOutliers.map(outlier => outlier.start))
+  const maxEnd = Math.max(...overlappedOutliers.map(outlier => outlier.end))
+  return getLocus(chrom, minPos, RNASEQ_JUNCTION_PADDING, maxEnd - minPos)
+}
+
 class FamilyReads extends React.PureComponent {
 
   static propTypes = {
@@ -291,6 +316,8 @@ class FamilyReads extends React.PureComponent {
     sortedIndividualByFamily: PropTypes.object,
     igvSamplesByFamilySampleIndividual: PropTypes.object,
     genesById: PropTypes.object,
+    noTriggerButton: PropTypes.bool,
+    spliceOutliersByFamily: PropTypes.object,
     archieApiRootUrl: PropTypes.string,
   }
 
@@ -304,6 +331,10 @@ class FamilyReads extends React.PureComponent {
       minTotalReads: 0,
     },
     locus: null,
+  }
+
+  updateReads = (familyGuid, locus, sampleTypes, tissueType) => {
+    this.setState({ openFamily: familyGuid, sampleTypes, locus, rnaReferences: TISSUE_REFERENCES_LOOKUP[tissueType] })
   }
 
   getProjectForFamily = (familyGuid) => {
@@ -401,11 +432,12 @@ class FamilyReads extends React.PureComponent {
   render() {
     const {
       variant, familyGuid, buttonProps, layout, igvSamplesByFamilySampleIndividual, familiesByGuid,
-      projectsByGuid, genesById, sortedIndividualByFamily, archieApiRootUrl, ...props
+      projectsByGuid, genesById, sortedIndividualByFamily, noTriggerButton, spliceOutliersByFamily, archieApiRootUrl,
+      ...props
     } = this.props
     const { openFamily, sampleTypes, rnaReferences, junctionTrackOptions, locus } = this.state
 
-    const showReads = (
+    const showReads = noTriggerButton ? null : (
       <ReadButtons
         variant={variant}
         familyGuid={familyGuid}
@@ -424,8 +456,14 @@ class FamilyReads extends React.PureComponent {
     const rnaTrackOptions = RNA_TRACK_TYPE_OPTIONS.filter(({ value }) => igvSampleIndividuals[value])
     const project = openFamily && this.getProjectForFamily(openFamily)
     const geneLocus = project && variant && getGeneLocus(variant, genesById, project)
-    const locusOptions = geneLocus ? [{ value: getVariantLocus(variant, project), text: 'Variant' },
-      { value: geneLocus, text: 'Gene' }] : null
+    const locusOptions = [
+      { text: 'Variant', value: geneLocus && getVariantLocus(variant, project) },
+      { text: 'Gene', value: geneLocus },
+      {
+        text: 'Splice Outlier',
+        value: variant && getSpliceOutlierLocus({ ...variant, familyGuids: [openFamily] }, spliceOutliersByFamily),
+      },
+    ].filter(({ value }) => value)
     const reads = Object.keys(igvSampleIndividuals).length > 0 ? (
       <Segment.Group horizontal>
         {(dnaTrackOptions.length > 1 || rnaTrackOptions.length > 0) && (
@@ -452,7 +490,7 @@ class FamilyReads extends React.PureComponent {
                 {this.getSampleColorPanel()}
               </div>
             )}
-            {locusOptions && (
+            {locusOptions.length > 0 && (
               <div>
                 <Divider horizontal>Range</Divider>
                 <RadioGroup
@@ -503,17 +541,18 @@ class FamilyReads extends React.PureComponent {
       </Segment.Group>
     ) : null
 
-    return React.createElement(layout, { variant, reads, showReads, ...props })
+    return React.createElement(layout, { variant, reads, showReads, updateReads: this.updateReads, ...props })
   }
 
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   igvSamplesByFamilySampleIndividual: getIGVSamplesByFamilySampleIndividual(state),
   sortedIndividualByFamily: getSortedIndividualsByFamily(state),
   familiesByGuid: getFamiliesByGuid(state),
   projectsByGuid: getProjectsByGuid(state),
   genesById: getGenesById(state),
+  spliceOutliersByFamily: ownProps.variant && getSpliceOutliersByChromFamily(state)[ownProps.variant.chrom],
   archieApiRootUrl: getArchieApiRootUrl(state),
 })
 

@@ -76,6 +76,7 @@ ES_VARIANTS = [
           'exac_AC_Hom': 0,
           'topmed_AC': 21,
           'dbnsfp_REVEL_score': None,
+          'dbnsfp_VEST4_score': '0.335;0.341;0.38',
           'primate_ai_score': None,
           'variantId': '1-248367227-TC-T',
           'sortedTranscriptConsequences': [
@@ -180,7 +181,8 @@ ES_VARIANTS = [
           'eigen_Eigen_phred': None,
           'exac_AF_POPMAX': 0.0006726888333653661,
           'gnomad_exomes_AC': 16,
-          'dbnsfp_FATHMM_pred': None,
+          'dbnsfp_FATHMM_pred': 'T',
+          'dbnsfp_fathmm_MKL_coding_pred': 'D',
           'gnomad_exomes_AF': 0.00006505916317651364,
           'gnomad_genomes_AF': 0.00012925741614425127,
           'gnomad_genomes_AC': 4,
@@ -315,6 +317,7 @@ ES_VARIANTS = [
           'gnomad_genomes_AN': None,
           'dbnsfp_MetaSVM_pred': None,
           'dbnsfp_Polyphen2_HVAR_pred': None,
+          'dbnsfp_VEST4_score': '.;.;.;.',
           'clinvar_allele_id': None,
           'gnomad_exomes_Hom': 0,
           'gnomad_exomes_AF_POPMAX_OR_GLOBAL': 0.00016269686320447742,
@@ -485,7 +488,12 @@ ES_SV_WGS_VARIANT = {
             'gene_symbol': 'FAM131C',
             'major_consequence': 'DUP_LOF',
             'gene_id': 'ENSG00000228201'
-        }
+        },
+        {
+            "gene_symbol": "H3-2",
+            "gene_id": None,
+            "major_consequence": "NEAREST_TSS"
+        },
       ],
       'cpx_intervals': [{'type': 'DUP', 'chrom': '2', 'start': 1000, 'end': 3000},
                         {'type': 'INV', 'chrom': '20', 'start': 11000, 'end': 13000}],
@@ -732,7 +740,7 @@ for variant in PARSED_COMPOUND_HET_VARIANTS_PROJECT_2:
 PARSED_NO_CONSEQUENCE_FILTER_VARIANTS = deepcopy(PARSED_VARIANTS)
 PARSED_NO_CONSEQUENCE_FILTER_VARIANTS[1]['selectedMainTranscriptId'] = None
 
-PARSED_NO_SORT_VARIANTS = deepcopy(PARSED_NO_CONSEQUENCE_FILTER_VARIANTS + [PARSED_SV_VARIANT])
+PARSED_NO_SORT_VARIANTS = deepcopy(PARSED_NO_CONSEQUENCE_FILTER_VARIANTS + [PARSED_SV_VARIANT, PARSED_MITO_VARIANT])
 for var in PARSED_NO_SORT_VARIANTS:
     del var['_sort']
 
@@ -811,6 +819,9 @@ MAPPING_FIELDS = [
     'splice_ai_delta_score',
     'splice_ai_splice_consequence',
     'dbnsfp_FATHMM_pred',
+    'dbnsfp_fathmm_MKL_coding_pred',
+    'dbnsfp_MutPred_score',
+    'dbnsfp_VEST4_score',
     'primate_ai_score',
     'dbnsfp_SIFT_pred',
     'dbnsfp_Polyphen2_HVAR_pred',
@@ -1399,13 +1410,19 @@ class EsUtilsTest(TestCase):
         self.assertDictEqual(variant, PARSED_NO_SORT_VARIANTS[1])
         self.assertExecutedSearch(
             filters=[{'terms': {'variantId': ['2-103343353-GAGA-G']}}],
-            size=2, index=','.join([INDEX_NAME, MITO_WGS_INDEX_NAME]), unsorted=True,
+            size=1, index=INDEX_NAME, unsorted=True,
         )
 
         variant = get_single_variant(self.families, 'prefix_19107_DEL')
         self.assertDictEqual(variant, PARSED_NO_SORT_VARIANTS[2])
         self.assertExecutedSearch(
             filters=[{'terms': {'variantId': ['prefix_19107_DEL']}}], size=1, index=SV_INDEX_NAME, unsorted=True,
+        )
+
+        variant = get_single_variant(self.families, 'M-10195-C-A')
+        self.assertDictEqual(variant, PARSED_NO_SORT_VARIANTS[3])
+        self.assertExecutedSearch(
+            filters=[{'terms': {'variantId': ['M-10195-C-A']}}], size=1, index=MITO_WGS_INDEX_NAME, unsorted=True,
         )
 
         variant = get_single_variant(self.families, '1-248367227-TC-T', return_all_queried_families=True)
@@ -1417,7 +1434,7 @@ class EsUtilsTest(TestCase):
         self.assertDictEqual(variant, all_family_variant)
         self.assertExecutedSearch(
             filters=[{'terms': {'variantId': ['1-248367227-TC-T']}}],
-            size=2, index=','.join([INDEX_NAME, MITO_WGS_INDEX_NAME]), unsorted=True,
+            size=1, index=INDEX_NAME, unsorted=True,
         )
 
         with self.assertRaises(InvalidSearchException) as cm:
@@ -1522,7 +1539,6 @@ class EsUtilsTest(TestCase):
         self.assertEqual(total_results, 5)
 
         self.assertCachedResults(results_model, {'all_results': variants, 'total_results': 5})
-        self.assertTrue('index_metadata__{},{}'.format(INDEX_NAME, MITO_WGS_INDEX_NAME) in REDIS_CACHE)
 
         self.assertExecutedSearch(filters=[ANNOTATION_QUERY, ALL_INHERITANCE_QUERY])
 
@@ -1584,7 +1600,7 @@ class EsUtilsTest(TestCase):
                 'topmed': {'ac': 2, 'af': None},
             },
             'qualityFilter': {'min_ab': 10, 'min_gq': 15, 'vcf_filter': 'pass', 'affected_only': True},
-            'in_silico': {'cadd': '11.5', 'sift': 'D'},
+            'in_silico': {'cadd': '11.5', 'sift': 'D', 'fathmm': 'D'},
             'inheritance': {'mode': 'de_novo'},
             'customQuery': {'term': {'customFlag': 'flagVal'}},
             'locus': {'rawItems': 'DDX11L1, chr2:1234-5678, chr7:100-10100%10', 'excludeLocations': True},
@@ -1606,7 +1622,10 @@ class EsUtilsTest(TestCase):
                         {'range': {'xstop': {'gte': 2000001234, 'lte': 2000005678}}},
                         {'bool': {'must': [
                             {'range': {'xpos': {'lte': 2000001234}}},
-                            {'range': {'xstop': {'gte': 2000005678}}}]}},
+                            {'range': {'xstop': {'gte': 2000005678}}},
+                            {'range': {'xpos': {'gte': 2000000001}}},
+                            {'range': {'xstop': {'lte': 2300000000}}},
+                        ]}},
                         {'terms': {'geneIds': ['ENSG00000223972']}},
                         {'bool': {'must': [
                             {'range': {'xpos': {'gte': 7000000001, 'lte': 7000001100}}},
@@ -1713,6 +1732,8 @@ class EsUtilsTest(TestCase):
                 {'range': {'cadd_PHRED': {'gte': 11.5}}},
                 {'bool': {'must_not': [{'exists': {'field': 'dbnsfp_SIFT_pred'}}]}},
                 {'prefix': {'dbnsfp_SIFT_pred': 'D'}},
+                {'bool': {'must_not': [{'exists': {'field': 'dbnsfp_fathmm_MKL_coding_pred'}}]}},
+                {'prefix': {'dbnsfp_fathmm_MKL_coding_pred': 'D'}},
             ]}},
             {'bool': {'must_not': [{'exists': {'field': 'filters'}}]}},
             {'bool': {
@@ -2398,7 +2419,7 @@ class EsUtilsTest(TestCase):
         self.assertListEqual(variants, PARSED_VARIANTS)
         self.assertEqual(total_results, 5)
 
-        self.assertExecutedSearch(index=','.join([INDEX_NAME, MITO_WGS_INDEX_NAME]), size=4, filters=[
+        self.assertExecutedSearch(index=INDEX_NAME, size=2, filters=[
             {'terms': {'variantId': ['1-248367227-TC-T', '2-103343353-GAGA-G']}}, ANNOTATION_QUERY])
 
     @urllib3_responses.activate
@@ -3345,7 +3366,13 @@ class EsUtilsTest(TestCase):
             if quality_filter:
                 search_model.search['qualityFilter'] = quality_filter
             search_model.save()
-            query_variants(results_model, num_results=2)
+            variants, _ = query_variants(results_model, num_results=2)
+
+            if mode not in {'compound_het', 'recessive'}:
+                self.assertSetEqual(
+                    set(variants[-1]['genotypes'].keys()),
+                    {'I000004_hg00731', 'I000005_hg00732', 'I000006_hg00733'},
+                )
 
             index = INDEX_NAME if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS else SV_INDEX_NAME
             annotation_query = {'terms': {'transcriptConsequenceTerms': next(iter(annotations.values()))}}

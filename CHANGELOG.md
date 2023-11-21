@@ -2,6 +2,26 @@
 
 ## dev
 
+## 11/13/23
+* Add Partial Solve analysis status in Family model (REQUIRES DB MIGRATION)
+
+## 10/19/23
+* Migrate Family post_discovery_omim_number to integer array (REQUIRES DB MIGRATION)
+* Add GeneShet model to the reference DB (REQUIRES DB MIGRATION)
+
+## 10/6/23
+* Require tissue_type in Sample model (REQUIRES DB MIGRATION)
+
+## 9/22/23
+* Update VARIANTS dataset_type in Sample model (REQUIRES DB MIGRATION)
+
+## 8/22/23
+* Add db indices to optimize RNA data queries (REQUIRES DB MIGRATION)
+
+## 7/11/23
+* Add internal UI to trigger airflow data loading
+* Add RnaSeqSpliceOutlier display
+
 ## 6/23/23
 * Add a 'rank' field to the RnaSeqSpliceOutlier model (REQUIRES DB MIGRATION)
 * Remove hail python dependency

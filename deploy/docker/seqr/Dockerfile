@@ -80,7 +80,14 @@ RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-bullseye main" > /e
 COPY --from=build /opt/venv /opt/venv
 
 WORKDIR /seqr
-COPY . .
+COPY admin/ ./admin
+COPY matchmaker/ ./matchmaker
+COPY panelapp/ ./panelapp
+COPY reference_data/ ./reference_data
+COPY seqr/ ./seqr
+COPY mcri_ext/ ./mcri_ext
+COPY static/ ./static
+COPY manage.py settings.py wsgi.py ./
 COPY --from=build /build/ui/dist /seqr/ui/dist
 
 ENV VIRTUAL_ENV=/opt/venv
@@ -93,6 +100,7 @@ EXPOSE 8000
 ENV TERM=xterm
 
 COPY deploy/docker/seqr/readiness_probe /
+COPY deploy/docker/seqr/wait_for_routes /
 COPY deploy/docker/seqr/bin/*.sh /usr/local/bin/
 COPY deploy/docker/seqr/config/*.py ./
 COPY deploy/docker/seqr/bashrc /root/.bashrc

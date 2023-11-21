@@ -39,7 +39,6 @@ import { getCurrentProject, getParentOptionsByIndividual } from '../../selectors
 import CaseReviewStatusDropdown from './CaseReviewStatusDropdown'
 import CollapsableLayout from './CollapsableLayout'
 
-const RnaSeqOutliers = React.lazy(() => import('../RnaSeqOutliers'))
 const PhenotypePrioritizedGenes = React.lazy(() => import('../PhenotypePrioritizedGenes'))
 
 const Detail = styled.div`
@@ -119,13 +118,6 @@ CaseReviewStatus.propTypes = {
 
 const SHOW_DATA_MODAL_CONFIG = [
   {
-    shouldShowField: 'hasRnaOutlierData',
-    component: RnaSeqOutliers,
-    modalName: ({ sampleId }) => `OUTRIDER-${sampleId}`,
-    title: ({ sampleId }) => `RNA-Seq OUTRIDER: ${sampleId}`,
-    linkText: 'Show RNA-Seq OUTRIDER',
-  },
-  {
     shouldShowField: 'hasPhenotypeGeneScores',
     component: PhenotypePrioritizedGenes,
     modalName: ({ individualId }) => `PHENOTYPE-PRIORITIZATION-${individualId}`,
@@ -162,7 +154,9 @@ const DataDetails = React.memo(({ loadedSamples, individual, mmeSubmission }) =>
         <Popup
           flowing
           trigger={
-            <MmeStatusLabel title="Removed from MME" dateField="deletedDate" color="red" individual={individual} mmeSubmission={mmeSubmission} />
+            <div>
+              <MmeStatusLabel title="Removed from MME" dateField="deletedDate" color="red" individual={individual} mmeSubmission={mmeSubmission} />
+            </div>
           }
           content={
             <div>
@@ -172,6 +166,16 @@ const DataDetails = React.memo(({ loadedSamples, individual, mmeSubmission }) =>
           }
         />
       ) : <MmeStatusLabel title="Submitted to MME" dateField="lastModifiedDate" color="violet" individual={individual} mmeSubmission={mmeSubmission} />
+    )}
+    {individual.hasRnaOutlierData && (
+      <div>
+        <Link
+          target="_blank"
+          to={`/project/${individual.projectGuid}/family_page/${individual.familyGuid}/rnaseq_results/${individual.individualGuid}`}
+        >
+          RNAseq Results
+        </Link>
+      </div>
     )}
     {SHOW_DATA_MODAL_CONFIG.filter(({ shouldShowField }) => individual[shouldShowField]).map(
       ({ modalName, title, modalSize, linkText, component }) => {
@@ -183,7 +187,7 @@ const DataDetails = React.memo(({ loadedSamples, individual, mmeSubmission }) =>
             modalName={modalName(titleIds)}
             title={title(titleIds)}
             size={modalSize}
-            trigger={<ButtonLink padding="1em 0 0 0" content={linkText} />}
+            trigger={<ButtonLink padding="0 0 0 0" content={linkText} />}
           >
             <React.Suspense fallback={<Loader />}>
               {React.createElement(component,

@@ -10,15 +10,15 @@ from itertools import combinations
 
 from reference_data.models import GENOME_VERSION_GRCh38, GENOME_VERSION_GRCh37
 from seqr.models import Sample, Individual
-from seqr.utils.search.constants import XPOS_SORT_KEY, COMPOUND_HET, RECESSIVE, NEW_SV_FIELD, ALL_DATA_TYPES
-from seqr.utils.search.elasticsearch.constants import X_LINKED_RECESSIVE, \
+from seqr.utils.search.constants import XPOS_SORT_KEY, COMPOUND_HET, RECESSIVE, NEW_SV_FIELD, ALL_DATA_TYPES, X_LINKED_RECESSIVE
+from seqr.utils.search.elasticsearch.constants import \
     HAS_ALT_FIELD_KEYS, GENOTYPES_FIELD_KEY, POPULATION_RESPONSE_FIELD_CONFIGS, POPULATIONS, \
-    SORTED_TRANSCRIPTS_FIELD_KEY, CORE_FIELDS_CONFIG, NESTED_FIELDS, PREDICTION_FIELDS_CONFIG, INHERITANCE_FILTERS, \
+    SORTED_TRANSCRIPTS_FIELD_KEY, CORE_FIELDS_CONFIG, NESTED_FIELDS, PREDICTION_FIELDS_RESPONSE_CONFIG, INHERITANCE_FILTERS, \
     QUERY_FIELD_NAMES, REF_REF, ANY_AFFECTED, GENOTYPE_QUERY_MAP, HGMD_CLASS_MAP, \
     SORT_FIELDS, MAX_VARIANTS, MAX_COMPOUND_HET_GENES, MAX_INDEX_NAME_LENGTH, QUALITY_QUERY_FIELDS, \
     GRCH38_LOCUS_FIELD, MAX_SEARCH_CLAUSES, SV_SAMPLE_OVERRIDE_FIELD_CONFIGS, \
-    PREDICTION_FIELD_LOOKUP, SPLICE_AI_FIELD, CLINVAR_KEY, HGMD_KEY, CLINVAR_PATH_SIGNIFICANCES, \
-    PATH_FREQ_OVERRIDE_CUTOFF, AFFECTED, UNAFFECTED, HAS_ALT, \
+    PREDICTION_FIELD_LOOKUP, MULTI_FIELD_PREDICTORS, SPLICE_AI_FIELD, CLINVAR_KEY, HGMD_KEY, CLINVAR_PATH_SIGNIFICANCES, \
+    PATH_FREQ_OVERRIDE_CUTOFF, AFFECTED, UNAFFECTED, HAS_ALT, CANONICAL_TRANSCRIPT_FILTER, \
     get_prediction_response_key, XSTOP_FIELD, GENOTYPE_FIELDS, SCREEN_KEY, MAX_INDEX_SEARCHES, PREFILTER_SEARCH_SIZE
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.redis_utils import safe_redis_get_json, safe_redis_set_json
@@ -101,7 +101,14 @@ class EsSearch(object):
                     })
 
     def _get_index_dataset_type(self, index):
-        return self.index_metadata[index].get('datasetType', Sample.DATASET_TYPE_VARIANT_CALLS)
+        return self.get_index_metadata_dataset_type(self.index_metadata[index])
+
+    @staticmethod
+    def get_index_metadata_dataset_type(index_metadata):
+        data_type = index_metadata.get('datasetType', Sample.DATASET_TYPE_VARIANT_CALLS)
+        if data_type == 'VARIANTS':
+            data_type = Sample.DATASET_TYPE_VARIANT_CALLS
+        return data_type
 
     def _set_indices(self, indices):
         self._indices = indices
@@ -284,11 +291,33 @@ class EsSearch(object):
                 self._filter(Q(q_dict))
 
     def _filter_by_in_silico(self, in_silico_filters):
-        in_silico_filters = in_silico_filters or {}
+        in_silico_filters = deepcopy(in_silico_filters or {})
         require_score = in_silico_filters.pop('requireScore', False)
         in_silico_filters = {k: v for k, v in in_silico_filters.items() if v is not None and len(v) != 0}
         if in_silico_filters:
-            self._filter(_in_silico_filter(in_silico_filters, require_score=require_score))
+            self._filter(self._in_silico_filter(in_silico_filters, require_score=require_score))
+
+    def _in_silico_filter(self, in_silico_filters, require_score):
+        prediction_key_lookup = {
+            in_silico_filter: PREDICTION_FIELD_LOOKUP.get(in_silico_filter.lower(), in_silico_filter)
+            for in_silico_filter in in_silico_filters.keys()
+        }
+
+        multi_predictor_fields = {
+            in_silico_filter: MULTI_FIELD_PREDICTORS[in_silico_filter.lower()]
+            for in_silico_filter in in_silico_filters.keys() if in_silico_filter.lower() in MULTI_FIELD_PREDICTORS
+        }
+        if multi_predictor_fields:
+            all_fields = set()
+            for metadata in self.index_metadata.values():
+                all_fields.update(metadata['fields'])
+            index_fields = {
+                k: next(field for field in fields if field in all_fields)
+                for k, fields in multi_predictor_fields.items()
+            }
+            prediction_key_lookup.update(index_fields)
+
+        return _in_silico_filter({prediction_key_lookup[k]: v for k, v in in_silico_filters.items()}, require_score)
 
     def _filter_by_frequency(self, frequencies):
         frequencies = {pop: v for pop, v in (frequencies or {}).items() if pop in POPULATIONS}
@@ -339,7 +368,7 @@ class EsSearch(object):
             filters.append(pathogenicity_filter)
         splice_ai = self._consequence_overrides.get(SPLICE_AI_FIELD)
         if splice_ai:
-            filters.append(_in_silico_filter({SPLICE_AI_FIELD: splice_ai}, require_score=True))
+            filters.append(self._in_silico_filter({SPLICE_AI_FIELD: splice_ai}, require_score=True))
         screen = self._consequence_overrides.get(SCREEN_KEY)
         if screen:
             filters.append(Q('terms', screen_region_type=screen))
@@ -786,7 +815,8 @@ class EsSearch(object):
 
         transcripts = defaultdict(list)
         for transcript in sorted_transcripts:
-            transcripts[transcript['geneId']].append(transcript)
+            if transcript['geneId']:
+                transcripts[transcript['geneId']].append(transcript)
         gene_ids = result.pop('geneIds', None)
         if gene_ids:
             transcripts = {gene_id: ts for gene_id, ts in transcripts.items() if gene_id in gene_ids}
@@ -799,7 +829,8 @@ class EsSearch(object):
             'selectedMainTranscriptId': selected_main_transcript_id,
             'populations': populations,
             'predictions': _get_field_values(
-                hit, PREDICTION_FIELDS_CONFIG, format_response_key=get_prediction_response_key
+                hit, PREDICTION_FIELDS_RESPONSE_CONFIG, format_response_key=get_prediction_response_key,
+                get_addl_fields=lambda field: MULTI_FIELD_PREDICTORS.get(field, [])
             ),
             'transcripts': dict(transcripts),
         })
@@ -887,16 +918,24 @@ class EsSearch(object):
             if self._allowed_consequences:
                 consequence_transcript_id = next((
                     t.get('transcriptId') for t in gene_transcripts if
-                    t.get('majorConsequence') in self._allowed_consequences), None)
+                    self._is_matched_transcript(t, self._allowed_consequences)), None)
                 if not consequence_transcript_id and self._allowed_consequences_secondary:
                     consequence_transcript_id = next((
-                        t.get('transcriptId') for t in gene_transcripts if t.get('majorConsequence') in self._allowed_consequences_secondary
+                        t.get('transcriptId') for t in gene_transcripts if self._is_matched_transcript(t, self._allowed_consequences_secondary)
                     ), None)
                 selected_main_transcript_id = consequence_transcript_id or selected_main_transcript_id
             if selected_main_transcript_id == main_transcript_id:
                 selected_main_transcript_id = None
 
         return main_transcript_id, selected_main_transcript_id
+
+    @staticmethod
+    def _is_matched_transcript(t, allowed_consequences):
+        is_match = t.get('majorConsequence') in allowed_consequences
+        if CANONICAL_TRANSCRIPT_FILTER in allowed_consequences and t.get('canonical') and \
+                t.get('majorConsequence') == 'non_coding_transcript_exon_variant':
+            is_match = True
+        return is_match
 
     @staticmethod
     def _add_liftover(result, hit):
@@ -1024,6 +1063,8 @@ class EsSearch(object):
         return True
 
     def _filter_invalid_annotation_compound_hets(self, gene_id, gene_variants):
+        allowed_consequences = self._allowed_consequences + (self._allowed_consequences_secondary or [])
+        has_canonical_transcript_filter = CANONICAL_TRANSCRIPT_FILTER in allowed_consequences
         for variant in gene_variants:
             all_gene_consequences = []
             if variant.get('svType'):
@@ -1038,13 +1079,20 @@ class EsSearch(object):
 
             variant['gene_consequences'] = {}
             for k, transcripts in variant['transcripts'].items():
-                variant['gene_consequences'][k] = all_gene_consequences + [
-                    transcript['majorConsequence'] for transcript in transcripts if
-                    transcript.get('majorConsequence')
+                transcript_consequences = [
+                    (transcript['majorConsequence'], transcript.get('canonical'))
+                    for transcript in transcripts if transcript.get('majorConsequence')
                 ]
+                variant['gene_consequences'][k] = all_gene_consequences + [
+                    consequence for consequence, _ in transcript_consequences
+                ]
+                if has_canonical_transcript_filter and any(
+                        canonical for consequence, canonical in transcript_consequences
+                        if consequence == 'non_coding_transcript_exon_variant'):
+                    variant['gene_consequences'][k].append(CANONICAL_TRANSCRIPT_FILTER)
 
         return [variant for variant in gene_variants if any(
-            consequence in self._allowed_consequences + (self._allowed_consequences_secondary or [])
+            consequence in allowed_consequences
             for consequence in variant['gene_consequences'].get(gene_id, [])
         )]
 
@@ -1389,7 +1437,9 @@ def _location_filter(genes, intervals, exclude_locations):
                     }
                 } for key in ['xpos', 'xstop']]
                 interval_q = _build_or_filter('range', range_filters)
-                interval_q |= Q('range', xpos={'lte': xstart}) & Q('range', xstop={'gte': xstop})
+                interval_q |= Q('range', xpos={'lte': xstart}) & Q('range', xstop={'gte': xstop}) & \
+                              Q('range', xpos={'gte': get_xpos(interval['chrom'], MIN_POS)}) & \
+                              Q('range', xstop={'lte': get_xpos(interval['chrom'], MAX_POS)})
 
             if q:
                 q |= interval_q
@@ -1467,8 +1517,7 @@ def _annotations_filter(vep_consequences):
 
 def _in_silico_filter(in_silico_filters, require_score):
     in_silico_qs = []
-    for in_silico_filter, value in in_silico_filters.items():
-        prediction_key = PREDICTION_FIELD_LOOKUP.get(in_silico_filter.lower(), in_silico_filter)
+    for prediction_key, value in in_silico_filters.items():
         try:
             score_q = Q('range', **{prediction_key: {'gte': float(value)}})
         except ValueError:
@@ -1532,7 +1581,7 @@ def _parse_es_sort(sort, sort_config):
 
 def _get_field_values(hit, field_configs, format_response_key=_to_camel_case, get_addl_fields=None, lookup_field_prefix='', existing_fields=None, skip_fields=None):
     return {
-        field_config.get('response_key', format_response_key(field)): _value_if_has_key(
+        field_config.get('response_key') or format_response_key(field): _value_if_has_key(
             hit,
             (get_addl_fields(field) if get_addl_fields else []) +
             ['{}_{}'.format(lookup_field_prefix, field) if lookup_field_prefix else field],
