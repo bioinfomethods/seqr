@@ -1045,6 +1045,7 @@ const SORT_BY_GNOMAD_GENOMES = 'GNOMAD'
 const SORT_BY_GNOMAD_EXOMES = 'GNOMAD_EXOMES'
 const SORT_BY_CALLSET_AF = 'CALLSET_AF'
 const SORT_BY_CONSTRAINT = 'CONSTRAINT'
+const SORT_BY_ALPHA_MISSENSE_PATHOGENICITY = 'AM_PATHOGENICITY'
 const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
 const SORT_BY_CADD = 'CADD'
 const SORT_BY_REVEL = 'REVEL'
@@ -1145,6 +1146,7 @@ const getPrioritizedGeneTopRank = (variant, genesById, individualGeneDataByFamil
 const VARIANT_SORT_OPTONS = [
   { value: SORT_BY_FAMILY_GUID, text: 'Family', comparator: (a, b) => a.familyGuids[0].localeCompare(b.familyGuids[0]) },
   { value: SORT_BY_XPOS, text: 'Position', comparator: (a, b) => a.xpos - b.xpos },
+  { value: SORT_BY_ALPHA_MISSENSE_PATHOGENICITY, text: 'AlphaMissense pathogenicity', comparator: predictionComparator('am_pathogenicity') },
   {
     value: SORT_BY_IN_OMIM,
     text: 'In OMIM',
@@ -1316,6 +1318,39 @@ export const SPLICE_AI_FIELD = 'splice_ai'
 const rangeSourceLink = <a href="https://pubmed.ncbi.nlm.nih.gov/36413997" target="_blank" rel="noreferrer">36413997</a>
 const PRED_COLOR_MAP = ['green', 'olive', 'grey', 'yellow', 'red', '#8b0000']
 export const PREDICTOR_FIELDS = [
+  {
+    field: 'am_pathogenicity',
+    group: MISSENSE_IN_SILICO_GROUP,
+    warningThreshold: 0.34,
+    dangerThreshold: 0.564,
+    thresholds: [undefined, undefined, 0.34, 0.564, undefined],
+    /* eslint-disable-next-line camelcase */
+    infoField: ({ am_class, am_transcript_id, am_protein_variant }) => (
+      <div>
+        <div>
+          <b>Classification:&nbsp;</b>
+          {/* eslint-disable-next-line camelcase */}
+          { am_class }
+        </div>
+        <div>
+          <b>Transcript:&nbsp;</b>
+          {/* eslint-disable-next-line camelcase */}
+          { am_transcript_id }
+        </div>
+        <div>
+          <b>Protein variant:&nbsp;</b>
+          {/* eslint-disable-next-line camelcase */}
+          { am_protein_variant }
+        </div>
+      </div>
+    ),
+    infoTitle: 'AlphaMissense',
+    fieldTitle: 'AlphaMissense',
+    hideClinGenFooter: true,
+    getHref: ({ predictions }) => (
+      `https://www.uniprot.org/uniprotkb/${predictions.am_uniprot_id}/entry`
+    ),
+  },
   { field: 'genetale_var_class_num', group: CODING_IN_SILICO_GROUP, warningThreshold: 5, dangerThreshold: 6, min: 3, max: 7, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
   { field: 'cadd', group: CODING_IN_SILICO_GROUP, thresholds: [0.151, 22.8, 25.3, 28.1, undefined], min: 1, max: 99 },
   { field: 'revel', group: MISSENSE_IN_SILICO_GROUP, thresholds: [0.0161, 0.291, 0.644, 0.773, 0.932] },
@@ -1354,14 +1389,14 @@ export const PREDICTOR_FIELDS = [
 ]
 export const coloredIcon = color => React.createElement(color.startsWith('#') ? ColoredIcon : Icon, { name: 'circle', size: 'small', color })
 export const predictionFieldValue = (
-  predictions, { field, thresholds, indicatorMap, infoField, infoTitle },
+  predictions, { field, thresholds, indicatorMap, infoField, infoTitle, hideClinGenFooter },
 ) => {
   let value = predictions[field]
   if (value === null || value === undefined) {
     return { value }
   }
 
-  const infoValue = predictions[infoField]
+  const infoValue = (typeof infoField === 'function') ? infoField(predictions) : predictions[infoField]
 
   if (thresholds) {
     value = parseFloat(value).toPrecision(3)
@@ -1370,12 +1405,12 @@ export const predictionFieldValue = (
         (thresholds[i - 1] === undefined || value >= thresholds[i - 1]) &&
         (thresholds[i] === undefined || value < thresholds[i]),
     )
-    return { value, color, infoValue, infoTitle, thresholds }
+    return { value, color, infoValue, infoTitle, thresholds, hideClinGenFooter }
   }
 
   return indicatorMap[value[0]] || indicatorMap[value]
 }
-export const predictorColorRanges = thresholds => (
+export const predictorColorRanges = (thresholds, hideClinGenFooter) => (
   <div>
     {PRED_COLOR_MAP.map((c, i) => {
       const prevUndefined = thresholds[i - 1] === undefined
@@ -1397,10 +1432,12 @@ export const predictorColorRanges = thresholds => (
         </div>
       )
     })}
-    <small>
-      {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
-      Based on 2022 ClinGen recommendations (PMID:&nbsp;{rangeSourceLink})
-    </small>
+    {!hideClinGenFooter && (
+      <small>
+        {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
+        Based on 2022 ClinGen recommendations (PMID:&nbsp;{rangeSourceLink})
+      </small>
+    )}
   </div>
 )
 
@@ -1438,6 +1475,7 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'gnomad_genomes_freq', getVal: getPopAf('gnomad_genomes') },
   { header: 'gnomad_exomes_freq', getVal: getPopAf('gnomad_exomes') },
   { header: 'topmed_freq', getVal: getPopAf('topmed') },
+  { header: 'alpha_missense', getVal: variant => (variant.predictions || {}).alpha_missense },
   { header: 'genetale_var_class_num', getVal: variant => (variant.predictions || {}).genetale_var_class_num },
   { header: 'cadd', getVal: variant => (variant.predictions || {}).cadd },
   { header: 'revel', getVal: variant => (variant.predictions || {}).revel },

@@ -20,7 +20,7 @@ const PredictionValue = styled.span`
 const NUM_TO_SHOW_ABOVE_THE_FOLD = 6 // how many predictors to show immediately
 
 const Prediction = (
-  { field, fieldTitle, value, color, infoValue, infoTitle, thresholds, href },
+  { field, fieldTitle, value, color, infoValue, infoTitle, thresholds, href, hideClinGenFooter },
 ) => {
   const indicator = infoValue ? (
     <Popup
@@ -34,7 +34,7 @@ const Prediction = (
     <Popup
       header={`${fieldName} Color Ranges`}
       hoverable
-      content={predictorColorRanges(thresholds)}
+      content={predictorColorRanges(thresholds, hideClinGenFooter)}
       trigger={<span>{fieldName}</span>}
     />
   ) : fieldName
@@ -59,6 +59,7 @@ Prediction.propTypes = {
   color: PropTypes.string,
   thresholds: PropTypes.arrayOf(PropTypes.number),
   href: PropTypes.string,
+  hideClinGenFooter: PropTypes.bool,
 }
 
 class Predictions extends React.PureComponent {
