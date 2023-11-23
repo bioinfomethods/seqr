@@ -22,4 +22,4 @@
 # m h  dom mon dow   command
 #* * * * * /usr/local/bin/docker-compose --version >> /home/seqr/logs/cron.log 2>&1
 0 3 * * * /home/seqr/seqr/mcri_deploy/scripts/create_backup.sh >> /home/seqr/logs/create_backup.log 2>&1
-0 2 * * * /usr/local/bin/docker-compose -f /home/seqr/seqr/docker-compose.yml exec -T seqr python manage.py import_all_panels https://panelapp.agha.umccr.org/api/v1 >> /home/seqr/logs/import_all_panels.log 2>&1
+0 2 * * * /usr/bin/docker compose -f /home/seqr/seqr/docker-compose.yml exec -T seqr python manage.py import_all_panels https://panelapp.agha.umccr.org/api/v1 >> /home/seqr/logs/import_all_panels.log 2>&1
