@@ -49,6 +49,7 @@ def _get_valid_gencode_gtf_paths(gencode_release, gencode_gtf_path, genome_versi
             ]
         gencode_gtf_paths = {}
         for genome_version, url in urls:
+            logger.info("Downloading {} (genome version: {})".format(url, genome_version))
             local_filename = download_file(url)
             gencode_gtf_paths.update({genome_version: local_filename})
     return gencode_gtf_paths

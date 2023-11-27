@@ -84,6 +84,7 @@ services:
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
       - ARCHIE_API_ROOT_URL=${ARCHIE_API_ROOT_URL:-https://archietest.mcri.edu.au}
       - SHOW_MCRI_OBS_COUNTS=${SHOW_MCRI_OBS_COUNTS:-True}
+      - MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME=${MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME:-mcri-seqr-imports}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files
