@@ -9,7 +9,8 @@
                 "qualityFilter": {
                     "vcf_filter": "pass",
                     "min_ab": 20,
-                    "min_gq": 20
+                    "min_gq": 20,
+                    "affected_only": true
                 },
                 "pathogenicity": {
                     "hgmd": [
@@ -97,7 +98,8 @@
                 "qualityFilter": {
                     "vcf_filter": "pass",
                     "min_ab": 20,
-                    "min_gq": 20
+                    "min_gq": 20,
+                    "affected_only": true
                 },
                 "pathogenicity": {
                     "hgmd": [
@@ -181,7 +183,8 @@
                 "qualityFilter": {
                     "vcf_filter": null,
                     "min_ab": 0,
-                    "min_gq": 20
+                    "min_gq": 20,
+                    "affected_only": true
                 },
                 "pathogenicity": {
                     "hgmd": [
