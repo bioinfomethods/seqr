@@ -8,8 +8,14 @@ on:
       - master
       - dev
       - 'mcri/*'
+    paths-ignore:
+      - 'hail_search/**'
+      - '.github/workflows/hail-search-unit-tests.yaml'
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - 'hail_search/**'
+      - '.github/workflows/hail-search-unit-tests.yaml'
 
 jobs:
   python:

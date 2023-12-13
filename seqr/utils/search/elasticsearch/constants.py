@@ -3,7 +3,7 @@ from django.db.models import Min
 from reference_data.models import Omim, GeneConstraint
 from seqr.models import Individual, Sample, PhenotypePrioritization
 from seqr.utils.search.constants import COMPOUND_HET, RECESSIVE, XPOS_SORT_KEY, PATHOGENICTY_SORT_KEY, \
-    PATHOGENICTY_HGMD_SORT_KEY, PRIORITIZED_GENE_SORT
+    PATHOGENICTY_HGMD_SORT_KEY, PRIORITIZED_GENE_SORT, X_LINKED_RECESSIVE
 
 
 MAX_VARIANTS = 10000
@@ -32,7 +32,6 @@ GENOTYPE_QUERY_MAP = {
     },
 }
 
-X_LINKED_RECESSIVE = 'x_linked_recessive'
 HOMOZYGOUS_RECESSIVE = 'homozygous_recessive'
 ANY_AFFECTED = 'any_affected'
 RECESSIVE_FILTER = {
@@ -274,6 +273,7 @@ POPULATION_SORTS = {
     }] for sort, pop_key in {'gnomad': 'gnomad_genomes', 'gnomad_exomes': 'gnomad_exomes', 'callset_af': 'callset'}.items()}
 SORT_FIELDS.update(POPULATION_SORTS)
 PREDICTOR_SORT_FIELDS = {
+    'am_pathogenicity': 'alpha_missense_am_pathogenicity',
     'cadd': 'cadd_PHRED',
     'revel': 'dbnsfp_REVEL_score',
     'eigen': 'eigen_Eigen_phred',
@@ -294,6 +294,7 @@ HGMD_FIELDS = ['accession', 'class']
 GENOTYPES_FIELD_KEY = 'genotypes'
 HAS_ALT_FIELD_KEYS = ['samples_num_alt_1', 'samples_num_alt_2', 'samples']
 SORTED_TRANSCRIPTS_FIELD_KEY = 'sortedTranscriptConsequences'
+CANONICAL_TRANSCRIPT_FILTER = 'non_coding_transcript_exon_variant__canonical'
 NESTED_FIELDS = {
     field_name: {field: {} for field in fields} for field_name, fields in {
         CLINVAR_KEY: CLINVAR_FIELDS,
@@ -338,7 +339,11 @@ PREDICTION_FIELDS_CONFIG = {
     'cadd_PHRED': {'response_key': 'cadd'},
     'dbnsfp_DANN_score': {},
     'eigen_Eigen_phred': {},
-    'dbnsfp_FATHMM_pred': {},
+    'dbnsfp_VEST4_score': {
+        'response_key': 'vest',
+        'format_value': lambda x: x and next((v for v in x.split(';') if v != '.'), None),
+    },
+    'dbnsfp_MutPred_score': {'response_key': 'mut_pred'},
     'mpc_MPC': {},
     'dbnsfp_MutationTaster_pred': {'response_key': 'mut_taster'},
     'dbnsfp_Polyphen2_HVAR_pred': {'response_key': 'polyphen'},
@@ -355,6 +360,12 @@ PREDICTION_FIELDS_CONFIG = {
         'format_value': lambda values: [v for v in values],
         'default_value': []
     },
+    'alpha_missense_genome': {'response_key': 'am_genome'},
+    'alpha_missense_uniprot_id': {'response_key': 'am_uniprot_id'},
+    'alpha_missense_transcript_id': {'response_key': 'am_transcript_id'},
+    'alpha_missense_protein_variant': {'response_key': 'am_protein_variant'},
+    'alpha_missense_am_pathogenicity': {'response_key': 'am_pathogenicity'},
+    'alpha_missense_am_class': {'response_key': 'am_class'},
 }
 MITO_PREDICTION_FIELDS_CONFIG = {
     'mitimpact_apogee': {},
@@ -371,6 +382,11 @@ PREDICTION_FIELD_LOOKUP = {
     field_config.get('response_key', get_prediction_response_key(field)): field
     for field, field_config in PREDICTION_FIELDS_CONFIG.items()
 }
+MULTI_FIELD_PREDICTORS = {
+    'fathmm': ['dbnsfp_fathmm_MKL_coding_pred', 'dbnsfp_FATHMM_pred']
+}
+PREDICTION_FIELDS_RESPONSE_CONFIG = {k: {'response_key': k} for k, v in MULTI_FIELD_PREDICTORS.items()}
+PREDICTION_FIELDS_RESPONSE_CONFIG.update(PREDICTION_FIELDS_CONFIG)
 
 QUALITY_QUERY_FIELDS = {'gq_sv': 10}
 SHARED_QUALITY_FIELDS = {'gq': 5}
@@ -423,6 +439,7 @@ GENOTYPE_FIELDS = {
 }
 
 QUERY_FIELD_NAMES = list(CORE_FIELDS_CONFIG.keys()) + list(PREDICTION_FIELDS_CONFIG.keys()) + \
+                    [field for fields in MULTI_FIELD_PREDICTORS.values() for field in fields] + \
                     [SORTED_TRANSCRIPTS_FIELD_KEY, GENOTYPES_FIELD_KEY, GRCH38_LOCUS_FIELD] + HAS_ALT_FIELD_KEYS
 for field_name, fields in NESTED_FIELDS.items():
     QUERY_FIELD_NAMES += ['{}_{}'.format(field_name, field) for field in fields.keys()]

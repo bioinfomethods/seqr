@@ -3,7 +3,7 @@ from reference_data.management.tests.test_utils import ReferenceDataCommandTestC
 
 
 class UpdateRefseqTest(ReferenceDataCommandTestCase):
-    URL = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.metadata.RefSeq.gz'
+    URL = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.metadata.RefSeq.gz'
     DATA = [
         'ENST00000258436.1	NR_026874.2	\n',
         'ENST00000258436.1	NR_122045.1	\n',

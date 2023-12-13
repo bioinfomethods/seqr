@@ -11,8 +11,8 @@ from reference_data.models import GeneInfo, TranscriptInfo, GENOME_VERSION_GRCh3
 
 logger = logging.getLogger(__name__)
 
-LATEST_GENCODE_RELEASE = 40
-OLD_GENCODE_RELEASES = [39, 31, 29, 28, 27, 19]
+LATEST_GENCODE_RELEASE = 44
+OLD_GENCODE_RELEASES = [40, 39, 31, 29, 28, 27, 19]
 
 GENCODE_URL_TEMPLATE = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_release}/{path}gencode.v{gencode_release}{file}'
 
@@ -49,6 +49,7 @@ def _get_valid_gencode_gtf_paths(gencode_release, gencode_gtf_path, genome_versi
             ]
         gencode_gtf_paths = {}
         for genome_version, url in urls:
+            logger.info("Downloading {} (genome version: {})".format(url, genome_version))
             local_filename = download_file(url)
             gencode_gtf_paths.update({genome_version: local_filename})
     return gencode_gtf_paths

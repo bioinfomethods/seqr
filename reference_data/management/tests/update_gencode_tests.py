@@ -72,7 +72,7 @@ class UpdateGencodeTest(TestCase):
         # Test required argument out-of-range
         with self.assertRaises(CommandError) as ce:
             call_command('update_gencode', '--gencode-release=18')
-        self.assertEqual(str(ce.exception), f'Error: argument --gencode-release: invalid choice: 18 (choose from {", ".join([str(i) for i in range(19, 41)])})')
+        self.assertEqual(str(ce.exception), f'Error: argument --gencode-release: invalid choice: 18 (choose from {", ".join([str(i) for i in range(19, 45)])})')
 
         # Test genome_version out-of-range
         with self.assertRaises(CommandError) as ce:
@@ -174,14 +174,14 @@ class UpdateGencodeTest(TestCase):
         self.assertEqual(trans_info.strand_grch37, '-')
         self.assertEqual(trans_info.chrom_grch37, '1')
         self.assertEqual(trans_info.gene.gene_id, 'ENSG00000284662')
-        self.assertEqual(trans_info.gene.gencode_release, 40 if expected_release == 40 else 31)
+        self.assertEqual(trans_info.gene.gencode_release, 44 if expected_release == 44 else 31)
         self.assertTrue(trans_info.is_mane_select)
 
     def _add_latest_responses(self):
-        url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.annotation.gtf.gz'
+        url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.annotation.gtf.gz'
         responses.add(responses.HEAD, url, headers={"Content-Length": "1024"})
         responses.add(responses.GET, url, body=self.gzipped_gtf_data, stream=True)
-        url_lift = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/GRCh37_mapping/gencode.v40lift37.annotation.gtf.gz'
+        url_lift = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/GRCh37_mapping/gencode.v44lift37.annotation.gtf.gz'
         responses.add(responses.HEAD, url_lift, headers={"Content-Length": "1024"})
         responses.add(responses.GET, url_lift, body=self.gzipped_gtf_data, stream=True)
         return url, url_lift
@@ -189,7 +189,7 @@ class UpdateGencodeTest(TestCase):
     @responses.activate
     @mock.patch('reference_data.management.commands.utils.gencode_utils.logger')
     @mock.patch('reference_data.management.commands.update_gencode_transcripts.logger')
-    @mock.patch('reference_data.management.commands.update_gencode_transcripts.LATEST_GENCODE_RELEASE', 40)
+    @mock.patch('reference_data.management.commands.update_gencode_transcripts.LATEST_GENCODE_RELEASE', 44)
     @mock.patch('reference_data.management.commands.update_gencode.logger')
     def test_update_gencode_command(self, mock_logger, mock_update_transcripts_logger, mock_utils_logger):
         # Test normal command function
@@ -216,14 +216,14 @@ class UpdateGencodeTest(TestCase):
 
         # Test normal command function with a --reset option
         mock_logger.reset_mock()
-        call_command('update_gencode', '--reset', '--gencode-release=40', self.temp_file_path, '37')
+        call_command('update_gencode', '--reset', '--gencode-release=44', self.temp_file_path, '37')
         mock_utils_logger.info.assert_has_calls([
             mock.call('Loading {} (genome version: 37)'.format(self.temp_file_path)),
             mock.call('Creating 2 TranscriptInfo records'),
         ])
         calls = [
             mock.call('Dropping the 3 existing TranscriptInfo entries'),
-            mock.call('Dropping the 50 existing GeneInfo entries'),
+            mock.call('Dropping the 52 existing GeneInfo entries'),
             mock.call('Creating 2 GeneInfo records'),
             mock.call('Done'),
             mock.call('Stats: '),
@@ -234,12 +234,12 @@ class UpdateGencodeTest(TestCase):
 
         self.assertEqual(GeneInfo.objects.all().count(), 2)
         gene_info = GeneInfo.objects.get(gene_id = 'ENSG00000223972')
-        self.assertEqual(gene_info.gencode_release, 40)
+        self.assertEqual(gene_info.gencode_release, 44)
         gene_info = GeneInfo.objects.get(gene_id = 'ENSG00000284662')
         self.assertEqual(gene_info.start_grch37, 621059)
         self.assertEqual(gene_info.chrom_grch37, '1')
         self.assertEqual(gene_info.coding_region_size_grch37, 936)
-        self.assertEqual(gene_info.gencode_release, 40)
+        self.assertEqual(gene_info.gencode_release, 44)
         self.assertEqual(gene_info.gencode_gene_type, 'protein_coding')
         self.assertEqual(gene_info.gene_id, 'ENSG00000284662')
         self.assertEqual(gene_info.gene_symbol, 'OR4F16')
@@ -252,7 +252,7 @@ class UpdateGencodeTest(TestCase):
 
         self.assertEqual(GeneInfo.objects.all().count(), 2)
         self.assertEqual(TranscriptInfo.objects.all().count(), 2)
-        self._has_expected_new_transcripts(expected_release=40)
+        self._has_expected_new_transcripts(expected_release=44)
         mock_utils_logger.info.assert_has_calls([
             mock.call('Loading {} (genome version: 37)'.format(self.temp_file_path)),
             mock.call('Creating 2 TranscriptInfo records'),
@@ -270,7 +270,7 @@ class UpdateGencodeTest(TestCase):
     @mock.patch('reference_data.management.commands.update_gencode_latest.logger')
     def test_update_gencode_latest_command(self, mock_logger, mock_gencode_utils_logger, mock_update_utils_logger):
         self._add_latest_responses()
-        refseq_url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.metadata.RefSeq.gz'
+        refseq_url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.metadata.RefSeq.gz'
         responses.add(responses.HEAD, refseq_url, headers={"Content-Length": "1024"})
         responses.add(responses.GET, refseq_url, body=gzip.compress(''.join(REFSEQ_DATA).encode()))
 
@@ -294,10 +294,10 @@ class UpdateGencodeTest(TestCase):
             mock.call('Done'),
         ])
 
-        self._has_expected_new_genes(expected_release=40)
+        self._has_expected_new_genes(expected_release=44)
 
         self.assertEqual(TranscriptInfo.objects.all().count(), 3)
-        self._has_expected_new_transcripts(expected_release=40)
+        self._has_expected_new_transcripts(expected_release=44)
 
         self.assertEqual(RefseqTranscript.objects.count(), 2)
         self.assertListEqual(
