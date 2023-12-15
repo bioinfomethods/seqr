@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   postgres:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-mcri-seqr-postgres}:${POSTGRES_IMAGE_TAG:-13.11}
+    image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-mcri-seqr-postgres}:${POSTGRES_IMAGE_TAG:-13.11}
     ports:
       - ${POSTGRES_SERVICE_PORT:-5433}:${POSTGRES_SERVICE_PORT:-5433}
     environment:
@@ -17,7 +17,7 @@ services:
       retries: 100
 
   redis:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-mcri-seqr-redis}:${REDIS_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-mcri-seqr-redis}:${REDIS_IMAGE_TAG:-latest}
     ports:
       - "0.0.0.0:${SEQR_REDIS_PORT:-6379}:6379"
     healthcheck:
@@ -29,7 +29,7 @@ services:
   redis-cache-obs:
     profiles:
         - "cache"
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${REDIS_CACHE_OBS_IMAGE_NAME:-mcri-redis-cache-obs}:${REDIS_CACHE_OBS_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${REDIS_CACHE_OBS_IMAGE_NAME:-mcri-redis-cache-obs}:${REDIS_CACHE_OBS_IMAGE_TAG:-latest}
 #    volumes:
 #      - ../../../tmp:/opt/tmp
     depends_on:
@@ -48,7 +48,7 @@ services:
       retries: 100
 
   seqr:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-mcri-seqr}:${SEQR_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${SEQR_IMAGE_NAME:-mcri-seqr}:${SEQR_IMAGE_TAG:-latest}
     ports:
       - ${SEQR_SERVICE_PORT:-80}:8000
     environment:
@@ -99,6 +99,6 @@ services:
       test: bash -c "curl -s 'http://localhost:8000' | grep html"
 
   pipeline-runner:
-    image: ${CONTAINER_REGISTRY:-gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
+    image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
