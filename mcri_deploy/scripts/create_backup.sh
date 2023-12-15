@@ -17,6 +17,7 @@ REFERENCE_DATA_DB_BACKUP=$BACKUP_PATH/reference_data_db-$datestamp.dmp.gz
 /usr/bin/docker compose -f /home/seqr/seqr/docker-compose.yml --env-file /home/seqr/seqr/.env exec -T postgres /usr/lib/postgresql/13/bin/pg_dump -U postgres reference_data_db | gzip -c > "$REFERENCE_DATA_DB_BACKUP"
 
 gcloud storage cp "${SEQRDB_BACKUP}" "$GS_BACKUP_BUCKET/"
-echo "Backed up $SEQRDB_BACKUP to "$GS_BACKUP_BUCKET/""
+echo "Backed up $SEQRDB_BACKUP to $GS_BACKUP_BUCKET/"
 gcloud storage cp "${REFERENCE_DATA_DB_BACKUP}" "$GS_BACKUP_BUCKET/"
-echo "Backed up $REFERENCE_DATA_DB_BACKUP to "$GS_BACKUP_BUCKET/"
+echo "Backed up $REFERENCE_DATA_DB_BACKUP to $GS_BACKUP_BUCKET/"
+
