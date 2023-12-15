@@ -187,7 +187,7 @@ spec:
         storageClassName: pd-standard-expandable-storage-class
         resources:
           requests:
-            storage: 750Gi
+            storage: 850Gi
   - name: data-loading-node
     count: 2
     config:
