@@ -7,6 +7,7 @@ Options:
    -r, --host=<str> REDIS_HOST          Redis host name [default: redis]
    -p, --port=<int> REDIS_PORT          Redis host port [default: 6379]
    -f, --vcf=<str>  OBS_COUNT_VCF_PATH  Obs count VCF gzipped [default: STDIN]
+   -c, --clear-redis                    Clear all keys from Redis before caching
 """
 
 import gzip
@@ -53,6 +54,10 @@ def cache_obs(args):
     batch_start = perf_counter()
     elapsed = 0
     batch_data: Dict[str, str] = {}
+
+    if args['--clear-redis']:
+        log.info('Removing all keys from Redis')
+        redis_client.flushall()
 
     with gzip.open(obs_vcf, mode='rt') as f:
         for line_num, line in enumerate(tqdm(f)):
