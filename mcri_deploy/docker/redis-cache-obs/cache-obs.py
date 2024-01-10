@@ -7,6 +7,7 @@ Options:
    -r, --host=<str> REDIS_HOST          Redis host name [default: redis]
    -p, --port=<int> REDIS_PORT          Redis host port [default: 6379]
    -f, --vcf=<str>  OBS_COUNT_VCF_PATH  Obs count VCF gzipped [default: STDIN]
+   -t, --assay-type=<str> ASSAY_TYPE    Assay type, must be either WES or WGS
    -c, --clear-redis                    Clear all keys from Redis before caching
 """
 
@@ -20,6 +21,8 @@ import tqdm
 from docopt import docopt
 from redis import Redis
 from tqdm import tqdm
+
+from gcp_utils import download_file
 
 logging.basicConfig(level=logging.INFO, format='{asctime} {levelname} [{name}] - {message}', style='{')
 log = logging.getLogger(__name__)
@@ -44,11 +47,21 @@ def _parse_info_fields(info_str: str) -> Dict[str, Any]:
 def cache_obs(args):
     filearg = args['--vcf']
     if filearg != 'STDIN':
-        obs_vcf = filearg
+        if filearg.startswith('gs://'):
+            filepath = download_file(filearg)
+        else:
+            filepath = filearg
+
+        obs_vcf = filepath
         log.info(f'Using {obs_vcf} as input')
     else:
         obs_vcf = sys.stdin.buffer
         log.info('Using STDIN as input')
+
+    assay_type = args['--assay-type']
+    if assay_type not in ['WES', 'WGS']:
+        raise ValueError("Invalid value for --assay-type. It must be either 'WES' or 'WGS'.")
+
     redis_client = Redis(host=args['--host'], port=args['--port'], decode_responses=True)
     start = perf_counter()
     batch_start = perf_counter()
@@ -64,7 +77,7 @@ def cache_obs(args):
             if line.startswith('##'):
                 continue
             chr, pos, id, ref, alt, qual, filter, info, *rest = line.split('\t')
-            variant_id = f'{chr}-{pos}-{ref}-{alt}'
+            variant_id = f'{chr}-{pos}-{ref}-{alt}-{assay_type}'
             batch_data[variant_id] = info
 
             if line_num % SEGMENT_SIZE == 0:
