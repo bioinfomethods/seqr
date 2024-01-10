@@ -1043,7 +1043,8 @@ const SORT_BY_PRIORITIZED_GENE = 'PRIORITIZED_GENE'
 const SORT_BY_PROTEIN_CONSQ = 'PROTEIN_CONSEQUENCE'
 const SORT_BY_GNOMAD_GENOMES = 'GNOMAD'
 const SORT_BY_GNOMAD_EXOMES = 'GNOMAD_EXOMES'
-const SORT_BY_CALLSET_AF = 'CALLSET_AF'
+const SORT_BY_POP_MCRI_WGS = 'POP_MCRI_WGS'
+const SORT_BY_POP_MCRI_WES = 'POP_MCRI_WES'
 const SORT_BY_CONSTRAINT = 'CONSTRAINT'
 const SORT_BY_ALPHA_MISSENSE_PATHOGENICITY = 'AM_PATHOGENICITY'
 const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
@@ -1164,7 +1165,8 @@ const VARIANT_SORT_OPTONS = [
   },
   { value: SORT_BY_GNOMAD_GENOMES, text: 'gnomAD Genomes Frequency', comparator: populationComparator('gnomad_genomes') },
   { value: SORT_BY_GNOMAD_EXOMES, text: 'gnomAD Exomes Frequency', comparator: populationComparator('gnomad_exomes') },
-  { value: SORT_BY_CALLSET_AF, text: 'Callset AF', comparator: populationComparator('callset') },
+  { value: SORT_BY_POP_MCRI_WGS, text: 'MCRI Genomes AF', comparator: populationComparator('pop_mcri_wgs') },
+  { value: SORT_BY_POP_MCRI_WES, text: 'MCRI Exomes AF', comparator: populationComparator('pop_mcri_wes') },
   { value: SORT_BY_GENETALE_VAR_CLASS_NUM, text: 'Genetale Variant Class', comparator: predictionComparator('genetale_var_class_num') },
   { value: SORT_BY_CADD, text: 'Cadd', comparator: predictionComparator('cadd') },
   { value: SORT_BY_REVEL, text: 'Revel', comparator: predictionComparator('revel') },
@@ -1474,6 +1476,8 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'exac_freq', getVal: getPopAf('exac') },
   { header: 'gnomad_genomes_freq', getVal: getPopAf('gnomad_genomes') },
   { header: 'gnomad_exomes_freq', getVal: getPopAf('gnomad_exomes') },
+  { header: 'pop_mcri_wgs_freq', getVal: getPopAf('pop_mcri_wgs') },
+  { header: 'pop_mcri_wes_freq', getVal: getPopAf('pop_mcri_wes') },
   { header: 'topmed_freq', getVal: getPopAf('topmed') },
   { header: 'alpha_missense', getVal: variant => (variant.predictions || {}).alpha_missense },
   { header: 'genetale_var_class_num', getVal: variant => (variant.predictions || {}).genetale_var_class_num },

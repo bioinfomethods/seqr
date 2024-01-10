@@ -50,6 +50,10 @@ def query_variants_handler(request, search_hash):
     sort = request.GET.get('sort') or XPOS_SORT_KEY
     if sort == PATHOGENICTY_SORT_KEY and user_is_analyst(request.user):
         sort = PATHOGENICTY_HGMD_SORT_KEY
+    if sort.startswith('pop_mcri'):
+        es_sort = 'gnomad'
+    else:
+        es_sort = sort
 
     search_context = json.loads(request.body or '{}')
     try:
@@ -60,7 +64,7 @@ def query_variants_handler(request, search_hash):
     _check_results_permission(results_model, request.user)
     skip_genotype_filter = bool(_all_project_family_search_genome(search_context))
 
-    variants, total_results = query_variants(results_model, sort=sort, page=page, num_results=per_page,
+    variants, total_results = query_variants(results_model, sort=es_sort, page=page, num_results=per_page,
                                              skip_genotype_filter=skip_genotype_filter, user=request.user)
 
     response = _process_variants(variants or [], results_model.families.all(), request,

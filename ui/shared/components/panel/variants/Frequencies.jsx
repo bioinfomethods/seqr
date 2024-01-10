@@ -158,16 +158,14 @@ const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
 
 const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
-const CALLSET_POP = { field: 'callset', fieldTitle: 'This Callset', acDisplay: 'AC' }
-const MCRI_POP = { field: 'pop_mcri', fieldTitle: 'MCRI Callset', acDisplay: 'AC' }
-const SEQR_POP = { ...CALLSET_POP, field: 'seqr', fieldTitle: 'seqr' }
+const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC' }
+const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC' }
 
 const POPULATIONS = [
   SV_CALLSET_POP,
   { ...SV_CALLSET_POP, field: 'sv_seqr', fieldTitle: 'seqr' },
-  CALLSET_POP,
-  MCRI_POP,
-  SEQR_POP,
+  MCRI_POP_WES,
+  MCRI_POP_WGS,
   {
     field: 'exac',
     fieldTitle: 'ExAC',
@@ -216,16 +214,6 @@ const CALLSET_HET_POP = {
 }
 
 const MITO_POPULATIONS = [
-  {
-    ...CALLSET_POP,
-    titleContainer: sectionTitle,
-    section: HOM_SECTION,
-  },
-  {
-    ...SEQR_POP,
-    titleContainer: sectionTitle,
-    section: HOM_SECTION,
-  },
   CALLSET_HET_POP,
   { ...CALLSET_HET_POP, field: 'seqr_heteroplasmy', fieldTitle: 'seqr' },
   {

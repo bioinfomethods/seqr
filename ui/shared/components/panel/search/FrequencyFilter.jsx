@@ -70,7 +70,7 @@ const FrequencyIntegerInput = React.memo(({ label, value, field, nullField, inli
     value={(value || {})[field]}
     min={0}
     max={100}
-    width={inlineAF ? 3 : 8}
+    width={inlineAF ? 4 : 8}
     onChange={updateFrequency({ onChange, field, initialValue: value, nullField })}
   />
 ))
@@ -111,7 +111,7 @@ export const FrequencyFilter = ({ value, onChange, homHemi, inlineAF, children }
       </div>
     )}
     <Form.Group inline>
-      {inlineAF && <AfFilter value={value} onChange={onChange} inline />}
+      {inlineAF && <AfFilter value={value} onChange={onChange} inline width="8" />}
       <FrequencyIntegerInput
         label="AC"
         field="ac"
@@ -141,9 +141,9 @@ const formatHeaderValue = values => Object.values(values).reduce((acc, value) =>
   hh: value.hh === acc.hh ? value.hh : null,
 }), Object.values(values)[0])
 
-const callsetChange = (onChange, initialValues) => val => onChange(
-  { ...initialValues, [THIS_CALLSET_FREQUENCY]: val, [SV_CALLSET_FREQUENCY]: val },
-)
+// const callsetChange = (onChange, initialValues) => val => onChange(
+//   { ...initialValues, [THIS_CALLSET_FREQUENCY]: val, [SV_CALLSET_FREQUENCY]: val },
+// )
 
 const freqChange = (onChange, initialValues) => val => onChange(FREQUENCIES.filter(
   ({ name }) => name !== THIS_CALLSET_FREQUENCY && name !== SV_CALLSET_FREQUENCY,
@@ -153,23 +153,13 @@ export const HeaderFrequencyFilter = ({ value, onChange, esEnabled, ...props }) 
   const { callset, sv_callset: svCallset, ...freqValues } = value || {}
   const headerValue = freqValues ? formatHeaderValue(freqValues) : {}
 
-  const onCallsetChange = callsetChange(onChange, freqValues)
+  // const onCallsetChange = callsetChange(onChange, freqValues)
 
   const onFreqChange = freqChange(onChange, value)
-  const callsetTitle = esEnabled ? 'Callset' : 'seqr'
+  // const callsetTitle = esEnabled ? 'Callset' : 'seqr'
 
   return (
-    <FrequencyFilter {...props} value={headerValue} onChange={onFreqChange} homHemi inlineAF>
-      <AfFilter value={callset} onChange={onCallsetChange} inline label={`${callsetTitle} AF`} />
-      <FrequencyIntegerInput
-        label={`${callsetTitle} AC`}
-        field="ac"
-        nullField="af"
-        value={callset}
-        inlineAF
-        onChange={onCallsetChange}
-      />
-    </FrequencyFilter>
+    <FrequencyFilter {...props} value={headerValue} onChange={onFreqChange} homHemi inlineAF />
   )
 }
 

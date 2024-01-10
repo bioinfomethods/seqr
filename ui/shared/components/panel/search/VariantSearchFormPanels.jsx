@@ -193,7 +193,7 @@ export const FREQUENCY_PANEL = {
   name: 'freqs',
   headerProps: {
     title: 'Frequency',
-    inputSize: 10,
+    inputSize: 6,
     inputProps: {
       component: HeaderFrequencyFilter,
       format: val => val || {},

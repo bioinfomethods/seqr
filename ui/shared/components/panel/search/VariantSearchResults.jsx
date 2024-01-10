@@ -84,6 +84,25 @@ const BaseVariantSearchResultsContent = React.memo(({
         <GeneBreakdown searchHash={searchHash} />
       </Grid.Column>
     </LargeRow>,
+    (displayVariants.length !== totalVariantsCount && displayVariants.length < recordsPerPage &&
+      totalVariantsCount > recordsPerPage) && (
+      <Grid.Row>
+        <Grid.Column width={16}>
+          <Message warning>
+            <Message.Header>Warning</Message.Header>
+            {/* results truncated, only showing displayVariants.length results */}
+            <p>
+              Results truncated due to additional annotations and filtering applied to search results.
+              Please narrow your search to less than
+              {' '}
+              {recordsPerPage}
+              {' '}
+              total results to see them appropriately.
+            </p>
+          </Message>
+        </Grid.Column>
+      </Grid.Row>
+    ),
     <DisplayVariants key="variants" displayVariants={displayVariants} compoundHetToggle={compoundHetToggle} />,
     <LargeRow key="bottomPagination">
       <Grid.Column width={11} floated="right" textAlign="right">
