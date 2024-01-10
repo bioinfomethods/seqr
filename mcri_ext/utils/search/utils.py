@@ -34,9 +34,13 @@ def filter_mcri_pop_stats(variants, user, search=None):
 
     result = []
 
-    def freq_filter(variant_stats: Dict):
+    def freq_filter(variant_stats: Dict, assay_type):
         nonlocal search
-        search_pop_mcri = search.get('freqs', {}).get('pop_mcri', {})
+        if not search:
+            return True
+
+        assay_type_suffix = assay_type.lower()
+        search_pop_mcri = search.get('freqs', {}).get(f"pop_mcri_{assay_type_suffix}", {})
         search_ac = search_pop_mcri.get('ac')
         if search_ac:
             variant_ac = variant_stats.get('ac')
@@ -51,9 +55,11 @@ def filter_mcri_pop_stats(variants, user, search=None):
 
     for variant in variants:
         annotated = _annotate_or_filter(redis_client, user, variant, freq_filter=freq_filter)
-        logger.info(f"Annotated variant: {annotated.get('variantId') if annotated else None}", user)
         if annotated:
+            logger.info(f"Annotated variant: {annotated.get('variantId')}", user)
             result.append(annotated)
+        else:
+            logger.debug(f"Skipped annotating variant: {variant.get('variantId')}", user)
 
     return result
 
@@ -74,32 +80,42 @@ def _annotate_or_filter(redis_client, user, variant, freq_filter=None):
     if not redis_client or not variant:
         return variant
 
-    cache_key = f"chr{variant.get('variantId')}"
+    variant_id = variant.get('variantId')
     try:
-        cache_value = redis_client.get(cache_key)
-        if cache_value:
-            logger.debug('Loaded {} from redis'.format(cache_key), user)
-            v_pop_stats: Dict = _parse_key_values(cache_value, user)
-            pop_mcri = BLANK_MCRI_POP_STAT_VARIANT.copy()
-            ac = v_pop_stats.get('ac') or 0
-            an = v_pop_stats.get('an') or 0
-            af = 0 if (ac == 0 or an == 0) else (ac / an)
-            pop_mcri.update(v_pop_stats)
-            pop_mcri['af'] = af
-            pop_mcri['filter_af'] = af
+        assay_types = ['WES', 'WGS']
+        for assay_type in assay_types:
+            cache_key = f"chr{variant_id}-{assay_type}"
+            cache_value = redis_client.get(cache_key)
+            if cache_value:
+                logger.debug('Loaded {} from redis'.format(cache_key), user)
+                v_pop_stats: Dict = _parse_key_values(cache_value, user)
+                pop_mcri = BLANK_MCRI_POP_STAT_VARIANT.copy()
+                ac = v_pop_stats.get('ac') or 0
+                an = v_pop_stats.get('an') or 0
+                af = 0 if (ac == 0 or an == 0) else (ac / an)
+                pop_mcri.update(v_pop_stats)
+                pop_mcri['af'] = af
+                pop_mcri['filter_af'] = af
 
-            if freq_filter:
-                if freq_filter(pop_mcri):
-                    logger.debug('Annotating variant {} with population stats {}'.format(cache_key, pop_mcri), user)
-                    variant['populations']['pop_mcri'] = pop_mcri
-                    return variant
-                else:
-                    logger.debug('Variant {} did not pass frequency filter'.format(cache_key), user)
-                    return None
-        else:
-            logger.debug('Unable to fetch cache_value "{}" from redis'.format(cache_key), user)
+                if freq_filter:
+                    if freq_filter(pop_mcri, assay_type):
+                        logger.debug(
+                            'Annotating variant={}, assay_type={} with population stats {}'
+                            .format(cache_key, assay_type, pop_mcri), user)
+
+                        variant['populations'][f"pop_mcri_{assay_type.lower()}"] = pop_mcri
+                    else:
+                        logger.debug(
+                            'Variant={}, assay_type={} did not pass frequency filter'
+                            .format(variant_id, assay_type), user)
+
+                        return None
+            else:
+                logger.debug('Unable to fetch cache_value "{}" from redis'.format(cache_key), user)
+
+        return variant
     except ValueError as e:
-        logger.debug('Unable to fetch "{}" from redis:\t{}'.format(cache_key, str(e)))
+        logger.debug('Unable to fetch variant stats "{}" from redis:\t{}'.format(variant_id, str(e)))
 
     return variant
 

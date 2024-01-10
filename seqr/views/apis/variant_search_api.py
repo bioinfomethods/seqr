@@ -63,7 +63,8 @@ def query_variants_handler(request, search_hash):
     variants, total_results = query_variants(results_model, sort=sort, page=page, num_results=per_page,
                                              skip_genotype_filter=skip_genotype_filter, user=request.user)
 
-    response = _process_variants(variants or [], results_model.families.all(), request, search=results_model.variant_search.search)
+    response = _process_variants(variants or [], results_model.families.all(), request,
+                                 search=results_model.variant_search.search, sort=sort)
     response['search'] = _get_search_context(results_model)
     response['search']['totalResults'] = total_results
 
@@ -133,13 +134,17 @@ def query_single_variant_handler(request, variant_id):
     return create_json_response(response)
 
 
-def _process_variants(variants, families, request, add_all_context=False, add_locus_list_detail=False, search=None):
+def _process_variants(variants, families, request, add_all_context=False, add_locus_list_detail=False, search=None,
+                      sort=None):
     if not variants:
         return {'searchedVariants': variants}
 
     flat_variants = _flatten_variants(variants)
     if SHOW_MCRI_OBS_COUNTS:
         flat_variants = filter_mcri_pop_stats(flat_variants, request.user, search=search)
+        if sort and sort.startswith('pop_mcri'):
+            comparator = lambda v: v.get('populations', {}).get(sort, {}).get('af', None) or 0
+            flat_variants.sort(key=comparator)
         if len(flat_variants) == 0:
             return {'searchedVariants': []}
     saved_variants, variants_by_id = _get_saved_variant_models(flat_variants, families)
