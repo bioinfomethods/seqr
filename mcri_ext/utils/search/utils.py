@@ -56,10 +56,7 @@ def filter_mcri_pop_stats(variants, user, search=None):
     for variant in variants:
         annotated = _annotate_or_filter(redis_client, user, variant, freq_filter=freq_filter)
         if annotated:
-            logger.info(f"Annotated variant: {annotated.get('variantId')}", user)
             result.append(annotated)
-        else:
-            logger.debug(f"Skipped annotating variant: {variant.get('variantId')}", user)
 
     return result
 
@@ -99,14 +96,13 @@ def _annotate_or_filter(redis_client, user, variant, freq_filter=None):
 
                 if freq_filter:
                     if freq_filter(pop_mcri, assay_type):
-                        logger.debug(
-                            'Annotating variant={}, assay_type={} with population stats {}'
-                            .format(cache_key, assay_type, pop_mcri), user)
-
+                        logger.info(
+                            'Annotating variant={}, assay_type={} with population stats'
+                            .format(cache_key, assay_type), user)
                         variant['populations'][f"pop_mcri_{assay_type.lower()}"] = pop_mcri
                     else:
-                        logger.debug(
-                            'Variant={}, assay_type={} did not pass frequency filter'
+                        logger.info(
+                            'Filtered variant={}, assay_type={} from population stats annotation'
                             .format(variant_id, assay_type), user)
 
                         return None
