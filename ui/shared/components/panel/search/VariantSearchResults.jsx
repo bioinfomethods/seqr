@@ -84,7 +84,7 @@ const BaseVariantSearchResultsContent = React.memo(({
         <GeneBreakdown searchHash={searchHash} />
       </Grid.Column>
     </LargeRow>,
-    (totalVariantsCount.length > recordsPerPage && variantSearchDisplay.sort.startsWith('POP_MCRI')) && (
+    (totalVariantsCount > recordsPerPage && variantSearchDisplay.sort.startsWith('POP_MCRI')) && (
       <Grid.Row>
         <Grid.Column width={16}>
           <Message warning>
