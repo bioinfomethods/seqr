@@ -86,16 +86,16 @@ const BaseVariantSearchResultsContent = React.memo(({
     </LargeRow>,
     (totalVariantsCount > recordsPerPage && variantSearchDisplay.sort.startsWith('POP_MCRI')) && (
       <Grid.Row>
-        <Grid.Column width={16}>
+        <Grid.Column width={12}>
           <Message warning>
             <Message.Header>Warning</Message.Header>
             <p>
-              Sorted results only applied to current page.
-              Please narrow your search to less than
-              {' '}
-              {recordsPerPage}
-              {' '}
-              total results to have them sort appropriately.
+              Sorting on MCRI allele frequencies is performed per page of results.
+              Your query results span more than one page, so it is possible that significant results
+              may not occur in the results where you might expect them to. We strongly recommend
+              applying other filters (e.g. Gnomad frequency, gene lists, etc) to reduce your result list
+              to a single page, before applying MCRI allele frequency sorting. Failing to do
+              so introduces a significant risk of overlooking relevant variants.
             </p>
           </Message>
         </Grid.Column>
