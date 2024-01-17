@@ -343,18 +343,6 @@ export const SNP_FREQUENCIES = [
     labelHelp: 'Filter by allele count (AC) or homozygous/hemizygous count (H/H) among gnomAD exomes, or by allele frequency (popmax AF) in any one of these five subpopulations defined for gnomAD exomes: AFR, AMR, EAS, NFE, SAS',
   },
   {
-    name: MCRI_WGS_CALLSET_FREQUENCY,
-    label: 'MCRI genomes callset',
-    homHemi: false,
-    labelHelp: 'Filter by allele count (AC) or by allele frequency (AF) among the genome samples in this instance of MCRI Seqr.  This filter should be used in conjunction with a gnomAD population frequency filter.',
-  },
-  {
-    name: MCRI_WES_CALLSET_FREQUENCY,
-    label: 'MCRI exomes callset',
-    homHemi: false,
-    labelHelp: 'Filter by allele count (AC) or by allele frequency (AF) among the exome samples in this instance of MCRI Seqr.  This filter should be used in conjunction with a gnomAD population frequency filter.',
-  },
-  {
     name: TOPMED_FREQUENCY,
     label: 'TOPMed',
     homHemi: false,

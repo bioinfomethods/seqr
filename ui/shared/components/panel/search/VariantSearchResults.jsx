@@ -84,20 +84,18 @@ const BaseVariantSearchResultsContent = React.memo(({
         <GeneBreakdown searchHash={searchHash} />
       </Grid.Column>
     </LargeRow>,
-    (displayVariants.length !== totalVariantsCount && displayVariants.length < recordsPerPage &&
-      totalVariantsCount > recordsPerPage) && (
+    (totalVariantsCount.length > recordsPerPage && variantSearchDisplay.sort.startsWith('POP_MCRI')) && (
       <Grid.Row>
         <Grid.Column width={16}>
           <Message warning>
             <Message.Header>Warning</Message.Header>
-            {/* results truncated, only showing displayVariants.length results */}
             <p>
-              Results truncated due to additional annotations and filtering applied to search results.
+              Sorted results only applied to current page.
               Please narrow your search to less than
               {' '}
               {recordsPerPage}
               {' '}
-              total results to see them appropriately.
+              total results to have them sort appropriately.
             </p>
           </Message>
         </Grid.Column>
