@@ -90,12 +90,12 @@ const BaseVariantSearchResultsContent = React.memo(({
           <Message warning>
             <Message.Header>Warning</Message.Header>
             <p>
-              Sorting on MCRI allele frequencies is performed per page of results.
-              Your query results span more than one page, so it is possible that significant results
-              may not occur in the results where you might expect them to. We strongly recommend
-              applying other filters (e.g. Gnomad frequency, gene lists, etc) to reduce your result list
-              to a single page, before applying MCRI allele frequency sorting. Failing to do
-              so introduces a significant risk of overlooking relevant variants.
+              Sorting on MCRI allele frequencies is performed per page of results. Your query results
+              span more than one page, so it is possible that significant results may not occur in the order that you
+              expect, and significant results are located on subsequent result pages. We strongly recommend applying
+              other filters (e.g. Gnomad frequency, gene lists, etc) to reduce your result list to a single page, before
+              applying MCRI allele frequency sorting. Failing to do so introduces a significant risk of
+              overlooking relevant variants.
             </p>
           </Message>
         </Grid.Column>
