@@ -87,7 +87,7 @@ const BaseVariantSearchResultsContent = React.memo(({
     (totalVariantsCount > recordsPerPage && variantSearchDisplay.sort.startsWith('POP_MCRI')) && (
       <Grid.Row>
         <Grid.Column width={12}>
-          <Message warning>
+          <Message error>
             <Message.Header>Warning</Message.Header>
             <p>
               Sorting on MCRI allele frequencies is performed per page of results. Your query results
