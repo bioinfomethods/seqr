@@ -28,7 +28,7 @@ from seqr.views.utils.permissions_utils import check_project_permissions, get_pr
 from seqr.views.utils.project_context_utils import get_projects_child_entities
 from seqr.views.utils.variant_utils import get_variant_key, get_variants_response
 
-from settings import SHOW_MCRI_OBS_COUNTS
+from settings import MCRI_SHOW_OBS_COUNTS
 
 GENOTYPE_AC_LOOKUP = {
     'ref_ref': [0, 0],
@@ -144,7 +144,7 @@ def _process_variants(variants, families, request, add_all_context=False, add_lo
         return {'searchedVariants': variants}
 
     flat_variants = _flatten_variants(variants)
-    if SHOW_MCRI_OBS_COUNTS:
+    if MCRI_SHOW_OBS_COUNTS:
         flat_variants = filter_mcri_pop_stats(flat_variants, request.user, search=search)
         if sort and sort.startswith('pop_mcri'):
             comparator = lambda v: v.get('populations', {}).get(sort, {}).get('af', None) or 0
@@ -156,7 +156,7 @@ def _process_variants(variants, families, request, add_all_context=False, add_lo
     response_json = get_variants_response(
         request, saved_variants, response_variants=flat_variants, add_all_context=add_all_context,
         add_locus_list_detail=add_locus_list_detail)
-    response_json['searchedVariants'] = flat_variants if SHOW_MCRI_OBS_COUNTS else variants
+    response_json['searchedVariants'] = flat_variants if MCRI_SHOW_OBS_COUNTS else variants
 
     for saved_variant in response_json['savedVariantsByGuid'].values():
         family_guids = saved_variant['familyGuids']
