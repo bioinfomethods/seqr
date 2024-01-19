@@ -6,6 +6,7 @@ import { Popup, Label, Icon } from 'semantic-ui-react'
 
 import {
   getGenesById,
+  getTranscriptsById,
   getLocusListIntervalsByChromProject,
   getFamiliesByGuid,
   getUser,
@@ -184,6 +185,30 @@ const getLitSearch = (genes, variations) => {
   }
   return search
 }
+
+const TRANSCRIPT_LABELS = [
+  {
+    content: 'Canonical',
+    color: 'green',
+    shouldShow: transcript => transcript.canonical,
+  },
+  {
+    content: 'MANE Select',
+    color: 'teal',
+    shouldShow: (transcript, transcriptsById) => transcriptsById[transcript.transcriptId]?.isManeSelect,
+  },
+  {
+    content: 'seqr Chosen Transcript',
+    color: 'blue',
+    shouldShow: transcript => transcript.transcriptRank === 0,
+  },
+  {
+    content: 'Non default Transcript',
+    color: 'purple',
+    shouldShow: (transcript, transcriptsById) => !transcript.canonical && transcript.transcriptRank > 0 &&
+      !(transcriptsById[transcript.transcriptId]?.isManeSelect || false),
+  },
+]
 
 const VARIANT_LINKS = [
   {
@@ -381,7 +406,7 @@ const svSizeDisplay = (size) => {
   return `${(size / 1000000).toFixed(2) / 1}Mb`
 }
 
-const Annotations = React.memo(({ variant, mainGeneId, showMainGene }) => {
+const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcriptsById }) => {
   const {
     rsid, svType, numExon, pos, end, svTypeDetail, svSourceDetail, cpxIntervals, algorithms, bothsidesSupport,
     endChrom,
@@ -505,6 +530,18 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene }) => {
           </b>
         </div>
       )}
+      {mainTranscript.transcriptId && (
+        <div>
+          <b>ID:</b>
+          <HorizontalSpacer width={5} />
+          {mainTranscript.transcriptId}
+        </div>
+      )}
+      {TRANSCRIPT_LABELS.map(({ shouldShow, ...labelProps }) => (
+        shouldShow(mainTranscript, transcriptsById) && (
+          <Label key={labelProps.content} size="small" horizontal {...labelProps} />
+        )
+      ))}
       {mainTranscript.hgvsc && (
         <div>
           <b>HGVS.C</b>
@@ -565,6 +602,11 @@ Annotations.propTypes = {
   variant: PropTypes.object,
   mainGeneId: PropTypes.string,
   showMainGene: PropTypes.bool,
+  transcriptsById: PropTypes.object.isRequired,
 }
 
-export default Annotations
+const mapAnnotationsStateToProps = state => ({
+  transcriptsById: getTranscriptsById(state),
+})
+
+export default connect(mapAnnotationsStateToProps)(Annotations)
