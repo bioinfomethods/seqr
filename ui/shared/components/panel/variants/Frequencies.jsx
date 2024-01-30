@@ -57,10 +57,10 @@ const getFreqLinkPath = ({ chrom, pos, variant, value }) => {
 }
 
 const FreqSummary = React.memo((props) => {
-  const { field, fieldTitle, variant, urls, queryParams, acDisplay, titleContainer, precision = 2 } = props
+  const { field, fieldTitle, variant, urls, queryParams, acDisplay, titleContainer, precision = 2, alwaysShow } = props
   const { populations = {}, chrom } = variant
   const population = populations[field] || {}
-  if (population.af === null || population.af === undefined) {
+  if ((population.af === null || population.af === undefined) && !alwaysShow) {
     return null
   }
   const afValue = population.af > 0 ? population.af.toPrecision(precision) : '0.0'
@@ -102,10 +102,10 @@ const FreqSummary = React.memo((props) => {
             {`Hemi=${population.hemi}`}
           </span>
         )}
-        {acDisplay && population.ac !== null && population.ac !== undefined && (
+        {((acDisplay && population.ac !== null && population.ac !== undefined) || alwaysShow) && (
           <span>
             <HorizontalSpacer width={5} />
-            {`${acDisplay}=${population.ac} out of ${population.an}`}
+            {`${acDisplay}=${population.ac || 0} out of ${population.an || 0}`}
           </span>
         )}
       </FreqValue>
@@ -122,6 +122,7 @@ FreqSummary.propTypes = {
   urls: PropTypes.object,
   queryParams: PropTypes.object,
   acDisplay: PropTypes.string,
+  alwaysShow: PropTypes.bool,
 }
 
 const getGenePath = ({ variant }) => `gene/${getVariantMainGeneId(variant)}`
@@ -158,8 +159,8 @@ const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
 
 const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
-const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC' }
-const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC' }
+const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC', alwaysShow: true }
+const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC', alwaysShow: true }
 
 const POPULATIONS = [
   SV_CALLSET_POP,
@@ -171,6 +172,8 @@ const POPULATIONS = [
     fieldTitle: 'ExAC',
     urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org' },
     queryParams: { [GENOME_VERSION_37]: 'dataset=exac' },
+    alwaysShow: true,
+    acDisplay: 'AC',
   },
   {
     field: 'gnomad_exomes',
@@ -178,12 +181,16 @@ const POPULATIONS = [
     titleContainer: gnomadLink,
     urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org' },
     queryParams: { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1' },
+    alwaysShow: true,
+    acDisplay: 'AC',
   },
   {
     field: 'gnomad_genomes',
     fieldTitle: 'gnomAD v3 genomes',
     titleContainer: gnomadLink,
     precision: 3,
+    alwaysShow: true,
+    acDisplay: 'AC',
     ...GNOMAD_URL_INFO,
   },
   {
@@ -278,7 +285,7 @@ const MITO_DETAIL_SECTIONS = [
 ]
 
 const getValueDisplay = (pop, valueField, precision) => (valueField === 'ac' ?
-  `${pop.ac} out of ${pop.an}` : `${pop[valueField].toPrecision(precision || 2)}`)
+  `${pop.ac || 0} out of ${pop.an || 0}` : `${pop[valueField].toPrecision(precision || 2)}`)
 
 const Frequencies = React.memo(({ variant }) => {
   const { populations = {} } = variant
