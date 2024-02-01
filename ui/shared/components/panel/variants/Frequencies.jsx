@@ -57,7 +57,7 @@ const getFreqLinkPath = ({ chrom, pos, variant, value }) => {
 }
 
 const FreqSummary = React.memo((props) => {
-  const { field, fieldTitle, variant, urls, queryParams, acDisplay, titleContainer, precision = 2 } = props
+  const { field, fieldTitle, variant, urls, queryParams, acDisplay, titleContainer, showAcOnly, precision = 2 } = props
   const { populations = {}, chrom } = variant
   const population = populations[field] || {}
   if (population.af === null || population.af === undefined) {
@@ -72,18 +72,20 @@ const FreqSummary = React.memo((props) => {
       {titleContainer ? titleContainer(props) : fieldTitle}
       <HorizontalSpacer width={5} />
       <FreqValue>
-        <b>
-          {urls ? (
-            <FreqLink
-              urls={urls}
-              queryParams={queryParams}
-              value={value}
-              displayValue={displayValue}
-              variant={variant}
-              getPath={getFreqLinkPath}
-            />
-          ) : displayValue}
-        </b>
+        {showAcOnly ? null : (
+          <b>
+            {urls ? (
+              <FreqLink
+                urls={urls}
+                queryParams={queryParams}
+                value={value}
+                displayValue={displayValue}
+                variant={variant}
+                getPath={getFreqLinkPath}
+              />
+            ) : displayValue}
+          </b>
+        )}
         {population.hom !== null && population.hom !== undefined && (
           <span>
             <HorizontalSpacer width={5} />
@@ -103,10 +105,16 @@ const FreqSummary = React.memo((props) => {
           </span>
         )}
         {acDisplay && population.ac !== null && population.ac !== undefined && (
-          <span>
-            <HorizontalSpacer width={5} />
-            {`${acDisplay}=${population.ac} out of ${population.an}`}
-          </span>
+          showAcOnly ? (
+            <span>
+              {`${acDisplay}=${population.ac}`}
+            </span>
+          ) : (
+            <span>
+              <HorizontalSpacer width={5} />
+              {`${acDisplay}=${population.ac} out of ${population.an}`}
+            </span>
+          )
         )}
       </FreqValue>
     </div>
@@ -122,6 +130,7 @@ FreqSummary.propTypes = {
   urls: PropTypes.object,
   queryParams: PropTypes.object,
   acDisplay: PropTypes.string,
+  showAcOnly: PropTypes.bool,
 }
 
 const getGenePath = ({ variant }) => `gene/${getVariantMainGeneId(variant)}`
@@ -158,7 +167,7 @@ const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
 
 const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
-const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC' }
+const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC', showAcOnly: true }
 const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC' }
 
 const POPULATIONS = [
@@ -251,7 +260,7 @@ const MITO_POPULATIONS = [
 const DETAIL_SECTIONS = [
   {
     name: 'Global AFs',
-    hasDetail: pop => pop && pop.filter_af,
+    hasDetail: (pop, showAcOnly) => pop && pop.filter_af && !showAcOnly,
     display: () => [{ valueField: 'af' }],
   },
   {
@@ -277,8 +286,13 @@ const MITO_DETAIL_SECTIONS = [
   },
 ]
 
-const getValueDisplay = (pop, valueField, precision) => (valueField === 'ac' ?
-  `${pop.ac} out of ${pop.an}` : `${pop[valueField].toPrecision(precision || 2)}`)
+const getValueDisplay = (pop, valueField, precision, showAcOnly) => {
+  if (valueField === 'ac' && showAcOnly) {
+    return `${pop.ac}`
+  }
+
+  return valueField === 'ac' ? `${pop.ac} out of ${pop.an}` : `${pop[valueField].toPrecision(precision || 2)}`
+}
 
 const Frequencies = React.memo(({ variant }) => {
   const { populations = {} } = variant
@@ -290,12 +304,11 @@ const Frequencies = React.memo(({ variant }) => {
       ...acc,
       {
         name: section.name,
-        details: popConfigs.map(popConfig => (section.hasDetail(populations[popConfig.field]) &&
+        details: popConfigs.map(popConfig => (section.hasDetail(populations[popConfig.field], popConfig.showAcOnly) &&
           (!popConfig.section || popConfig.section === section.name) &&
           section.display(populations[popConfig.field]).map(({ subTitle, valueField }) => (
             <Popup.Content key={`${section.name}${popConfig.field}${subTitle}`}>
-              {`${popConfig.fieldTitle}${subTitle || ''}: ${
-                getValueDisplay(populations[popConfig.field], valueField, popConfig.precision)}`}
+              {`${popConfig.fieldTitle}${subTitle || ''}: ${getValueDisplay(populations[popConfig.field], valueField, popConfig.precision, popConfig.showAcOnly)}`}
             </Popup.Content>
           ))
         )).filter(d => d).reduce((displayAcc, d) => ([...displayAcc, ...d]), []),
