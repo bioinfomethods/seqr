@@ -535,4 +535,4 @@ ARCHIE_OIDC_ENDPOINT = SOCIAL_AUTH_API_URL
 MCRI_SHOW_OBS_COUNTS: bool = os.environ.get('MCRI_SHOW_OBS_COUNTS', 'False').lower() in ('true', '1', 'y')
 MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME = os.environ.get('MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME', None)
 MCRI_SEQR_GENCODE_RELEASES_PATH = os.environ.get('MCRI_SEQR_GENCODE_RELEASES_PATH', 'seqr-gencode-releases')
-MCRI_SHOW_BANNER: bool = os.environ.get('MCRI_SHOW_BANNER', 'False').lower() in ('true', '1', 'y')
+MCRI_ARCHIE_DOCS_URL_PATH: str = os.environ.get('MCRI_ARCHIE_DOCS_URL_PATH', None)

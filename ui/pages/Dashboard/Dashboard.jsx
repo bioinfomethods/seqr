@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 import { Popup, Icon } from 'semantic-ui-react'
 
 import { fetchProjects } from 'redux/rootReducer'
-import { getProjectsIsLoading, getUser, getGoogleLoginEnabled, getShowMcriBanner } from 'redux/selectors'
+import { getProjectsIsLoading, getUser, getGoogleLoginEnabled, getArchieDocsUrlPath } from 'redux/selectors'
 import HorizontalStackedBar from 'shared/components/graph/HorizontalStackedBar'
 import DataTable from 'shared/components/table/DataTable'
 import DataLoader from 'shared/components/DataLoader'
@@ -20,7 +20,7 @@ import FilterSelector from './components/FilterSelector'
 import CategoryIndicator from './components/CategoryIndicator'
 import ProjectEllipsisMenu from './components/ProjectEllipsisMenu'
 import { getVisibleProjects } from './selectors'
-import BannerMessage from './components/BannerMessage'
+import McriBannerMessage from './components/McriBannerMessage'
 
 const ProjectTableContainer = styled.div`
   th {
@@ -194,9 +194,9 @@ const getColumns = (googleLoginEnabled, isAnvil, isSuperuser) => {
   return isSuperuser ? SUPERUSER_COLUMNS_NO_ANVIL : COLUMNS_NO_ANVIL
 }
 
-const ProjectsTable = React.memo(({ visibleProjects, loading, load, user, googleLoginEnabled, showMcriBanner }) => (
+const ProjectsTable = React.memo(({ visibleProjects, loading, load, user, googleLoginEnabled, archieDocsUrlPath }) => (
   <DataLoader content load={load} loading={false}>
-    {showMcriBanner && <BannerMessage />}
+    {archieDocsUrlPath && <McriBannerMessage archieDocsUrlPath={archieDocsUrlPath} />}
     <ProjectTableContainer>
       <VerticalSpacer height={10} />
       <HorizontalSpacer width={10} />
@@ -227,7 +227,7 @@ ProjectsTable.propTypes = {
   user: PropTypes.object,
   load: PropTypes.func,
   googleLoginEnabled: PropTypes.bool,
-  showMcriBanner: PropTypes.bool,
+  archieDocsUrlPath: PropTypes.string,
 }
 
 export { ProjectsTable as ProjectsTableComponent }
@@ -237,7 +237,7 @@ const mapStateToProps = state => ({
   loading: getProjectsIsLoading(state),
   user: getUser(state),
   googleLoginEnabled: getGoogleLoginEnabled(state),
-  showMcriBanner: getShowMcriBanner(state),
+  archieDocsUrlPath: getArchieDocsUrlPath(state),
 })
 
 const mapDispatchToProps = {

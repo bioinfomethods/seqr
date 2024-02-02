@@ -85,7 +85,7 @@ services:
       - ARCHIE_API_ROOT_URL=${ARCHIE_API_ROOT_URL:-https://archietest.mcri.edu.au}
       - MCRI_SHOW_OBS_COUNTS=${MCRI_SHOW_OBS_COUNTS:-True}
       - MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME=${MCRI_SEQR_IMPORTS_GCS_BUCKET_NAME:-mcri-seqr-imports}
-      - MCRI_SHOW_BANNER=${MCRI_SHOW_BANNER:-False}
+      - MCRI_ARCHIE_DOCS_URL_PATH
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
       # - /mnt/disks/seqr_static:/seqr_static_files

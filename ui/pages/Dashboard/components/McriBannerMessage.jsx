@@ -1,19 +1,20 @@
+import PropTypes from 'prop-types'
 import React from 'react'
+import { Icon, Message } from 'semantic-ui-react'
 import styled from 'styled-components'
-import { Message, Icon } from 'semantic-ui-react'
 
 const StyledMessage = styled(Message)`
   width: auto !important;
 `
 
-const BannerMessage = () => (
+const McriBannerMessage = React.memo(({ archieDocsUrlPath }) => (
   <StyledMessage compact icon>
     <Icon name="info" />
     <Message.Content>
       <Message.Header>Seqr Updated!</Message.Header>
       <p>
         <a
-          href="http://bioinfomethods.pages.mcri.edu.au/archie-documentation/seqr-release-2023-12/"
+          href={archieDocsUrlPath}
           target="_blank"
           rel="noreferrer"
         >
@@ -23,6 +24,10 @@ const BannerMessage = () => (
       </p>
     </Message.Content>
   </StyledMessage>
-)
+))
 
-export default BannerMessage
+McriBannerMessage.propTypes = {
+  archieDocsUrlPath: PropTypes.string.isRequired,
+}
+
+export default McriBannerMessage
