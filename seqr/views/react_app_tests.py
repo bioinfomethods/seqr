@@ -25,7 +25,7 @@ class AppPageTest(object):
             'version': mock.ANY,
             'hijakEnabled': False,
             'googleLoginEnabled': self.GOOGLE_ENABLED,
-            'showMcriBanner': False,
+            'archieDocsUrlPath': None,
             'elasticsearchEnabled': elasticsearch_enabled,
             'warningMessages': [{'id': 1, 'header': 'Warning!', 'message': 'A sample warning'}],
             'anvilLoadingDelayDate': anvil_loading_date,
