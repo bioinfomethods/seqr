@@ -186,29 +186,8 @@ const getLitSearch = (genes, variations) => {
   return search
 }
 
-const TRANSCRIPT_LABELS = [
-  {
-    content: 'Canonical',
-    color: 'green',
-    shouldShow: transcript => transcript.canonical,
-  },
-  {
-    content: 'MANE Select',
-    color: 'teal',
-    shouldShow: (transcript, transcriptsById) => transcriptsById[transcript.transcriptId]?.isManeSelect,
-  },
-  {
-    content: 'seqr Chosen Transcript',
-    color: 'blue',
-    shouldShow: transcript => transcript.transcriptRank === 0,
-  },
-  {
-    content: 'Non default Transcript',
-    color: 'purple',
-    shouldShow: (transcript, transcriptsById) => !transcript.canonical && transcript.transcriptRank > 0 &&
-      !(transcriptsById[transcript.transcriptId]?.isManeSelect || false),
-  },
-]
+const shouldShowNonDefaultTranscript = (transcript, transcriptsById) => !transcript.canonical &&
+  transcript.transcriptRank > 0 && !(transcriptsById[transcript.transcriptId]?.isManeSelect || false)
 
 const VARIANT_LINKS = [
   {
@@ -446,32 +425,50 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcripts
   return (
     <div>
       {(mainTranscript.majorConsequence || svType) && (
-        <Modal
-          modalName={`${variant.variantId}-annotations`}
-          title="Transcripts"
-          size="large"
-          trigger={
-            <ButtonLink size={svType && 'big'}>
-              {svType ? (SVTYPE_LOOKUP[svType] || svType) : mainTranscript.majorConsequence.replace(/_/g, ' ')}
-              {svType && (svTypeDetail || svSourceDetail) && (
-                <Popup
-                  trigger={<Icon name="info circle" size="small" corner="top right" />}
-                  content={
-                    <div>
-                      {(SVTYPE_DETAILS[svType] || {})[svTypeDetail] || svTypeDetail || ''}
-                      {svTypeDetail && <br />}
-                      {svSourceDetail && `Inserted from chr${svSourceDetail.chrom}`}
-                    </div>
-                  }
-                  position="top center"
-                />
-              )}
-            </ButtonLink>
-          }
-          popup={transcriptPopupProps}
-        >
-          <Transcripts variant={variant} />
-        </Modal>
+        <div>
+          <Modal
+            modalName={`${variant.variantId}-annotations`}
+            title="Transcripts"
+            size="large"
+            trigger={
+              <ButtonLink size={svType && 'big'}>
+                {svType ? (SVTYPE_LOOKUP[svType] || svType) : mainTranscript.majorConsequence.replace(/_/g, ' ')}
+                {svType && (svTypeDetail || svSourceDetail) && (
+                  <Popup
+                    trigger={<Icon name="info circle" size="small" corner="top right" />}
+                    content={
+                      <div>
+                        {(SVTYPE_DETAILS[svType] || {})[svTypeDetail] || svTypeDetail || ''}
+                        {svTypeDetail && <br />}
+                        {svSourceDetail && `Inserted from chr${svSourceDetail.chrom}`}
+                      </div>
+                    }
+                    position="top center"
+                  />
+                )}
+              </ButtonLink>
+            }
+            popup={transcriptPopupProps}
+          >
+            <Transcripts variant={variant} />
+          </Modal>
+          <HorizontalSpacer width={1} />
+          <span>{`(${mainTranscript.transcriptId})`}</span>
+          <HorizontalSpacer width={2} />
+          {shouldShowNonDefaultTranscript(mainTranscript, transcriptsById) && (
+            <span>
+              <Popup
+                trigger={<Icon name="info circle" />}
+                content={
+                  <div>
+                    This is not the default transcript for this gene
+                  </div>
+                }
+                position="top center"
+              />
+            </span>
+          )}
+        </div>
       )}
       {svType && end && !endChrom && end !== pos && (
         <b>
@@ -530,18 +527,6 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcripts
           </b>
         </div>
       )}
-      {mainTranscript.transcriptId && (
-        <div>
-          <b>ID:</b>
-          <HorizontalSpacer width={5} />
-          {mainTranscript.transcriptId}
-        </div>
-      )}
-      {TRANSCRIPT_LABELS.map(({ shouldShow, ...labelProps }) => (
-        shouldShow(mainTranscript, transcriptsById) && (
-          <Label key={labelProps.content} size="small" horizontal {...labelProps} />
-        )
-      ))}
       {mainTranscript.hgvsc && (
         <div>
           <b>HGVS.C</b>
