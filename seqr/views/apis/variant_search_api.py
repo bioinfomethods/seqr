@@ -143,20 +143,22 @@ def _process_variants(variants, families, request, add_all_context=False, add_lo
     if not variants:
         return {'searchedVariants': variants}
 
-    flat_variants = _flatten_variants(variants)
     if MCRI_SHOW_OBS_COUNTS:
-        flat_variants = filter_mcri_pop_stats(flat_variants, request.user, search=search)
+        def comparator(v):
+            if isinstance(v, list):
+                v = v[0]
+            return v.get('populations', {}).get(sort, {}).get('af', None) or 0
+        variants = filter_mcri_pop_stats(variants, request.user, search=search)
         if sort and sort.startswith('pop_mcri'):
-            comparator = lambda v: v.get('populations', {}).get(sort, {}).get('af', None) or 0
-            flat_variants.sort(key=comparator)
-        if len(flat_variants) == 0:
-            return {'searchedVariants': []}
+            variants.sort(key=comparator)
+
+    flat_variants = _flatten_variants(variants)
     saved_variants, variants_by_id = _get_saved_variant_models(flat_variants, families)
 
     response_json = get_variants_response(
         request, saved_variants, response_variants=flat_variants, add_all_context=add_all_context,
         add_locus_list_detail=add_locus_list_detail)
-    response_json['searchedVariants'] = flat_variants if MCRI_SHOW_OBS_COUNTS else variants
+    response_json['searchedVariants'] = variants
 
     for saved_variant in response_json['savedVariantsByGuid'].values():
         family_guids = saved_variant['familyGuids']

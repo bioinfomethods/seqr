@@ -54,9 +54,17 @@ def filter_mcri_pop_stats(variants, user, search=None):
         return True
 
     for variant in variants:
-        annotated = _annotate_or_filter(redis_client, user, variant, freq_filter=freq_filter)
-        if annotated:
-            result.append(annotated)
+        if isinstance(variant, list):
+            nested_variant = []
+            for v in variant:
+                annotated = _annotate_or_filter(redis_client, user, v, freq_filter=freq_filter)
+                if annotated:
+                    nested_variant.append(annotated)
+            result.append(nested_variant)
+        else:
+            annotated = _annotate_or_filter(redis_client, user, variant, freq_filter=freq_filter)
+            if annotated:
+                result.append(annotated)
 
     return result
 
