@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+  </head>
+  <body>
+    <div id="container">
+      <svg id="graph"></svg>
+    </div>
+    <script>
+      const GRAPH_HEIGHT = 400;
+      const GRAPH_WIDTH = 600;
+      const GRAPH_MARGIN = { top: 10, bottom: 40, right: 30, left: 45 };
+
+      let svg = d3
+        .select("#graph")
+        .attr("width", GRAPH_WIDTH + GRAPH_MARGIN.left + GRAPH_MARGIN.right)
+        .attr("height", GRAPH_HEIGHT + GRAPH_MARGIN.top + GRAPH_MARGIN.bottom)
+        .append("g")
+        .attr(
+          "transform",
+          `translate(${GRAPH_MARGIN.left},${GRAPH_MARGIN.top})`
+        );
+
+      fetch("http://localhost:8000/rnadata.json")
+        .then((response) => response.json())
+        .then(({ rnaSeqData: rnaSeqData, genesById }) => {
+          const byIndiv = rnaSeqData["I0002979_rdn0164_00"]["outliers"];
+          const allData = Object.values(byIndiv).flat();
+          const dataArray = allData.filter((item) => item.tissueType === "F");
+          console.debug("dataArray", dataArray, "genesById", genesById);
+
+          const x = d3
+            .scaleLinear()
+            .domain(d3.extent(dataArray, (d) => d.zScore))
+            .range([0, GRAPH_WIDTH]);
+          const y = d3
+            .scaleLog()
+            .domain(d3.extent(dataArray, (d) => d.pValue))
+            .range([0, GRAPH_HEIGHT]);
+          const r = d3
+            .scalePow()
+            .exponent(4)
+            .domain(d3.extent(dataArray, (d) => Math.abs(d.deltaPsi)))
+            .range([1, 10]);
+
+          svg
+            .append("g")
+            .attr("transform", `translate(0,${GRAPH_HEIGHT + 5})`)
+            .call(d3.axisBottom(x).tickSizeOuter(0));
+
+          svg
+            .append("g")
+            .attr("transform", "translate(-10,0)")
+            .call(
+              d3
+                .axisLeft(y)
+                .tickSizeOuter(0)
+                .ticks(5, (val) => -Math.log10(val))
+            );
+
+          svg
+            .append("text")
+            .attr("text-anchor", "end")
+            .attr("y", GRAPH_HEIGHT + GRAPH_MARGIN.bottom)
+            .attr("x", GRAPH_WIDTH / 2)
+            .text("Z-score");
+
+          svg
+            .append("text")
+            .attr("text-anchor", "end")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 10 - GRAPH_MARGIN.left)
+            .attr("x", GRAPH_MARGIN.bottom - GRAPH_HEIGHT / 2)
+            .text("-log(P-value)");
+
+          const dataPoints = svg
+            .append("g")
+            .selectAll("dot")
+            .data(dataArray)
+            .enter()
+            .append("g");
+
+          dataPoints
+            .append("circle")
+            .attr("cx", (d) => x(d.zScore))
+            .attr("cy", (d) => y(d.pValue))
+            .attr("r", (d) =>
+              d.deltaPsi === undefined ? 3 : r(Math.abs(d.deltaPsi))
+            )
+            .style('fill-opacity', '0%')
+            .style('stroke', d => (d.isSignificant ? 'red' : 'lightgrey'))
+            .append('svg:title')
+            .text(d => `${genesById[d.geneId] ? genesById[d.geneId].geneSymbol : d.geneId}\nZ = ${d.zScore.toPrecision(2)}\n${'P-value = 10^-'}${(-Math.log10(d.pValue)).toPrecision(2)}`)
+
+          dataPoints
+            .append("text")
+            .text((d) =>
+              d.isSignificant ? (genesById[d.geneId] || {}).geneSymbol : null
+            )
+            .attr("text-anchor", (d) =>
+              x(d.zScore) > GRAPH_WIDTH - 100 ? "end" : "start"
+            )
+            .attr("x", (d) => {
+              const xPos = x(d.zScore);
+              return xPos + 5 * (xPos > GRAPH_WIDTH - 100 ? -1 : 1);
+            })
+            .attr("y", (d) => y(d.pValue))
+            .style("fill", "red")
+            .style("font-weight", "bold");
+        });
+    </script>
+  </body>
+</html>
