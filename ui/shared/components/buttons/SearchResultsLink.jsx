@@ -55,7 +55,7 @@ const INITIAL_GENE_SEARCH = {
       (acc, { name }) => ({ ...acc, [name]: { af: 0.03 } }), {},
     ),
   },
-  qualityFilter: { min_gq: 40, min_ab: 10 },
+  qualityFilter: { min_gq: 10, min_ab: 10 },
 }
 
 export const GeneSearchLink = props => <ConnectedSearchResultsLink initialSearch={INITIAL_GENE_SEARCH} {...props} />
