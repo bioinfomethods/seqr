@@ -168,12 +168,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 8Gi
+              memory: 7Gi
             limits:
-              memory: 8Gi
+              memory: 7Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms6144m -Xmx7168m"
+            value: "-Xms6656m -Xmx6656m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
