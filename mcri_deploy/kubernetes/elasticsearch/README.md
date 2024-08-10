@@ -196,9 +196,22 @@ curl -s -k -u "elastic:$PASSWORD" "http://localhost:19200/_cat/indices?v" | wc -
 88
 ```
 
-## Increasing Storage Space
+## Increasing Cluster Storage Space
 
-To increase disk space, simply increase the value in `volumeClaimTemplates.spec.resources.requests.storage` and run:
+Seqr Elasticsearch cluster storage is configured as a StatefulSet.  This is configured in file
+`elasticsearch.gcloud.yaml`. To increase disk space, update the nodeSet named `data`.  Update its
+`volumeClaimTemplates.spec.resources.requests.storage` value to the desired size and run:
+
+```bash
+kubectl apply -f elasticsearch/elasticsearch.gcloud.yaml
+```
+
+## Increasing Cluster Memory
+
+In file `elasticsearch.gcloud.yaml`, look for the nodeSet called `data` and update its
+`podTemplate.spec.containers.elasticsearch.resources.requests.memory` value to the desired value.  Also update
+`ES_JAVA_OPTS` with the new memory value.  Make sure the JVM memory value is around 1GB less than the memory value in
+the podTemplate value.  Then run:
 
 ```bash
 kubectl apply -f elasticsearch/elasticsearch.gcloud.yaml
@@ -270,8 +283,7 @@ curl -s -k -u "elastic:$PASSWORD" "http://localhost:19200/_cat/indices?v" | wc -
 
 ### Restart all workloads and since `imagePullPolicy` is set to `Always`, all container changes are erased.
 
-kubectl rollout restart statefulset.apps/elasticsearch-es-client-node
-kubectl rollout restart statefulset.apps/elasticsearch-es-data-loading-node
-kubectl rollout restart statefulset.apps/elasticsearch-es-data
+kubectl rollout restart statefulset.apps/elasticsearch-es-client-node kubectl rollout restart
+statefulset.apps/elasticsearch-es-data-loading-node kubectl rollout restart statefulset.apps/elasticsearch-es-data
 kubectl rollout restart statefulset.apps/elasticsearch-es-master-node
 ```
