@@ -173,7 +173,7 @@ spec:
               memory: 7Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms6656m -Xmx6656m"
+            value: "-Xms6144m -Xmx6144m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
