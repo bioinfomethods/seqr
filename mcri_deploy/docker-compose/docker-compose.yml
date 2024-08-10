@@ -1,5 +1,3 @@
-version: "3.4"
-
 services:
   postgres:
     image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${POSTGRES_IMAGE_NAME:-mcri-seqr-postgres}:${POSTGRES_IMAGE_TAG:-13.11}
@@ -10,6 +8,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docker-compose-postgres-password}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: pg_isready -h postgres -U postgres
       interval: 5s
@@ -20,6 +19,7 @@ services:
     image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${REDIS_IMAGE_NAME:-mcri-seqr-redis}:${REDIS_IMAGE_TAG:-latest}
     ports:
       - "0.0.0.0:${SEQR_REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
     healthcheck:
       test: redis-cli ping
       interval: 3s
@@ -41,6 +41,7 @@ services:
       - ELASTICSEARCH_SERVICE_HOSTNAME=${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}
       - ELASTICSEARCH_SERVICE_PORT=${ELASTICSEARCH_SERVICE_PORT:-9200}
       - ELASTICSEARCH_HOSTS="http://${ELASTICSEARCH_SERVICE_HOSTNAME:-host.docker.internal}:${ELASTICSEARCH_SERVICE_PORT:-9200}"
+    restart: unless-stopped
     healthcheck:
       test: bash -c "curl -s -L kibana:5601 | grep kibana"
       interval: 3s
@@ -96,6 +97,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: bash -c "curl -s 'http://localhost:8000' | grep html"
 
@@ -103,3 +105,4 @@ services:
     image: ${CONTAINER_REGISTRY:-asia.gcr.io/mcri-01}/${PIPELINE_RUNNER_IMAGE_NAME:-pipeline-runner}:${PIPELINE_RUNNER_IMAGE_TAG:-latest}
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
+    restart: unless-stopped
