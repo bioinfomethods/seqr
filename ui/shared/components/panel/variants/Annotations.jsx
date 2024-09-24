@@ -205,7 +205,7 @@ const VARIANT_LINKS = [
   {
     name: 'gnomAD',
     shouldShow: variant => !!variant.svType && has37Coords(variant),
-    getHref: variant => `https://gnomad.broadinstitute.org/region/${getSvRegion(variant, '-', GENOME_VERSION_37)}?dataset=gnomad_sv_r2_1`,
+    getHref: variant => `https://gnomad.broadinstitute.org/region/${getSvRegion(variant, '-', GENOME_VERSION_38)}?dataset=gnomad_sv_r4`,
   },
   {
     name: 'Decipher',

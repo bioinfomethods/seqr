@@ -93,7 +93,12 @@ POPULATIONS = {
     'gnomad_genomes': {
         'filter_AF': ['gnomad_genomes_AF_POPMAX_OR_GLOBAL'],
     },
-    'gnomad_svs': {},
+    'gnomad_svs': {
+        'AC': 'gnomad_svs_AC',
+        'AN': 'gnomad_svs_AN',
+        'AF': 'gnomad_svs_AF',
+        'Hom': 'gnomad_svs_HOMALT',
+    },
     'callset_heteroplasmy': {
         'AN': 'AN',
         'AC': 'AC_het',
