@@ -514,6 +514,7 @@ ES_SV_WGS_VARIANT = {
       'gnomad_svs_AF': 0.00679,
       'gnomad_svs_AC': 22,
       'gnomad_svs_AN': 3240,
+      'gnomad_svs_HOMALT': 20,
       'geneIds': ['ENSG00000228198'],
       'sf': 0.000693825,
       'sn': 10088
@@ -923,7 +924,7 @@ SV_MAPPING_FIELDS = [
     'sv_type_detail',
     'cpx_intervals',
     'gnomad_svs_AC',
-    'gnomad_svs_Hom',
+    'gnomad_svs_HOMALT',
     'gnomad_svs_Hemi',
     'gnomad_svs_AF',
     'gnomad_svs_AN',

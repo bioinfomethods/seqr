@@ -1344,7 +1344,7 @@ PARSED_SV_WGS_VARIANT = {
                    'id': None, 'max_hl': None},
         'sv_callset': {'an': 10088, 'ac': 7, 'hom': None, 'af': 0.000693825, 'hemi': None, 'filter_af': None,
                        'het': None, 'id': None, 'max_hl': None},
-        'gnomad_svs': {'ac': 22, 'af': 0.00679, 'an': 3240, 'filter_af': None, 'hemi': 0, 'hom': 0, 'het': 0,
+        'gnomad_svs': {'ac': 22, 'af': 0.00679, 'an': 3240, 'filter_af': None, 'hemi': 0, 'hom': 20, 'het': 0,
                        'id': 'gnomAD-SV_v2.1_BND_1_1', 'max_hl': None},
         'gnomad_mito': {'ac': None, 'af': None, 'an': None, 'filter_af': None,
                         'hemi': None, 'het': None, 'hom': None, 'id': None, 'max_hl': None},
