@@ -5,7 +5,7 @@ import { Popup, Divider } from 'semantic-ui-react'
 
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { GENOME_VERSION_37, GENOME_VERSION_38, getVariantMainGeneId } from '../../../utils/constants'
-import { GNOMAD_SV_CRITERIA_MESSAGE, SV_CALLSET_CRITERIA_MESSAGE, TOPMED_FREQUENCY } from '../search/constants'
+import { GNOMAD_SV_CRITERIA_MESSAGE, TOPMED_FREQUENCY } from '../search/constants'
 
 const FreqValue = styled.span`
   color: black;
@@ -166,13 +166,10 @@ const sectionTitle = ({ fieldTitle, section }) => (
 const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
 
-const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
 const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC', showAcOnly: true }
 const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC' }
 
 const POPULATIONS = [
-  SV_CALLSET_POP,
-  { ...SV_CALLSET_POP, field: 'sv_seqr', fieldTitle: 'seqr' },
   MCRI_POP_WES,
   MCRI_POP_WGS,
   {
@@ -206,7 +203,7 @@ const POPULATIONS = [
   },
   {
     field: 'gnomad_svs',
-    fieldTitle: 'gnomAD SV',
+    fieldTitle: 'gnomAD v4 SV',
     precision: 3,
     urls: { [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
     queryParams: { [GENOME_VERSION_38]: 'dataset=gnomad_sv_r4' },
