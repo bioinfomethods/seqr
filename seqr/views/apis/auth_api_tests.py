@@ -1,4 +1,5 @@
 import mock
+from unittest import skip
 import json
 
 from django.test import TestCase
@@ -15,6 +16,7 @@ class AuthAPITest(TestCase):
     def setUp(self):
         User.objects.create_user('test_new_user', 'test_new_user@institute.com', 'password123')
 
+    @skip('Skipped for MCRI instance since change password is disabled')
     def test_login_view(self):
         url = reverse(login_view)
 
@@ -97,6 +99,7 @@ class AuthAPITest(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()['error'], 'Permission Denied')
 
+    @skip('Skipped for MCRI instance since login/logout is disabled')
     def test_logout_view(self):
         url = reverse(login_view)
         req_values = {

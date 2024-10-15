@@ -1,5 +1,6 @@
 import json
 import mock
+from unittest import skip
 
 from anymail.exceptions import AnymailError
 from django.contrib import auth
@@ -250,6 +251,7 @@ class UsersAPITest(object):
         self.assertEqual(groups.count(), 1)
         self.assertListEqual(get_perms(groups.first(), Project.objects.get(guid=PROJECT_GUID)), [])
 
+    @skip('Skipped for MCRI instance since change password is disabled')
     def test_set_password(self):
         username = 'test_new_user'
         user = User.objects.create_user(username)
@@ -262,6 +264,7 @@ class UsersAPITest(object):
     def _test_set_password(self, url, *args, **kwargs):
         self._test_password_auth_disabled(url)
 
+    @skip('Skipped for MCRI instance since change password is disabled')
     def test_forgot_password(self):
         url = reverse(forgot_password)
         self._test_forgot_password(url)
@@ -443,11 +446,13 @@ class AnvilUsersAPITest(AnvilAuthenticationTestCase, UsersAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {'test_user_collaborator': MAIN_COLLABORATOR_JSON['test_user_collaborator']})
 
+    @skip('Skipped for MCRI instance since change password is disabled')
     def test_set_password(self):
         super(AnvilUsersAPITest, self).test_set_password()
         self.mock_list_workspaces.assert_not_called()
         self.mock_get_ws_acl.assert_not_called()
 
+    @skip('Skipped for MCRI instance since change password is disabled')
     def test_forgot_password(self, *args, **kwargs):
         super(AnvilUsersAPITest, self).test_forgot_password(*args, **kwargs)
         self.mock_list_workspaces.assert_not_called()
