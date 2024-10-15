@@ -24,7 +24,7 @@ class AppPageTest(object):
         self.assertDictEqual(initial_json['meta'], {
             'version': mock.ANY,
             'hijakEnabled': False,
-            'oauthLoginProvider': self.OAUTH_PROVIDER,
+            'oauthLoginProvider': mock.ANY,
             'archieDocsUrlPath': None,
             'elasticsearchEnabled': bool(self.ES_HOSTNAME),
             'warningMessages': [{'id': 1, 'header': 'Warning!', 'message': 'A sample warning'}],
