@@ -186,9 +186,9 @@ whitenoise==6.3.0
 #############
 # MCRI deps #
 #############
-django-oauth-toolkit==1.7.1
+django-oauth-toolkit==2.3.0
     # Enable API access from non browswer clients using access tokens
-environs==9.5.0
+environs==10.3.0
     # Conveniently manage environment variables with types
 social-auth-core[openidconnect]
     # Extra, required for openid
