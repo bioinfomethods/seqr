@@ -62,7 +62,7 @@ const BaseGeneLabelContent = styled(({ color, customColor, label, maxWidth, disp
     }
   }
 `
-const GeneLabelContent = props => <BaseGeneLabelContent {...props} />
+export const GeneLabelContent = props => <BaseGeneLabelContent {...props} />
 
 const GeneLinks = styled.div`
   font-size: .9em;
@@ -91,10 +91,14 @@ const LocusListsContainer = styled.div`
   overflow-y: auto;
 `
 
+// Fixes popup location for elements in scrollable containers (i.e. locus lists in LocusListsContainer)
+// Suggested fix for known issue from https://github.com/Semantic-Org/Semantic-UI-React/issues/3687
+const POPPER_MODIFIERS = { preventOverflow: { boundariesElement: 'window' } }
+
 const GeneLabel = React.memo(({ popupHeader, popupContent, showEmpty, ...labelProps }) => {
   const content = <GeneLabelContent {...labelProps} />
   return (popupContent || showEmpty) ?
-    <Popup header={popupHeader} trigger={content} content={popupContent} size="tiny" wide hoverable /> : content
+    <Popup header={popupHeader} trigger={content} content={popupContent} size="tiny" wide hoverable popperModifiers={POPPER_MODIFIERS} /> : content
 })
 
 GeneLabel.propTypes = {
@@ -190,7 +194,7 @@ const BaseLocusListLabels = React.memo(({
       paLocusList,
       geneSymbol,
     }) : {
-      description: label,
+      description: locusListDescription,
       initials: false,
       customColor: false,
     }
@@ -229,7 +233,7 @@ const mapLocusListStateToProps = state => ({
   locusListsByGuid: getLocusListsByGuid(state),
 })
 
-export const LocusListLabels = connect(mapLocusListStateToProps)(BaseLocusListLabels)
+const LocusListLabels = connect(mapLocusListStateToProps)(BaseLocusListLabels)
 
 const ClinGenRow = ({ value, label, href }) => (
   <Table.Row>
@@ -269,6 +273,25 @@ GeneDetailSection.propTypes = {
   showEmpty: PropTypes.bool,
 }
 
+export const omimPhenotypesDetail = (phenotypes, showCoordinates) => (
+  <List>
+    {phenotypes.map(phenotype => (
+      <ListItemLink
+        key={phenotype.phenotypeDescription}
+        content={(
+          <span>
+            {phenotype.phenotypeDescription}
+            {phenotype.phenotypeInheritance && <i>{` (${phenotype.phenotypeInheritance})`}</i>}
+            {showCoordinates && ` ${phenotype.chrom}:${phenotype.start}-${phenotype.end}`}
+          </span>
+        )}
+        target="_blank"
+        href={`https://www.omim.org/entry/${phenotype.phenotypeMimNumber}`}
+      />
+    ))}
+  </List>
+)
+
 const GENE_DISEASE_DETAIL_SECTIONS = [
   {
     color: 'violet',
@@ -299,23 +322,7 @@ const GENE_DISEASE_DETAIL_SECTIONS = [
     compactLabel: 'OMIM Disease Phenotypes',
     expandedDisplay: true,
     showDetails: gene => gene.omimPhenotypes.length > 0,
-    detailsDisplay: gene => (
-      <List>
-        {gene.omimPhenotypes.map(phenotype => (
-          <ListItemLink
-            key={phenotype.phenotypeDescription}
-            content={phenotype.phenotypeInheritance ? (
-              <span>
-                {phenotype.phenotypeDescription}
-                <i>{` (${phenotype.phenotypeInheritance})`}</i>
-              </span>
-            ) : phenotype.phenotypeDescription}
-            target="_blank"
-            href={`https://www.omim.org/entry/${phenotype.phenotypeMimNumber}`}
-          />
-        ))}
-      </List>
-    ),
+    detailsDisplay: gene => omimPhenotypesDetail(gene.omimPhenotypes),
   },
 ]
 
@@ -604,7 +611,7 @@ const getGeneConsequence = (geneId, variant) => {
 
 export const BaseVariantGene = React.memo(({
   geneId, gene, variant, compact, showInlineDetails, compoundHetToggle, tpmGenes, individualGeneData, geneModalId,
-  noExpand, geneSearchFamily,
+  noExpand, geneSearchFamily, hideLocusLists,
 }) => {
   const geneConsequence = variant && getGeneConsequence(geneId, variant)
 
@@ -624,7 +631,7 @@ export const BaseVariantGene = React.memo(({
       margin={showInlineDetails ? '1em .5em 0px 0px' : null}
       horizontal={showInlineDetails}
       individualGeneData={individualGeneData}
-      showLocusLists
+      showLocusLists={!hideLocusLists}
     />
   )
 
@@ -710,6 +717,7 @@ BaseVariantGene.propTypes = {
   geneModalId: PropTypes.string,
   noExpand: PropTypes.bool,
   geneSearchFamily: PropTypes.string,
+  hideLocusLists: PropTypes.bool,
   ...RNA_SEQ_PROP_TYPES,
 }
 

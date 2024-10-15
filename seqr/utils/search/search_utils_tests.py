@@ -5,12 +5,14 @@ import json
 import mock
 from unittest import skip
 
-from hail_search.test_utils import GENE_COUNTS, VARIANT_LOOKUP_VARIANT
+from hail_search.test_utils import GENE_COUNTS, VARIANT_LOOKUP_VARIANT, SV_VARIANT4, SV_VARIANT1
 from seqr.models import Family, Sample, VariantSearch, VariantSearchResults
 from seqr.utils.search.utils import get_single_variant, get_variants_for_variant_ids, get_variant_query_gene_counts, \
-    query_variants, variant_lookup, InvalidSearchException
+    query_variants, variant_lookup, sv_variant_lookup, InvalidSearchException
 from seqr.views.utils.test_utils import PARSED_VARIANTS, PARSED_COMPOUND_HET_VARIANTS_MULTI_PROJECT, GENE_FIELDS
 
+SV_SAMPLES = ['S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733']
+NON_SNP_INDEL_SAMPLES = SV_SAMPLES + ['S000149_hg00733']
 
 class SearchTestHelper(object):
 
@@ -29,8 +31,8 @@ class SearchTestHelper(object):
     def set_cache(self, cached):
         self.mock_redis.get.return_value = json.dumps(cached)
 
-    def assert_cached_results(self, expected_results, sort='xpos'):
-        cache_key = f'search_results__{self.results_model.guid}__{sort}'
+    def assert_cached_results(self, expected_results, sort='xpos', cache_key=None):
+        cache_key = cache_key or f'search_results__{self.results_model.guid}__{sort}'
         self.mock_redis.set.assert_called_with(cache_key, mock.ANY)
         self.assertEqual(json.loads(self.mock_redis.set.call_args.args[1]), expected_results)
         self.mock_redis.expire.assert_called_with(cache_key, timedelta(weeks=2))
@@ -42,24 +44,48 @@ class SearchUtilsTests(SearchTestHelper):
         super(SearchUtilsTests, self).set_up()
 
         self.non_affected_search_samples = Sample.objects.filter(guid__in=[
-             'S000149_hg00733',  'S000137_na20874',
+             'S000137_na20874',
         ])
         self.affected_search_samples = Sample.objects.filter(guid__in=[
             'S000132_hg00731', 'S000133_hg00732', 'S000134_hg00733', 'S000135_na20870',
-            'S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733',
+            'S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733', 'S000149_hg00733',
         ])
         self.search_samples = list(self.affected_search_samples) + list(self.non_affected_search_samples)
 
     @mock.patch('seqr.utils.search.utils.hail_variant_lookup')
     def test_variant_lookup(self, mock_variant_lookup):
         mock_variant_lookup.return_value = VARIANT_LOOKUP_VARIANT
-        variant = variant_lookup(self.user, '1-10439-AC-A', genome_version='38')
+        variant = variant_lookup(self.user, ('1', 10439, 'AC', 'A'), genome_version='38')
         self.assertDictEqual(variant, VARIANT_LOOKUP_VARIANT)
-        mock_variant_lookup.assert_called_with(self.user, ('1', 10439, 'AC', 'A'), genome_version='38')
+        mock_variant_lookup.assert_called_with(self.user, ('1', 10439, 'AC', 'A'), 'SNV_INDEL', genome_version='GRCh38')
+        cache_key = "variant_lookup_results__('1', 10439, 'AC', 'A')__38__"
+        self.assert_cached_results(variant, cache_key=cache_key)
 
-        with self.assertRaises(InvalidSearchException) as cm:
-            variant_lookup(self.user, '100-10439-AC-A')
-        self.assertEqual(str(cm.exception), 'Invalid variant 100-10439-AC-A')
+        mock_variant_lookup.reset_mock()
+        self.set_cache(variant)
+        cached_variant = variant_lookup(self.user, ('1', 10439, 'AC', 'A'), genome_version='38')
+        self.assertDictEqual(variant, cached_variant)
+        mock_variant_lookup.assert_not_called()
+        self.mock_redis.get.assert_called_with(cache_key)
+
+    @mock.patch('seqr.utils.search.utils.hail_sv_variant_lookup')
+    def test_sv_variant_lookup(self, mock_sv_variant_lookup):
+        mock_sv_variant_lookup.return_value = [SV_VARIANT4, SV_VARIANT1]
+        variants = sv_variant_lookup(self.user, 'phase2_DEL_chr14_4640', self.families, genome_version='38', sample_type='WGS')
+        self.assertListEqual(variants, [SV_VARIANT4, SV_VARIANT1])
+        mock_sv_variant_lookup.assert_called_with(
+            self.user, 'phase2_DEL_chr14_4640', 'SV', genome_version='GRCh38', samples=mock.ANY, sample_type='WGS')
+        cache_key = 'variant_lookup_results__phase2_DEL_chr14_4640__38__test_user'
+        self.assert_cached_results(variants, cache_key=cache_key)
+        expected_samples = {s for s in self.search_samples if s.guid in SV_SAMPLES}
+        self.assertSetEqual(set(mock_sv_variant_lookup.call_args.kwargs['samples']), expected_samples)
+
+        mock_sv_variant_lookup.reset_mock()
+        self.set_cache(variants)
+        cached_variant = sv_variant_lookup(self.user, 'phase2_DEL_chr14_4640', self.families, genome_version='38')
+        self.assertListEqual(variants, cached_variant)
+        mock_sv_variant_lookup.assert_not_called()
+        self.mock_redis.get.assert_called_with(cache_key)
 
     def test_get_single_variant(self, mock_get_variants_for_ids):
         mock_get_variants_for_ids.return_value = [PARSED_VARIANTS[0]]
@@ -67,21 +93,21 @@ class SearchUtilsTests(SearchTestHelper):
         self.assertDictEqual(variant, PARSED_VARIANTS[0])
         mock_get_variants_for_ids.assert_called_with(
             mock.ANY, '37', {'2-103343353-GAGA-G': ('2', 103343353, 'GAGA', 'G')}, self.user, return_all_queried_families=False,
+            user_email=None,
         )
-        expected_samples = {
-            s for s in self.search_samples if s.guid not in ['S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733', 'S000149_hg00733']
-        }
+        expected_samples = {s for s in self.search_samples if s.guid not in NON_SNP_INDEL_SAMPLES}
         self.assertSetEqual(set(mock_get_variants_for_ids.call_args.args[0]), expected_samples)
 
         get_single_variant(self.families, '2-103343353-GAGA-G', user=self.user, return_all_queried_families=True)
         mock_get_variants_for_ids.assert_called_with(
             mock.ANY, '37', {'2-103343353-GAGA-G': ('2', 103343353, 'GAGA', 'G')}, self.user, return_all_queried_families=True,
+            user_email=None,
         )
         self.assertSetEqual(set(mock_get_variants_for_ids.call_args.args[0]), expected_samples)
 
         get_single_variant(self.families, 'prefix_19107_DEL', user=self.user)
         mock_get_variants_for_ids.assert_called_with(
-            mock.ANY, '37', {'prefix_19107_DEL': None}, self.user, return_all_queried_families=False,
+            mock.ANY, '37', {'prefix_19107_DEL': None}, self.user, return_all_queried_families=False, user_email=None,
         )
         expected_samples = {
             s for s in self.search_samples if s.guid in ['S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733']
@@ -94,14 +120,14 @@ class SearchUtilsTests(SearchTestHelper):
         self.assertEqual(str(cm.exception), 'Variant 10-10334333-A-G not found')
 
     def test_get_variants_for_variant_ids(self, mock_get_variants_for_ids):
-        variant_ids = ['2-103343353-GAGA-G', '1-248367227-TC-T', 'prefix-938_DEL', 'M-10195-C-A']
+        variant_ids = ['2-103343353-GAGA-G', '1-248367227-TC-T', 'prefix-938_DEL', 'MT-10195-C-A']
         get_variants_for_variant_ids(self.families, variant_ids, user=self.user)
         mock_get_variants_for_ids.assert_called_with(mock.ANY, '37', {
             '2-103343353-GAGA-G': ('2', 103343353, 'GAGA', 'G'),
             '1-248367227-TC-T': ('1', 248367227, 'TC', 'T'),
-            'M-10195-C-A': ('M', 10195, 'C', 'A'),
+            'MT-10195-C-A': ('M', 10195, 'C', 'A'),
             'prefix-938_DEL': None,
-        }, self.user)
+        }, self.user, user_email=None)
         self.assertSetEqual(set(mock_get_variants_for_ids.call_args.args[0]), set(self.search_samples))
 
         get_variants_for_variant_ids(
@@ -109,8 +135,8 @@ class SearchUtilsTests(SearchTestHelper):
         mock_get_variants_for_ids.assert_called_with(mock.ANY, '37', {
             '2-103343353-GAGA-G': ('2', 103343353, 'GAGA', 'G'),
             '1-248367227-TC-T': ('1', 248367227, 'TC', 'T'),
-            'M-10195-C-A': ('M', 10195, 'C', 'A'),
-        }, self.user)
+            'MT-10195-C-A': ('M', 10195, 'C', 'A'),
+        }, self.user, user_email=None)
         skipped_samples = ['S000145_hg00731', 'S000146_hg00732', 'S000148_hg00733']
         expected_samples = {s for s in self.search_samples if s.guid not in skipped_samples}
         self.assertSetEqual(set(mock_get_variants_for_ids.call_args.args[0]), expected_samples)
@@ -120,7 +146,7 @@ class SearchUtilsTests(SearchTestHelper):
         mock_get_variants_for_ids.assert_called_with(mock.ANY, '37', {
             '2-103343353-GAGA-G': ('2', 103343353, 'GAGA', 'G'),
             '1-248367227-TC-T': ('1', 248367227, 'TC', 'T'),
-        }, self.user)
+        }, self.user, user_email=None)
         skipped_samples.append('S000149_hg00733')
         expected_samples = {s for s in self.search_samples if s.guid not in skipped_samples}
         self.assertSetEqual(set(mock_get_variants_for_ids.call_args.args[0]), expected_samples)
@@ -131,6 +157,28 @@ class SearchUtilsTests(SearchTestHelper):
             query_variants(self.results_model, user=self.user, page=200)
         self.assertEqual(str(cm.exception), 'Unable to load more than 10000 variants (20000 requested)')
 
+        self.search_model.search['locus'] = {'rawVariantItems': 'chr2-A-C'}
+        with self.assertRaises(InvalidSearchException) as cm:
+            search_func(self.results_model, user=self.user)
+        self.assertEqual(str(cm.exception), 'Invalid variants: chr2-A-C')
+
+        self.search_model.search['locus']['rawVariantItems'] = 'rs9876,chr2-1234-A-C'
+        with self.assertRaises(InvalidSearchException) as cm:
+            search_func(self.results_model, user=self.user)
+        self.assertEqual(str(cm.exception), 'Invalid variant notation: found both variant IDs and rsIDs')
+
+        self.search_model.search['locus']['rawItems'] = 'chr27:1234-5678,2:40-400000000, ENSG00012345'
+        with self.assertRaises(InvalidSearchException) as cm:
+            search_func(self.results_model, user=self.user)
+        self.assertEqual(str(cm.exception), 'Invalid genes/intervals: chr27:1234-5678, chr2:40-400000000, ENSG00012345')
+
+        build_specific_genes = 'DDX11L1, OR4F29, ENSG00000223972, ENSG00000256186'
+        self.search_model.search['locus']['rawItems'] = build_specific_genes
+        with self.assertRaises(InvalidSearchException) as cm:
+            search_func(self.results_model, user=self.user)
+        self.assertEqual(str(cm.exception), 'Invalid genes/intervals: DDX11L1, ENSG00000223972')
+
+        self.search_model.search['locus'] = {}
         self.search_model.search['inheritance'] = {'mode': 'recessive'}
         with self.assertRaises(InvalidSearchException) as cm:
             query_variants(self.results_model)
@@ -197,20 +245,11 @@ class SearchUtilsTests(SearchTestHelper):
             'Searching across multiple genome builds is not supported. Remove projects with differing genome builds from search: 37 - 1kg project nåme with uniçøde, Test Reprocessed Project; 38 - Non-Analyst Project',
         )
 
-        self.search_model.search['locus'] = {'rawVariantItems': 'chr2-A-C'}
+        self.results_model.families.set(Family.objects.filter(guid='F000014_14'))
+        self.search_model.search['locus']['rawItems'] = build_specific_genes
         with self.assertRaises(InvalidSearchException) as cm:
             search_func(self.results_model, user=self.user)
-        self.assertEqual(str(cm.exception), 'Invalid variants: chr2-A-C')
-
-        self.search_model.search['locus']['rawVariantItems'] = 'rs9876,chr2-1234-A-C'
-        with self.assertRaises(InvalidSearchException) as cm:
-            search_func(self.results_model, user=self.user)
-        self.assertEqual(str(cm.exception), 'Invalid variant notation: found both variant IDs and rsIDs')
-
-        self.search_model.search['locus']['rawItems'] = 'chr27:1234-5678,2:40-400000000, ENSG00012345'
-        with self.assertRaises(InvalidSearchException) as cm:
-            search_func(self.results_model, user=self.user)
-        self.assertEqual(str(cm.exception), 'Invalid genes/intervals: chr27:1234-5678, chr2:40-400000000, ENSG00012345')
+        self.assertEqual(str(cm.exception), 'Invalid genes/intervals: OR4F29, ENSG00000256186')
 
     @skip("Skip due to hot fix, see https://github.com/broadinstitute/seqr/issues/3472")
     def test_invalid_search_query_variants(self):
@@ -308,12 +347,12 @@ class SearchUtilsTests(SearchTestHelper):
             search_fields=['locus'], rs_ids=['rs9876'], variant_ids=[], parsed_variant_ids=[],
         )
 
-        self.search_model.search['locus']['rawItems'] = 'DDX11L1, chr2:1234-5678, chr7:100-10100%10, ENSG00000186092'
+        self.search_model.search['locus']['rawItems'] = 'WASH7P, chr2:1234-5678, chr7:100-10100%10, ENSG00000186092'
         query_variants(self.results_model, user=self.user)
         self._test_expected_search_call(
             mock_get_variants, results_cache, sort='xpos', page=1, num_results=100, skip_genotype_filter=False,
             search_fields=['locus'], genes={
-                'ENSG00000223972': mock.ANY, 'ENSG00000186092': mock.ANY,
+                'ENSG00000227232': mock.ANY, 'ENSG00000186092': mock.ANY,
             }, intervals=[
                 {'chrom': '2', 'start': 1234, 'end': 5678, 'offset': None},
                 {'chrom': '7', 'start': 100, 'end': 10100, 'offset': 0.1},
@@ -322,8 +361,15 @@ class SearchUtilsTests(SearchTestHelper):
         parsed_genes = mock_get_variants.call_args.args[1]['parsedLocus']['genes']
         for gene in parsed_genes.values():
             self.assertSetEqual(set(gene.keys()), GENE_FIELDS)
-        self.assertEqual(parsed_genes['ENSG00000223972']['geneSymbol'], 'DDX11L1')
+        self.assertEqual(parsed_genes['ENSG00000227232']['geneSymbol'], 'WASH7P')
         self.assertEqual(parsed_genes['ENSG00000186092']['geneSymbol'], 'OR4F5')
+
+        self.search_model.search.update({'pathogenicity': {'clinvar': ['pathogenic', 'likely_pathogenic']}, 'locus': {}})
+        query_variants(self.results_model, user=self.user)
+        self._test_expected_search_call(
+            mock_get_variants, results_cache, sort='xpos', page=1, num_results=100, skip_genotype_filter=False,
+            search_fields=['pathogenicity', 'locus'], dataset_type='SNV_INDEL', omitted_sample_guids=SV_SAMPLES,
+        )
 
         self.search_model.search = {
             'inheritance': {'mode': 'recessive'}, 'annotations': {'frameshift': ['frameshift_variant']},
@@ -397,13 +443,6 @@ class SearchUtilsTests(SearchTestHelper):
         gene_counts = get_variant_query_gene_counts(self.results_model, self.user)
         self.assertDictEqual(gene_counts, cached_gene_counts)
 
-        self.set_cache({'all_results': PARSED_COMPOUND_HET_VARIANTS_MULTI_PROJECT, 'total_results': 2})
-        gene_counts = get_variant_query_gene_counts(self.results_model, self.user)
-        self.assertDictEqual(gene_counts, {
-            'ENSG00000135953': {'total': 1, 'families': {'F000003_3': 1, 'F000011_11': 1}},
-            'ENSG00000228198': {'total': 1, 'families': {'F000003_3': 1, 'F000011_11': 1}}
-        })
-
 
 @mock.patch('seqr.utils.search.elasticsearch.es_utils.ELASTICSEARCH_SERVICE_HOSTNAME', 'testhost')
 class ElasticsearchSearchUtilsTests(TestCase, SearchUtilsTests):
@@ -416,6 +455,11 @@ class ElasticsearchSearchUtilsTests(TestCase, SearchUtilsTests):
     def test_variant_lookup(self, *args, **kwargs):
         with self.assertRaises(InvalidSearchException) as cm:
             super().test_variant_lookup(*args, **kwargs)
+        self.assertEqual(str(cm.exception), 'Hail backend is disabled')
+
+    def test_sv_variant_lookup(self, *args, **kwargs):
+        with self.assertRaises(InvalidSearchException) as cm:
+            super().test_sv_variant_lookup(*args, **kwargs)
         self.assertEqual(str(cm.exception), 'Hail backend is disabled')
 
     @mock.patch('seqr.utils.search.utils.get_es_variants_for_variant_ids')
@@ -455,6 +499,13 @@ class ElasticsearchSearchUtilsTests(TestCase, SearchUtilsTests):
 
     def test_cached_get_variant_query_gene_counts(self):
         super(ElasticsearchSearchUtilsTests, self).test_cached_get_variant_query_gene_counts()
+
+        self.set_cache({'all_results': PARSED_COMPOUND_HET_VARIANTS_MULTI_PROJECT, 'total_results': 2})
+        gene_counts = get_variant_query_gene_counts(self.results_model, self.user)
+        self.assertDictEqual(gene_counts, {
+            'ENSG00000135953': {'total': 1, 'families': {'F000003_3': 1, 'F000011_11': 1}},
+            'ENSG00000228198': {'total': 1, 'families': {'F000003_3': 1, 'F000011_11': 1}},
+        })
 
         self.set_cache({
             'grouped_results': [
@@ -498,3 +549,14 @@ class HailSearchUtilsTests(TestCase, SearchUtilsTests):
     @mock.patch('seqr.utils.search.utils.get_hail_variants')
     def test_get_variant_query_gene_counts(self, mock_call):
         super(HailSearchUtilsTests, self).test_get_variant_query_gene_counts(mock_call)
+
+    def test_cached_get_variant_query_gene_counts(self):
+        super(HailSearchUtilsTests, self).test_cached_get_variant_query_gene_counts()
+
+        self.set_cache({'all_results': PARSED_COMPOUND_HET_VARIANTS_MULTI_PROJECT + [SV_VARIANT1], 'total_results': 3})
+        gene_counts = get_variant_query_gene_counts(self.results_model, self.user)
+        self.assertDictEqual(gene_counts, {
+            'ENSG00000135953': {'total': 2, 'families': {'F000003_3': 2, 'F000011_11': 2}},
+            'ENSG00000228198': {'total': 2, 'families': {'F000003_3': 2, 'F000011_11': 2}},
+            'ENSG00000171621': {'total': 1, 'families': {'F000011_11': 1}},
+        })

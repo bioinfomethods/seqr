@@ -16,7 +16,7 @@ import Modal from 'shared/components/modal/Modal'
 import DataTable from 'shared/components/table/DataTable'
 import { ButtonLink, HelpIcon } from 'shared/components/StyledComponents'
 import {
-  SAMPLE_TYPE_LOOKUP,
+  SAMPLE_TYPE_OPTIONS,
   GENOME_VERSION_LOOKUP,
   DATASET_TITLE_LOOKUP,
   ANVIL_URL,
@@ -58,6 +58,13 @@ const FAMILY_STRUCTURE_HOVER = {
   4: 'A family with two parents and two children',
   5: 'A family with two parents and three or more other family members',
 }
+
+const SAMPLE_TYPE_LOOKUP = SAMPLE_TYPE_OPTIONS.reduce(
+  (acc, opt) => ({
+    ...acc,
+    ...{ [opt.value]: opt.text },
+  }), {},
+)
 
 const DetailSection = React.memo(({ title, content, button }) => (
   <div>
@@ -257,7 +264,7 @@ MatchmakerOverview.propTypes = {
 class DatasetSection extends React.PureComponent {
 
   static propTypes = {
-    loadedSampleCounts: PropTypes.object.isRequired,
+    loadedSampleCounts: PropTypes.arrayOf(PropTypes.object).isRequired,
   }
 
   state = { showAll: false }
@@ -269,9 +276,9 @@ class DatasetSection extends React.PureComponent {
   render() {
     const { loadedSampleCounts } = this.props
     const { showAll } = this.state
-    const allLoads = Object.keys(loadedSampleCounts).sort().map(loadedDate => (
+    const allLoads = loadedSampleCounts.map(({ loadedDate, count }) => (
       <div key={loadedDate}>
-        {`${new Date(loadedDate).toLocaleDateString()} - ${loadedSampleCounts[loadedDate]} samples`}
+        {`${new Date(loadedDate).toLocaleDateString()} - ${count} samples`}
       </div>
     ))
 
@@ -290,11 +297,11 @@ class DatasetSection extends React.PureComponent {
 }
 
 const Dataset = React.memo(({ showLoadWorkspaceData, hasAnvil, samplesByType, user, elasticsearchEnabled }) => {
-  const datasetSections = Object.entries(samplesByType).map(([sampleTypeKey, loadedSampleCounts]) => {
+  const datasetSections = samplesByType.map(([sampleTypeKey, loadedSampleCounts]) => {
     const [sampleType, datasetType] = sampleTypeKey.split('__')
     return {
       key: sampleTypeKey,
-      title: `${SAMPLE_TYPE_LOOKUP[sampleType].text}${DATASET_TITLE_LOOKUP[datasetType] || ''} Datasets`,
+      title: `${SAMPLE_TYPE_LOOKUP[sampleType] || sampleType}${DATASET_TITLE_LOOKUP[datasetType] || ''} Datasets`,
       content: <DatasetSection loadedSampleCounts={loadedSampleCounts} />,
     }
   }).sort((a, b) => a.title.localeCompare(b.title))

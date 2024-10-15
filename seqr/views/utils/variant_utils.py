@@ -1,16 +1,21 @@
 from collections import defaultdict
+from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import F
+from django.db.models import F, Q
+import json
 import logging
 import redis
+from tqdm import tqdm
+import traceback
 
 from matchmaker.models import MatchmakerSubmissionGenes, MatchmakerSubmission
-from reference_data.models import TranscriptInfo
+from reference_data.models import TranscriptInfo, Omim, GENOME_VERSION_GRCh38
 from seqr.models import SavedVariant, VariantSearchResults, Family, LocusList, LocusListInterval, LocusListGene, \
-    RnaSeqTpm, PhenotypePrioritization, Project, Sample, VariantTagType
-from seqr.utils.search.utils import get_variants_for_variant_ids
+    RnaSeqTpm, PhenotypePrioritization, Project, Sample, RnaSample, VariantTag, VariantTagType
+from seqr.utils.search.utils import get_variants_for_variant_ids, backend_specific_call
 from seqr.utils.gene_utils import get_genes_for_variants
-from seqr.views.utils.json_to_orm_utils import update_model_from_json
+from seqr.utils.xpos_utils import get_xpos
+from seqr.views.utils.json_to_orm_utils import update_model_from_json, create_model_from_json
 from seqr.views.utils.orm_to_json_utils import get_json_for_discovery_tags, get_json_for_locus_lists, \
     get_json_for_queryset, get_json_for_rna_seq_outliers, get_json_for_saved_variants_with_tags, \
     get_json_for_matchmaker_submissions
@@ -23,15 +28,63 @@ logger = logging.getLogger(__name__)
 
 MAX_VARIANTS_FETCH = 1000
 DISCOVERY_CATEGORY = 'CMG Discovery Tags'
+OMIM_GENOME_VERSION = GENOME_VERSION_GRCh38
 
 
-def update_project_saved_variant_json(project, family_id=None, user=None):
-    saved_variants = SavedVariant.objects.filter(family__project=project).select_related('family')
-    if family_id:
-        saved_variants = saved_variants.filter(family__family_id=family_id)
+def update_projects_saved_variant_json(projects, user_email, **kwargs):
+    success = {}
+    skipped = {}
+    error = {}
+    updated_variants_by_id = {}
+    logger.info(f'Reloading saved variants in {len(projects)} projects')
+    for project_id, project_name, genome_version, family_guids in tqdm(projects, unit=' project'):
+        try:
+            updated_saved_variants = update_project_saved_variant_json(
+                project_id, genome_version, user_email=user_email, family_guids=family_guids, **kwargs)
+            if updated_saved_variants is None:
+                skipped[project_name] = True
+            else:
+                success[project_name] = len(updated_saved_variants)
+                logger.info(f'Updated {len(updated_saved_variants)} variants for project {project_name}')
+                updated_variants_by_id.update({v.variant_id: v.saved_variant_json for v in updated_saved_variants.values()})
+        except Exception as e:
+            traceback_message = traceback.format_exc()
+            logger.error(traceback_message)
+            logger.error(f'Error in project {project_name}: {e}')
+            error[project_name] = e
+
+    logger.info('Reload Summary: ')
+    for k, v in success.items():
+        if v > 0:
+            logger.info(f'  {k}: Updated {v} variants')
+    if skipped:
+        logger.info(f'Skipped the following {len(skipped)} project with no saved variants: {", ".join(skipped)}')
+    if len(error):
+        logger.info(f'{len(error)} failed projects')
+    for k, v in error.items():
+        logger.info(f'  {k}: {v}')
+    return updated_variants_by_id
+
+
+def get_saved_variants(genome_version, project_id=None, family_guids=None, dataset_type=None):
+    saved_variants = SavedVariant.objects.filter(
+        Q(saved_variant_json__genomeVersion__isnull=True) |
+        Q(saved_variant_json__genomeVersion=genome_version.replace('GRCh', ''))
+    )
+    if project_id:
+        saved_variants = saved_variants.filter(family__project_id=project_id)
+    if family_guids:
+        saved_variants = saved_variants.filter(family__guid__in=family_guids)
+    if dataset_type:
+        saved_variants = saved_variants.filter(**saved_variants_dataset_type_filter(dataset_type))
+    return saved_variants
+
+
+def update_project_saved_variant_json(project_id, genome_version, family_guids=None, dataset_type=None, user=None, user_email=None):
+    saved_variants = get_saved_variants(genome_version, project_id, family_guids, dataset_type).select_related('family')
 
     if not saved_variants:
-        return []
+        return None
 
     families = set()
     variant_ids = set()
@@ -45,17 +98,128 @@ def update_project_saved_variant_json(project, family_id=None, user=None):
     families = sorted(families, key=lambda f: f.guid)
     variants_json = []
     for sub_var_ids in [variant_ids[i:i+MAX_VARIANTS_FETCH] for i in range(0, len(variant_ids), MAX_VARIANTS_FETCH)]:
-        variants_json += get_variants_for_variant_ids(families, sub_var_ids, user=user)
+        variants_json += get_variants_for_variant_ids(families, sub_var_ids, user=user, user_email=user_email)
 
-    updated_saved_variant_guids = []
+    updated_saved_variants = {}
     for var in variants_json:
         for family_guid in var['familyGuids']:
             saved_variant = saved_variants_map.get((var['variantId'], family_guid))
             if saved_variant:
                 update_model_from_json(saved_variant, {'saved_variant_json': var}, user)
-                updated_saved_variant_guids.append(saved_variant.guid)
+                updated_saved_variants[saved_variant.guid] = saved_variant
 
-    return updated_saved_variant_guids
+    return updated_saved_variants
+
+
+def saved_variants_dataset_type_filter(dataset_type):
+    xpos_filter_key = 'xpos__gte' if dataset_type == Sample.DATASET_TYPE_MITO_CALLS else 'xpos__lt'
+    dataset_filter = {xpos_filter_key: get_xpos('M', 1)}
+    if dataset_type == Sample.DATASET_TYPE_SV_CALLS:
+        dataset_filter['alt__isnull'] = True
+    else:
+        # Filter out manual variants with invalid characters, such as those used for STRs
+        dataset_filter['alt__regex'] = '^[ACGT]+$'
+    return dataset_filter
+
+
+def parse_saved_variant_json(variant_json, family_id, variant_id=None,):
+    if 'xpos' not in variant_json:
+        variant_json['xpos'] = get_xpos(variant_json['chrom'], variant_json['pos'])
+    xpos = variant_json['xpos']
+    ref = variant_json.get('ref')
+    alt = variant_json.get('alt')
+    var_length = variant_json['end'] - variant_json['pos'] if variant_json.get('end') is not None else len(ref) - 1
+    update_json = {'saved_variant_json': variant_json}
+    return {
+        'xpos': xpos,
+        'xpos_end': xpos + var_length,
+        'ref': ref,
+        'alt': alt,
+        'family_id': family_id,
+        'variant_id': variant_json.get('variantId', variant_id),
+    }, update_json
+
+
+def bulk_create_tagged_variants(family_variant_data, tag_name, get_metadata, user, project=None, load_new_variant_data=None):
+    all_family_ids = {family_id for family_id, _ in family_variant_data.keys()}
+    all_variant_ids = {variant_id for _, variant_id in family_variant_data.keys()}
+
+    saved_variant_map = {
+        (v.family_id, v.variant_id): v
+        for v in SavedVariant.objects.filter(family_id__in=all_family_ids, variant_id__in=all_variant_ids)
+    }
+
+    new_variant_keys = set(family_variant_data.keys()) - set(saved_variant_map.keys())
+    if new_variant_keys:
+        new_variant_data = load_new_variant_data(new_variant_keys, user) if load_new_variant_data else {
+            k: v for k, v in family_variant_data.items() if k in new_variant_keys
+        }
+        new_variant_models = []
+        for (family_id, variant_id), variant in new_variant_data.items():
+            create_json, update_json = parse_saved_variant_json(variant, family_id, variant_id=variant_id)
+            new_variant_models.append(SavedVariant(**create_json, **update_json))
+
+        saved_variant_map.update({
+            (v.family_id, v.variant_id): v for v in SavedVariant.bulk_create(user, new_variant_models)
+        })
+
+    tag_type = VariantTagType.objects.get(name=tag_name, project=project)
+    existing_tags = {
+        tuple(t.saved_variant_ids): t for t in VariantTag.objects.filter(
+            variant_tag_type=tag_type, saved_variants__in=saved_variant_map.values(),
+        ).annotate(saved_variant_ids=ArrayAgg('saved_variants__id', ordering='id'))
+    }
+
+    update_tags = []
+    num_new = 0
+    for key, variant in family_variant_data.items():
+        updated_tag = _set_updated_tags(
+            key, get_metadata(variant), variant['support_vars'], saved_variant_map, existing_tags, tag_type, user,
+        )
+        if updated_tag:
+            update_tags.append(updated_tag)
+        else:
+            num_new += 1
+
+    VariantTag.bulk_update_models(user, update_tags, ['metadata'])
+    return num_new, len(update_tags)
+
+
+def _set_updated_tags(key: tuple[int, str], metadata: dict[str, dict], support_var_ids: list[str],
+                      saved_variant_map: dict[tuple[int, str], SavedVariant], existing_tags: dict[tuple[int, ...], VariantTag],
+                      tag_type: VariantTagType, user: User):
+    variant = saved_variant_map[key]
+    existing_tag = existing_tags.get(tuple([variant.id]))
+    updated_tag = None
+    if existing_tag:
+        existing_metadata = json.loads(existing_tag.metadata or '{}')
+        metadata = {k: existing_metadata.get(k, v) for k, v in metadata.items()}
+        removed = {k: v for k, v in existing_metadata.get('removed', {}).items() if k not in metadata}
+        removed.update({k: v for k, v in existing_metadata.items() if k not in metadata})
+        if removed:
+            metadata['removed'] = removed
+        existing_tag.metadata = json.dumps(metadata)
+        updated_tag = existing_tag
+    else:
+        tag = create_model_from_json(
+            VariantTag, {'variant_tag_type': tag_type, 'metadata': json.dumps(metadata)}, user)
+        tag.saved_variants.add(variant)
+
+    variant_genes = set(variant.saved_variant_json['transcripts'].keys())
+    support_vars = []
+    for support_id in support_var_ids:
+        support_v = saved_variant_map[(key[0], support_id)]
+        if variant_genes.intersection(set(support_v.saved_variant_json['transcripts'].keys())):
+            support_vars.append(support_v)
+    if support_vars:
+        variants = [variant] + support_vars
+        variant_id_key = tuple(sorted([v.id for v in variants]))
+        if variant_id_key not in existing_tags:
+            tag = create_model_from_json(VariantTag, {'variant_tag_type': tag_type}, user)
+            tag.saved_variants.set(variants)
+            existing_tags[variant_id_key] = True
+
+    return updated_tag
 
 
 def reset_cached_search_results(project, reset_index_metadata=False):
@@ -68,6 +232,7 @@ def reset_cached_search_results(project, reset_index_metadata=False):
                 keys_to_delete += redis_client.keys(pattern='search_results__{}*'.format(guid))
         else:
             keys_to_delete = redis_client.keys(pattern='search_results__*')
+        keys_to_delete += redis_client.keys(pattern='variant_lookup_results__*')
         if reset_index_metadata:
             keys_to_delete += redis_client.keys(pattern='index_metadata__*')
         if keys_to_delete:
@@ -83,6 +248,12 @@ def get_variant_key(xpos=None, ref=None, alt=None, genomeVersion=None, **kwargs)
     return '{}-{}-{}_{}'.format(xpos, ref, alt, genomeVersion)
 
 
+def _requires_transcript_metadata(variant):
+    if isinstance(variant, list):
+        return _requires_transcript_metadata(variant[0])
+    return variant.get('genomeVersion') != GENOME_VERSION_GRCh38 or variant.get('chrom', '').startswith('M')
+
+
 def _saved_variant_genes_transcripts(variants):
     family_genes = defaultdict(set)
     gene_ids = set()
@@ -93,11 +264,16 @@ def _saved_variant_genes_transcripts(variants):
         for var in variant:
             for gene_id, transcripts in var.get('transcripts', {}).items():
                 gene_ids.add(gene_id)
-                transcript_ids.update([t['transcriptId'] for t in transcripts if t.get('transcriptId')])
+                if backend_specific_call(lambda v: True, _requires_transcript_metadata)(variant):
+                    transcript_ids.update([t['transcriptId'] for t in transcripts if t.get('transcriptId')])
             for family_guid in var['familyGuids']:
                 family_genes[family_guid].update(var.get('transcripts', {}).keys())
 
-    genes = get_genes_for_variants(gene_ids)
+    projects = Project.objects.filter(family__guid__in=family_genes.keys()).distinct()
+    genome_versions = {p.genome_version for p in projects}
+    genome_version = list(genome_versions)[0] if len(genome_versions) == 1 else None
+
+    genes = get_genes_for_variants(gene_ids, genome_version=genome_version)
     for gene in genes.values():
         if gene:
             gene['locusListGuids'] = []
@@ -107,9 +283,19 @@ def _saved_variant_genes_transcripts(variants):
             TranscriptInfo.objects.filter(transcript_id__in=transcript_ids),
             nested_fields=[{'fields': ('refseqtranscript', 'refseq_id'), 'key': 'refseqId'}]
         )
-    }
+    } if transcript_ids else None
 
-    return genes, transcripts, family_genes
+    return genes, transcripts, family_genes, projects
+
+
+def get_omim_intervals_query(variants):
+    chroms = {v['chrom'] for v in variants if v.get('svType')}
+    return Q(phenotype_mim_number__isnull=False, gene__isnull=True, chrom__in=chroms)
+
+
+def _get_omim_intervals(variants):
+    omims = Omim.objects.filter(get_omim_intervals_query(variants))
+    return {o.pop('id'): o for o in get_json_for_queryset(omims, additional_model_fields=['id'])}
 
 
 def _add_locus_lists(projects, genes, add_list_detail=False, user=None):
@@ -161,12 +347,14 @@ def _get_family_has_rna_tpm(family_genes, gene_ids, sample_family_map):
     tpm_family_genes = RnaSeqTpm.objects.filter(
         sample_id__in=sample_family_map.keys(), gene_id__in=gene_ids,
     ).values('sample_id').annotate(genes=ArrayAgg('gene_id', distinct=True))
-    family_tpms = defaultdict(lambda: {'tpmGenes': []})
+    family_tpms = {}
     for agg in tpm_family_genes.iterator():
         family_guid = sample_family_map[agg['sample_id']]
-        genes = [gene for gene in agg['genes'] if gene in family_genes[family_guid]]
+        genes = {gene for gene in agg['genes'] if gene in family_genes[family_guid]}
+        if family_guid in family_tpms:
+            genes.update(family_tpms[family_guid]['tpmGenes'])
         if genes:
-            family_tpms[family_guid]['tpmGenes'] += genes
+            family_tpms[family_guid] = {'tpmGenes': list(genes)}
     return family_tpms
 
 
@@ -199,9 +387,11 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
         if saved_variants is not None else {'savedVariantsByGuid': {}}
 
     variants = list(response['savedVariantsByGuid'].values()) if response_variants is None else response_variants
-    genes, transcripts, family_genes = _saved_variant_genes_transcripts(variants)
+    if not variants:
+        return response
 
-    projects = Project.objects.filter(family__guid__in=family_genes.keys()).distinct()
+    genes, transcripts, family_genes, projects = _saved_variant_genes_transcripts(variants)
+
     project = list(projects)[0] if len(projects) == 1 else None
 
     discovery_tags = None
@@ -210,13 +400,17 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
         discovery_tags, discovery_response = get_json_for_discovery_tags(response['savedVariantsByGuid'].values(), request.user)
         response.update(discovery_response)
 
-    response['transcriptsById'] = transcripts
+    if transcripts:
+        response['transcriptsById'] = transcripts
     response['locusListsByGuid'] = _add_locus_lists(
         projects, genes, add_list_detail=add_locus_list_detail, user=request.user)
 
     if discovery_tags:
         _add_discovery_tags(variants, discovery_tags)
     response['genesById'] = genes
+
+    if any(p.genome_version == OMIM_GENOME_VERSION for p in projects):
+        response['omimIntervals'] = _get_omim_intervals(variants)
 
     mme_submission_genes = MatchmakerSubmissionGenes.objects.filter(
         saved_variant__guid__in=response['savedVariantsByGuid'].keys()).values(
@@ -234,8 +428,8 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
     rna_tpm = None
     if include_individual_gene_scores:
         present_family_genes = {k: v for k, v in family_genes.items() if v}
-        rna_sample_family_map = dict(Sample.objects.filter(
-            individual__family__guid__in=present_family_genes.keys(), sample_type=Sample.SAMPLE_TYPE_RNA, is_active=True,
+        rna_sample_family_map = dict(RnaSample.objects.filter(
+            individual__family__guid__in=present_family_genes.keys(), is_active=True,
         ).values_list('id', 'individual__family__guid'))
         response['rnaSeqData'] = _get_rna_seq_outliers(genes.keys(), rna_sample_family_map.keys())
         rna_tpm = _get_family_has_rna_tpm(present_family_genes, genes.keys(), rna_sample_family_map)
@@ -257,124 +451,12 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
             has_case_review_perm=bool(project) and has_case_review_permissions(project, request.user), include_igv=include_igv,
         )
 
-        if rna_tpm:
-            for family_guid, data in rna_tpm.items():
-                response['familiesByGuid'][family_guid].update(data)
+    if rna_tpm:
+        if 'familiesByGuid' not in response:
+            response['familiesByGuid'] = {}
+        for family_guid, data in rna_tpm.items():
+            if family_guid not in response['familiesByGuid']:
+                response['familiesByGuid'][family_guid] = {}
+            response['familiesByGuid'][family_guid].update(data)
 
     return response
-
-
-def get_variant_main_transcript(variant):
-    main_transcript_id = variant.get('selectedMainTranscriptId') or variant.get('mainTranscriptId')
-    if main_transcript_id:
-        for gene_id, transcripts in variant.get('transcripts', {}).items():
-            main_transcript = next((t for t in transcripts if t['transcriptId'] == main_transcript_id), None)
-            if main_transcript:
-                if 'geneId' not in main_transcript:
-                    main_transcript['geneId'] = gene_id
-                return main_transcript
-    elif len(variant.get('transcripts', {})) == 1:
-        gene_id = next(k for k in variant['transcripts'].keys())
-        #  Handle manually created SNPs
-        if variant['transcripts'][gene_id] == []:
-            return {'geneId': gene_id}
-    return {}
-
-
-def get_sv_name(variant_json):
-    return variant_json.get('svName') or '{svType}:chr{chrom}:{pos}-{end}'.format(**variant_json)
-
-
-def get_saved_discovery_variants_by_family(variant_filter, format_variants, get_family_id):
-    tag_types = VariantTagType.objects.filter(project__isnull=True, category=DISCOVERY_CATEGORY)
-
-    project_saved_variants = SavedVariant.objects.filter(
-        varianttag__variant_tag_type__in=tag_types,
-        **variant_filter,
-    ).order_by('created_date').distinct()
-
-    project_saved_variants = format_variants(project_saved_variants, tag_types)
-
-    saved_variants_by_family = defaultdict(list)
-    for saved_variant in project_saved_variants:
-        family_id = get_family_id(saved_variant)
-        saved_variants_by_family[family_id].append(saved_variant)
-
-    return saved_variants_by_family
-
-
-HET = 'Heterozygous'
-HOM_ALT = 'Homozygous'
-HEMI = 'Hemizygous'
-
-
-def get_variant_inheritance_models(variant_json, affected_individual_guids, unaffected_individual_guids, male_individual_guids):
-    inheritance_models = set()
-
-    affected_indivs_with_hom_alt_variants = set()
-    affected_indivs_with_het_variants = set()
-    unaffected_indivs_with_het_variants = set()
-    is_x_linked = False
-
-    genotypes = variant_json.get('genotypes')
-    if genotypes:
-        chrom = variant_json['chrom']
-        is_x_linked = "X" in chrom
-        for sample_guid, genotype in genotypes.items():
-            zygosity = get_genotype_zygosity(genotype, is_hemi_variant=is_x_linked and sample_guid in male_individual_guids)
-            if zygosity in (HOM_ALT, HEMI) and sample_guid in unaffected_individual_guids:
-                # No valid inheritance modes for hom alt unaffected individuals
-                return set(), set()
-
-            if zygosity in (HOM_ALT, HEMI) and sample_guid in affected_individual_guids:
-                affected_indivs_with_hom_alt_variants.add(sample_guid)
-            elif zygosity == HET and sample_guid in affected_individual_guids:
-                affected_indivs_with_het_variants.add(sample_guid)
-            elif zygosity == HET and sample_guid in unaffected_individual_guids:
-                unaffected_indivs_with_het_variants.add(sample_guid)
-
-    # AR-homozygote, AR-comphet, AR, AD, de novo, X-linked, UPD, other, multiple
-    if affected_indivs_with_hom_alt_variants:
-        if is_x_linked:
-            inheritance_models.add("X-linked")
-        else:
-            inheritance_models.add("AR-homozygote")
-
-    if not unaffected_indivs_with_het_variants and affected_indivs_with_het_variants:
-        if unaffected_individual_guids:
-            inheritance_models.add("de novo")
-        else:
-            inheritance_models.add("AD")
-
-    potential_compound_het_gene_ids = set()
-    if (len(unaffected_individual_guids) < 2 or unaffected_indivs_with_het_variants) \
-            and affected_indivs_with_het_variants and not affected_indivs_with_hom_alt_variants \
-            and 'transcripts' in variant_json:
-        potential_compound_het_gene_ids.update(list(variant_json['transcripts'].keys()))
-
-    return inheritance_models, potential_compound_het_gene_ids
-
-
-def get_genotype_zygosity(genotype, is_hemi_variant):
-    num_alt = genotype.get('numAlt')
-    cn = genotype.get('cn')
-    if num_alt == 2 or cn == 0 or (cn != None and cn > 3):
-        return HOM_ALT
-    if num_alt == 1 or cn == 1 or cn == 3:
-        return HEMI if is_hemi_variant else HET
-    return None
-
-
-DISCOVERY_PHENOTYPE_CLASSES = {
-    'NEW': ['Tier 1 - Known gene, new phenotype', 'Tier 2 - Known gene, new phenotype'],
-    'EXPAN': ['Tier 1 - Phenotype expansion', 'Tier 1 - Novel mode of inheritance', 'Tier 2 - Phenotype expansion'],
-    'UE': ['Tier 1 - Phenotype not delineated', 'Tier 2 - Phenotype not delineated'],
-    'KNOWN': ['Known gene for phenotype'],
-}
-
-
-def get_discovery_phenotype_class(variant_tag_names):
-    for phenotype_class, class_tag_names in DISCOVERY_PHENOTYPE_CLASSES.items():
-        if any(tag in variant_tag_names for tag in class_tag_names):
-            return phenotype_class
-    return None

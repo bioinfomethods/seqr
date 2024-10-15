@@ -2,6 +2,61 @@
 
 ## dev
 
+## 9/19/24
+* Update Biosample choices (REQUIRES DB MIGRATION)
+* Add support for Azure OAuth
+
+## 8/14/24
+* Remove ONT support (REQUIRES DB MIGRATION)
+* Add "Validated Name" functional tag (REQUIRES DB MIGRATION)
+
+## 8/9/24
+* Update directory structure for search backend
+
+## 8/2/24
+* Adds index_file_path to IGV Sample model (REQUIRES DB MIGRATION)
+
+## 7/24/24
+* Split RNA Sample models (REQUIRES DB MIGRATION)
+
+## 7/8/24
+* Add VLM contact for Projects (REQUIRES DB MIGRATION)
+
+## 6/11/24
+* Add "Partial Phenotype Contribution" functional tag (REQUIRES DB MIGRATION)
+
+## 5/24/24
+* Adds external_data to Family model (REQUIRES DB MIGRATION)
+* Adds post_discovery_mondo_id to Family model (REQUIRES DB MIGRATION)
+* Adds guid and created fields to PhenotypePrioritization model (REQUIRES DB MIGRATION)
+* Enable "Reports" tab by default for local installations
+
+## 5/8/24
+* Adds dynamic analysis groups (REQUIRES DB MIGRATION)
+
+## 4/4/24
+* Add ability to import project metadata from gregor metadata
+  * Only enabled for a project if tag is first created via 
+    ```
+    ./manage.py add_project_tag --name="GREGoR Finding" --order=0.5 --color=#c25fc4 --project=<project>
+    ```
+* Support FRASER2 data (REQUIRES DB MIGRATION)
+* Add solve_status to Individual model (REQUIRES DB MIGRATION)
+* Update data deployment for hail backend to disk snapshots
+
+## 3/13/24
+* Add "Probably Solved" analysis status (REQUIRES DB MIGRATION)
+
+## 3/1/24
+* Add subscribable project notifications (REQUIRES DB MIGRATION)
+
+## 1/8/24
+* Support OMIM entries with no associated gene and remove phenotypic_series_number (REQUIRES DB MIGRATION)
+
+## 11/21/23
+* Support AIP upload
+  * To add the required tag type, run `./manage.py loaddata new_variant_tag_types`
+
 ## 11/13/23
 * Add Partial Solve analysis status in Family model (REQUIRES DB MIGRATION)
 

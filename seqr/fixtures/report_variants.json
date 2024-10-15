@@ -4,7 +4,7 @@
     "pk": 9,
     "fields": {
         "guid": "SV0027166_191912634_r0384_rare",
-        "created_date": "2018-05-15T14:51:56.943Z",
+        "created_date": "2018-05-15T14:53:56.943Z",
         "created_by": null,
         "last_modified_date": "2018-05-31T16:36:02.805Z",
         "xpos": 19001912634,
@@ -21,7 +21,7 @@
             "alt": "T",
             "genomeVersion": "38", "genotypeFilters": [],
             "genotypes": {
-                "I000006_hg00733": {"sampleId": "HG00733", "ab": 0, "ad": null, "gq": 21, "dp": 7, "pl": null, "numAlt": 1}
+                "I000004_hg00731": {"sampleId": "HG00731", "ab": 0, "ad": null, "gq": 21, "dp": 7, "pl": null, "numAlt": 1}
             },
             "populations": {
                 "g1k": {
@@ -41,7 +41,8 @@
                 "ENSG00000135953": [
                     {"transcriptId": "ENST00000371839", "biotype": "protein_coding", "geneId": "ENSG00000240361"}
                 ]
-            }
+            },
+            "CAID": "CA403171634"
         },
         "family": 2
     }
@@ -51,7 +52,7 @@
     "pk": 10,
     "fields": {
         "guid": "SV0027167_191912633_r0384_rare",
-        "created_date": "2018-05-15T14:51:56.943Z",
+        "created_date": "2018-05-15T14:54:56.943Z",
         "created_by": null,
         "last_modified_date": "2018-05-31T16:36:02.805Z",
         "xpos": 19001912633,
@@ -68,7 +69,7 @@
             "alt": "T",
             "genomeVersion": "38", "genotypeFilters": [],
             "genotypes": {
-                "I000006_hg00733": {"sampleId": "HG00733", "ab": 0, "ad": null, "gq": 21, "dp": 7, "pl": null, "numAlt": 1}
+                "I000004_hg00731": {"sampleId": "HG00731", "ab": 0, "ad": null, "gq": 21, "dp": 7, "pl": null, "numAlt": 1}
             },
             "populations": {
                 "g1k": {
@@ -88,7 +89,8 @@
                 "ENSG00000135953": [
                     {"transcriptId": "ENST00000371839", "biotype": "protein_coding", "geneId": "ENSG00000240361"}
                 ]
-            }
+            },
+            "CAID": "CA403171631"
         },
         "family": 2
     }
@@ -98,7 +100,7 @@
     "pk": 11,
     "fields": {
         "guid": "SV0027168_191912632_r0384_rare",
-        "created_date": "2018-05-15T14:51:56.943Z",
+        "created_date": "2018-05-15T14:55:56.943Z",
         "created_by": null,
         "last_modified_date": "2018-05-31T16:36:02.805Z",
         "xpos": 19001912632,
@@ -112,7 +114,7 @@
             "xpos": 19001912632,
             "genomeVersion": "38", "genotypeFilters": [],
             "genotypes": {
-                "I000006_hg00733": {"sampleId": "HG00733", "ab": 0, "ad": null, "gq": 21, "dp": 7, "pl": null, "numAlt": 1}
+                "I000004_hg00731": {"numAlt": 1}
             },
             "variantId": "19-1912632-GC-TT",
             "chrom": "19",
@@ -122,7 +124,8 @@
                     {"transcriptId": "ENST00000371839", "biotype": "protein_coding", "geneId": "ENSG00000240361",
                     "hgvsc": "c.586_587delinsTT", "hgvsp": "p.Ala196Leu"}
                 ]
-            }
+            },
+            "CAID": null
         },
         "family": 2
     }
@@ -138,6 +141,45 @@
         "saved_variants": [9, 10, 11],
         "variant_tag_type": 4,
         "search_hash": null
+    }
+},
+{
+    "model": "seqr.variantfunctionaldata",
+    "pk": 29,
+    "fields": {
+        "guid": "VFD0000029_1248367227_r0390_10",
+        "created_date": "2018-05-24T15:34:01.353Z",
+        "created_by": null,
+        "last_modified_date": "2024-05-24T15:34:01.365Z",
+        "saved_variants": [6],
+        "functional_data_tag": "Partial Phenotype Contribution",
+        "metadata": "HP:0000501, HP:0000365"
+    }
+},
+{
+    "model": "seqr.variantfunctionaldata",
+    "pk": 30,
+    "fields": {
+        "guid": "VFD0000030_1248367227_r0390_10",
+        "created_date": "2018-05-24T15:34:01.353Z",
+        "created_by": null,
+        "last_modified_date": "2024-05-24T15:34:01.365Z",
+        "saved_variants": [2],
+        "functional_data_tag": "Partial Phenotype Contribution",
+        "metadata": "Uncertain"
+    }
+},
+{
+    "model": "seqr.variantfunctionaldata",
+    "pk": 31,
+    "fields": {
+        "guid": "VFD0000031_prefix_19107_DEL_r0",
+        "created_date": "2018-07-24T15:34:01.353Z",
+        "created_by": null,
+        "last_modified_date": "2024-07-24T15:34:01.365Z",
+        "saved_variants": [7],
+        "functional_data_tag": "Validated Name",
+        "metadata": "DEL:chr1:249045123-249045456"
     }
 }
 ]

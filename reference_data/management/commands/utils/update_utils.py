@@ -19,6 +19,7 @@ class ReferenceDataHandler(object):
     post_process_models = None
     batch_size = None
     keep_existing_records = False
+    allow_missing_gene = False
     gene_key = 'gene'
 
     def __init__(self, **kwargs):
@@ -50,7 +51,7 @@ class ReferenceDataHandler(object):
         gene = self.gene_reference['gene_ids_to_gene'].get(gene_id) or \
                self.gene_reference['gene_symbols_to_gene'].get(gene_symbol)
 
-        if not gene:
+        if not gene and not self.allow_missing_gene:
             raise ValueError('Gene "{}" not found in the GeneInfo table'.format(gene_id or gene_symbol))
         return gene
 
@@ -72,14 +73,14 @@ def update_records(reference_data_handler, file_path=None):
     Args:
         file_path (str): optional local file path. If not specified, or the path doesn't exist, the table will be downloaded.
     """
-    logger.info('Updating {}'.format(reference_data_handler))
-
-    if not file_path or not os.path.isfile(file_path):
-        file_path = download_file(reference_data_handler.url)
-
     model_cls = reference_data_handler.model_cls
     model_name = model_cls.__name__
     model_objects = getattr(model_cls, 'objects')
+
+    logger.info(f'Updating {model_name}')
+
+    if not file_path or not os.path.isfile(file_path):
+        file_path = download_file(reference_data_handler.url)
 
     models = []
     skip_counter = 0

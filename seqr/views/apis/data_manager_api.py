@@ -1,8 +1,7 @@
 import base64
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from datetime import datetime
 import gzip
-import itertools
 import json
 import os
 import re
@@ -10,28 +9,32 @@ import requests
 import urllib3
 
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Max, Value, F, Q
+from django.db.models import Max, F, Q, Count
 from django.http.response import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from requests.exceptions import ConnectionError as RequestConnectionError
 
+from seqr.utils.communication_utils import send_project_notification
+from seqr.utils.search.add_data_utils import prepare_data_loading_request
 from seqr.utils.search.utils import get_search_backend_status, delete_search_backend_data
-from seqr.utils.search.constants import SEQR_DATSETS_GS_PATH
-from seqr.utils.file_utils import file_iter, does_file_exist, get_gs_file_list
+from seqr.utils.file_utils import file_iter, does_file_exist
 from seqr.utils.logging_utils import SeqrLogger
+from seqr.utils.middleware import ErrorsWarningsException
 from seqr.utils.vcf_utils import validate_vcf_exists
 
-from seqr.views.utils.airflow_utils import trigger_data_loading
-from seqr.views.utils.dataset_utils import load_rna_seq_outlier, load_rna_seq_tpm, load_phenotype_prioritization_data_file, \
-    load_rna_seq_splice_outlier
-from seqr.views.utils.export_utils import write_multiple_files_to_gs
-from seqr.views.utils.file_utils import parse_file, get_temp_upload_directory, load_uploaded_file
+from seqr.views.utils.airflow_utils import trigger_airflow_data_loading
+from seqr.views.utils.airtable_utils import AirtableSession, LOADABLE_PDO_STATUSES, AVAILABLE_PDO_STATUS
+from seqr.views.utils.dataset_utils import load_rna_seq, load_phenotype_prioritization_data_file, RNA_DATA_TYPE_CONFIGS, \
+    post_process_rna_data, convert_django_meta_to_http_headers
+from seqr.views.utils.file_utils import parse_file, get_temp_file_path, load_uploaded_file, persist_temp_file
 from seqr.views.utils.json_utils import create_json_response
+from seqr.views.utils.json_to_orm_utils import update_model_from_json
 from seqr.views.utils.permissions_utils import data_manager_required, pm_or_data_manager_required, get_internal_projects
 
-from seqr.models import Sample, Individual, Project, RnaSeqOutlier, RnaSeqTpm, PhenotypePrioritization, RnaSeqSpliceOutlier
+from seqr.models import Sample, RnaSample, Individual, Project, PhenotypePrioritization
 
-from settings import KIBANA_SERVER, KIBANA_ELASTICSEARCH_PASSWORD, SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL
+from settings import KIBANA_SERVER, KIBANA_ELASTICSEARCH_PASSWORD, KIBANA_ELASTICSEARCH_USER, \
+    SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, BASE_URL, LOADING_DATASETS_DIR, PIPELINE_RUNNER_SERVER
 
 logger = SeqrLogger(__name__)
 
@@ -259,14 +262,7 @@ EXCLUDE_PROJECTS = [
     'kl_temp_manton_orphan-diseases_cmg-samples_exomes_v1', 'Interview Exomes', 'v02_loading_test_project',
 ]
 
-
-RNA_DATA_TYPE_CONFIGS = {
-    'outlier': {'load_func': load_rna_seq_outlier, 'model_class': RnaSeqOutlier},
-    'tpm': {'load_func': load_rna_seq_tpm, 'model_class': RnaSeqTpm},
-    'splice_outlier': {'load_func': load_rna_seq_splice_outlier, 'model_class': RnaSeqSpliceOutlier}
-}
-
-@data_manager_required
+@pm_or_data_manager_required
 def update_rna_seq(request):
     request_json = json.loads(request.body)
 
@@ -280,43 +276,87 @@ def update_rna_seq(request):
     if uploaded_mapping_file_id:
         mapping_file = load_uploaded_file(uploaded_mapping_file_id)
 
+    file_name_prefix = f'rna_sample_data__{data_type}__{datetime.now().isoformat()}'
+    file_dir = get_temp_file_path(file_name_prefix, is_local=True)
+    os.mkdir(file_dir)
+
+    sample_files = {}
+
+    def _save_sample_data(sample_key, sample_data):
+        if sample_key not in sample_files:
+            file_name = _get_sample_file_path(file_dir, '_'.join(sample_key))
+            sample_files[sample_key] = gzip.open(file_name, 'at')
+        sample_files[sample_key].write(f'{json.dumps(sample_data)}\n')
+
     try:
-        load_func = RNA_DATA_TYPE_CONFIGS[data_type]['load_func']
-        samples_to_load, info, warnings = load_func(
-            file_path, user=request.user, mapping_file=mapping_file, ignore_extra_samples=request_json.get('ignoreExtraSamples'))
+        sample_guids_to_keys, info, warnings = load_rna_seq(
+            data_type, file_path, _save_sample_data,
+            user=request.user, mapping_file=mapping_file, ignore_extra_samples=request_json.get('ignoreExtraSamples'))
     except ValueError as e:
         return create_json_response({'error': str(e)}, status=400)
 
-    # Save sample data for loading
-    file_name = f'rna_sample_data__{data_type}__{datetime.now().isoformat()}.json.gz'
-    with gzip.open(os.path.join(get_temp_upload_directory(), file_name), 'wt') as f:
-        for sample_guid, sample_data in samples_to_load.items():
-            f.write(f'{sample_guid}\t\t{json.dumps(sample_data)}\n')
+    for sample_guid, sample_key in sample_guids_to_keys.items():
+        sample_files[sample_key].close()  # Required to ensure gzipped files are properly terminated
+        os.rename(
+            _get_sample_file_path(file_dir, '_'.join(sample_key)),
+            _get_sample_file_path(file_dir, sample_guid),
+        )
+
+    if sample_guids_to_keys:
+        persist_temp_file(file_name_prefix, request.user)
 
     return create_json_response({
         'info': info,
         'warnings': warnings,
-        'fileName': file_name,
-        'sampleGuids': list(samples_to_load.keys()),
+        'fileName': file_name_prefix,
+        'sampleGuids': sorted(sample_guids_to_keys.keys()),
     })
 
 
-@data_manager_required
+def _get_sample_file_path(file_dir, sample_guid):
+    return os.path.join(file_dir, f'{sample_guid}.json.gz')
+
+
+@pm_or_data_manager_required
 def load_rna_seq_sample_data(request, sample_guid):
-    sample = Sample.objects.get(guid=sample_guid)
-    logger.info(f'Loading outlier data for {sample.sample_id}', request.user)
+    sample = RnaSample.objects.get(guid=sample_guid)
+    logger.info(f'Loading outlier data for {sample.individual.individual_id}', request.user)
 
     request_json = json.loads(request.body)
     file_name = request_json['fileName']
     data_type = request_json['dataType']
-    with gzip.open(os.path.join(get_temp_upload_directory(), file_name), 'rt') as f:
-        row = next(line for line in f if line.split('\t\t')[0] == sample_guid)
-        data_by_gene = json.loads(row.split('\t\t')[1])
+    config = RNA_DATA_TYPE_CONFIGS[data_type]
 
-    model_cls = RNA_DATA_TYPE_CONFIGS[data_type]['model_class']
-    model_cls.bulk_create(request.user, [model_cls(sample=sample, **data) for data in data_by_gene.values()])
+    file_path = get_temp_file_path(f'{file_name}/{sample_guid}.json.gz')
+    if does_file_exist(file_path, user=request.user):
+        data_rows = [json.loads(line) for line in file_iter(file_path, user=request.user)]
+        data_rows, error = post_process_rna_data(sample_guid, data_rows, **config.get('post_process_kwargs', {}))
+    else:
+        logger.error(f'No saved temp data found for {sample_guid} with file prefix {file_name}', request.user)
+        error = 'Data for this sample was not properly parsed. Please re-upload the data'
+    if error:
+        return create_json_response({'error': error}, status=400)
+
+    model_cls = config['model_class']
+    model_cls.bulk_create(request.user, [model_cls(sample=sample, **data) for data in data_rows], batch_size=1000)
+    update_model_from_json(sample, {'is_active': True}, user=request.user)
 
     return create_json_response({'success': True})
+
+
+def _notify_phenotype_prioritization_loaded(project, tool, num_samples):
+    url = f'{BASE_URL}project/{project.guid}/project_page'
+    project_link = f'<a href={url}>{project.name}</a>'
+    email = (
+        f'This is to notify you that {tool.title()} data for {num_samples} sample(s) '
+        f'has been loaded in seqr project {project_link}'
+    )
+    send_project_notification(
+        project,
+        notification=f'Loaded {num_samples} {tool.title()} sample(s)',
+        email=email,
+        subject=f'New {tool.title()} data available in seqr',
+    )
 
 
 @data_manager_required
@@ -345,7 +385,7 @@ def load_phenotype_prioritization_data(request):
     if missing_info or conflict_info:
         return create_json_response({'error': missing_info + conflict_info}, status=400)
 
-    all_records = []
+    all_records_by_project_name = {}
     to_delete = PhenotypePrioritization.objects.none()
     error = None
     for project_name, records_by_indiv in data_by_project_indiv_id.items():
@@ -369,7 +409,7 @@ def load_phenotype_prioritization_data(request):
         info.append(f'Project {project_name}: {delete_info}loaded {len(indiv_records)} record(s)')
 
         to_delete |= exist_records
-        all_records += indiv_records
+        all_records_by_project_name[project_name] = indiv_records
 
     if error:
         return create_json_response({'error': error}, status=400)
@@ -377,7 +417,15 @@ def load_phenotype_prioritization_data(request):
     if to_delete:
         PhenotypePrioritization.bulk_delete(request.user, to_delete)
 
-    PhenotypePrioritization.bulk_create(request.user, [PhenotypePrioritization(**data) for data in all_records])
+    models_to_create = [
+        PhenotypePrioritization(**record) for records in all_records_by_project_name.values() for record in records
+    ]
+    PhenotypePrioritization.bulk_create(request.user, models_to_create)
+
+    for project_name, indiv_records in all_records_by_project_name.items():
+        project = projects_by_name[project_name][0]
+        num_samples = len(indiv_records)
+        _notify_phenotype_prioritization_loaded(project, tool, num_samples)
 
     return create_json_response({
         'info': info,
@@ -385,35 +433,14 @@ def load_phenotype_prioritization_data(request):
     })
 
 
-@data_manager_required
-def write_pedigree(request, project_guid):
-    project = Project.objects.get(guid=project_guid)
-
-    possible_file_paths = [
-        f'{SEQR_DATSETS_GS_PATH}/{project.get_genome_version_display()}/RDG_{sample_type}_Broad_{callset}/base/projects/{project.guid}'
-        for callset, sample_type in itertools.product(['Internal', 'External'], ['WGS', 'WES'])
-    ]
-    file_path = next((path for path in possible_file_paths if does_file_exist(path)), None)
-    if not file_path:
-        return create_json_response(
-            {'error': f'No {SEQR_DATSETS_GS_PATH} project directory found for {project.guid}'}, status=400,
-        )
-
-    annotations = OrderedDict({
-        'Project_GUID': Value(project.guid), 'Family_GUID': F('family__guid'), 'Family_ID': F('family__family_id'), 'Individual_ID': F('individual_id'),
-        'Paternal_ID': F('father__individual_id'), 'Maternal_ID': F('mother__individual_id'), 'Sex': F('sex'),
-    })
-    data = Individual.objects.filter(family__project=project).order_by('family_id', 'individual_id').values(**dict(annotations))
-    write_multiple_files_to_gs(
-        [(f'{project.guid}_pedigree', annotations.keys(), data)],
-        file_path, request.user, file_format='tsv')
-
-    return create_json_response({'success': True})
-
-
 DATA_TYPE_FILE_EXTS = {
     Sample.DATASET_TYPE_MITO_CALLS: ('.mt',),
-    Sample.DATASET_TYPE_SV_CALLS: ('.bed',),
+    Sample.DATASET_TYPE_SV_CALLS: ('.bed', '.bed.gz'),
+}
+
+AVAILABLE_PDO_STATUSES = {
+    AVAILABLE_PDO_STATUS,
+    'Historic',
 }
 
 
@@ -421,19 +448,60 @@ DATA_TYPE_FILE_EXTS = {
 def validate_callset(request):
     request_json = json.loads(request.body)
     validate_vcf_exists(
-        request_json['filePath'], request.user, allowed_exts=DATA_TYPE_FILE_EXTS.get(request_json['datasetType'])
+        _callset_path(request_json), request.user, allowed_exts=DATA_TYPE_FILE_EXTS.get(request_json['datasetType']),
+        path_name=request_json['filePath'],
     )
     return create_json_response({'success': True})
 
 
+def _callset_path(request_json):
+    file_path = request_json['filePath']
+    if not AirtableSession.is_airtable_enabled():
+        file_path = os.path.join(LOADING_DATASETS_DIR, file_path.lstrip('/'))
+    return file_path
+
+
 @pm_or_data_manager_required
 def get_loaded_projects(request, sample_type, dataset_type):
-    projects = get_internal_projects().filter(
-        family__individual__sample__sample_type=sample_type, is_demo=False,
-    ).distinct().order_by('name').values('name', projectGuid=F('guid'), dataTypeLastLoaded=Max(
-        'family__individual__sample__loaded_date', filter=Q(family__individual__sample__dataset_type=dataset_type),
+    projects = get_internal_projects().filter(is_demo=False)
+    project_samples = None
+    if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
+        if AirtableSession.is_airtable_enabled():
+            project_samples = _fetch_airtable_loadable_project_samples(request.user)
+            projects = projects.filter(guid__in=project_samples.keys())
+        exclude_sample_type = Sample.SAMPLE_TYPE_WES if sample_type == Sample.SAMPLE_TYPE_WGS else Sample.SAMPLE_TYPE_WGS
+        # Include projects with either the matched sample type OR with no loaded data
+        projects = projects.exclude(family__individual__sample__sample_type=exclude_sample_type)
+    else:
+        # All other data types can only be loaded to projects which already have loaded data
+        projects = projects.filter(family__individual__sample__sample_type=sample_type)
+
+    projects = projects.distinct().order_by('name').values('name', projectGuid=F('guid'), dataTypeLastLoaded=Max(
+        'family__individual__sample__loaded_date',
+        filter=Q(family__individual__sample__dataset_type=dataset_type) & Q(family__individual__sample__sample_type=sample_type),
     ))
+
+    if project_samples:
+        for project in projects:
+            project['sampleIds'] = sorted(project_samples[project['projectGuid']])
+
     return create_json_response({'projects': list(projects)})
+
+
+def _fetch_airtable_loadable_project_samples(user):
+    pdos = AirtableSession(user).fetch_records(
+        'PDO', fields=['PassingCollaboratorSampleIDs', 'SeqrIDs', 'SeqrProjectURL'],
+        or_filters={'PDOStatus': LOADABLE_PDO_STATUSES}
+    )
+    project_samples = defaultdict(set)
+    for pdo in pdos.values():
+        project_guid = re.match(
+            f'{BASE_URL}project/([^/]+)/project_page', pdo['SeqrProjectURL'],
+        ).group(1)
+        project_samples[project_guid].update([
+            sample_id for sample_id in pdo['PassingCollaboratorSampleIDs'] + pdo['SeqrIDs'] if sample_id
+        ])
+    return project_samples
 
 
 @pm_or_data_manager_required
@@ -441,25 +509,107 @@ def load_data(request):
     request_json = json.loads(request.body)
     sample_type = request_json['sampleType']
     dataset_type = request_json['datasetType']
-    projects = request_json['projects']
+    projects = [json.loads(project) for project in request_json['projects']]
+    project_samples = {p['projectGuid']: p.get('sampleIds') for p in projects}
 
-    dag_dataset_type = 'GCNV' if dataset_type == Sample.DATASET_TYPE_SV_CALLS and sample_type == Sample.SAMPLE_TYPE_WES \
-        else dataset_type
-    dag_name = f'RDG_{sample_type}_Broad_Internal_{dag_dataset_type}'
+    project_models = Project.objects.filter(guid__in=project_samples)
+    if len(project_models) < len(projects):
+        missing = sorted(set(project_samples.keys()) - {p.guid for p in project_models})
+        return create_json_response({'error': f'The following projects are invalid: {", ".join(missing)}'}, status=400)
 
-    version_path_prefix = f'{SEQR_DATSETS_GS_PATH}/GRCh38/{dag_name}'
-    version_paths = get_gs_file_list(version_path_prefix, user=request.user, allow_missing=True, check_subfolders=False)
-    versions = [re.findall(f'{version_path_prefix}/v(\d\d)/', p) for p in version_paths]
-    curr_version = max([int(v[0]) for v in versions if v] + [0])
-    dag_variables = {'version_path': f'{version_path_prefix}/v{curr_version+1:02d}'}
+    has_airtable = AirtableSession.is_airtable_enabled()
+    individual_ids = None
+    if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS and has_airtable:
+        individual_ids = _get_valid_project_samples(project_samples, sample_type, request.user)
 
-    success_message = f'*{request.user.email}* triggered loading internal {sample_type} {dataset_type} data for {len(projects)} projects'
-    trigger_data_loading(
-        dag_name, projects, request_json['filePath'], dag_variables, request.user, success_message,
-        SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, f'ERROR triggering internal {sample_type} {dataset_type} loading',
+    loading_args = (
+        project_models, sample_type, dataset_type, request_json['genomeVersion'], _callset_path(request_json),
     )
+    if has_airtable:
+        success_message = f'*{request.user.email}* triggered loading internal {sample_type} {dataset_type} data for {len(projects)} projects'
+        error_message = f'ERROR triggering internal {sample_type} {dataset_type} loading'
+        trigger_airflow_data_loading(
+            *loading_args, user=request.user, success_message=success_message, error_message=error_message,
+            success_slack_channel=SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, is_internal=True, individual_ids=individual_ids,
+        )
+    else:
+        request_json, _ = prepare_data_loading_request(
+            *loading_args, user=request.user, pedigree_dir=LOADING_DATASETS_DIR, raise_pedigree_error=True,
+        )
+        response = requests.post(f'{PIPELINE_RUNNER_SERVER}/loading_pipeline_enqueue', json=request_json, timeout=60)
+        if response.status_code == 409:
+            raise ErrorsWarningsException(['Loading pipeline is already running. Wait for it to complete and resubmit'])
+        response.raise_for_status()
+        logger.info('Triggered loading pipeline', request.user, detail=request_json)
 
     return create_json_response({'success': True})
+
+
+def _get_valid_project_samples(project_samples, sample_type, user):
+    individuals = {
+        (i['project'], i['individual_id']): i for i in Individual.objects.filter(family__project__guid__in=project_samples).values(
+            'id', 'individual_id',
+            project=F('family__project__guid'),
+            family_name=F('family__family_id'),
+            sampleCount=Count('sample', filter=Q(sample__is_active=True) & Q(sample__sample_type=sample_type)),
+        )
+    }
+
+    errors = []
+    individual_ids = []
+    missing_samples = set()
+    airtable_families = set()
+    for project, sample_ids in project_samples.items():
+        for sample_id in sample_ids:
+            individual = individuals.get((project, sample_id))
+            if individual:
+                airtable_families.add((project, individual['family_name']))
+                individual_ids.append(individual['id'])
+            else:
+                missing_samples.add(sample_id)
+
+    if missing_samples:
+        errors.append(f'The following samples are included in airtable but missing from seqr: {", ".join(missing_samples)}')
+
+    missing_samples = {}
+    for (project, sample_id), individual in individuals.items():
+        family_key = (project, individual['family_name'])
+        if sample_id not in project_samples[project] and family_key in airtable_families and individual['sampleCount']:
+            missing_samples[(project, sample_id)] = individual
+
+    loaded_samples = _get_loaded_samples(missing_samples.keys(), user) if missing_samples else []
+
+    missing_family_samples = defaultdict(list)
+    for (project, sample_id), individual in missing_samples.items():
+        if (project, sample_id) in loaded_samples:
+            individual_ids.append(individual['id'])
+            project_samples[project].append(sample_id)
+        else:
+            missing_family_samples[(project, individual['family_name'])].append(sample_id)
+
+    if missing_family_samples:
+        family_errors = [
+            f'{family} ({", ".join(sorted(samples))})' for (_, family), samples in missing_family_samples.items()
+        ]
+        errors.append(f'The following families have previously loaded samples absent from airtable: {"; ".join(family_errors)}')
+
+    if errors:
+        raise ErrorsWarningsException(errors)
+
+    return individual_ids
+
+
+def _get_loaded_samples(project_samples, user):
+    sample_ids = [sample_id for _, sample_id in project_samples]
+    samples_by_id = AirtableSession(user).get_samples_for_sample_ids(sample_ids, ['PDOStatus', 'SeqrProject'])
+    return [(project, sample_id) for project, sample_id in project_samples if any(
+        _is_loaded_airtable_sample(s, project) for s in samples_by_id.get(sample_id, [])
+    )]
+
+
+def _is_loaded_airtable_sample(sample, project_guid):
+    return f'{BASE_URL}project/{project_guid}/project_page' in sample['SeqrProject'] and any(
+        status in AVAILABLE_PDO_STATUSES for status in sample['PDOStatus'])
 
 
 # Hop-by-hop HTTP response headers shouldn't be forwarded.
@@ -475,10 +625,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 @data_manager_required
 @csrf_exempt
 def proxy_to_kibana(request):
-    headers = _convert_django_meta_to_http_headers(request.META)
+    headers = convert_django_meta_to_http_headers(request)
     headers['Host'] = KIBANA_SERVER
     if KIBANA_ELASTICSEARCH_PASSWORD:
-        token = base64.b64encode('kibana:{}'.format(KIBANA_ELASTICSEARCH_PASSWORD).encode('utf-8'))
+        token = base64.b64encode('{}:{}'.format(KIBANA_ELASTICSEARCH_USER, KIBANA_ELASTICSEARCH_PASSWORD).encode('utf-8'))
         headers['Authorization'] = 'Basic {}'.format(token.decode('utf-8'))
 
     url = "http://{host}{path}".format(host=KIBANA_SERVER, path=request.get_full_path())
@@ -509,19 +659,3 @@ def proxy_to_kibana(request):
     except (ConnectionError, RequestConnectionError) as e:
         logger.error(str(e), request.user)
         return HttpResponse("Error: Unable to connect to Kibana {}".format(e), status=400)
-
-
-def _convert_django_meta_to_http_headers(request_meta_dict):
-    """Converts django request.META dictionary into a dictionary of HTTP headers."""
-
-    def convert_key(key):
-        # converting Django's all-caps keys (eg. 'HTTP_RANGE') to regular HTTP header keys (eg. 'Range')
-        return key.replace("HTTP_", "").replace('_', '-').title()
-
-    http_headers = {
-        convert_key(key): str(value).lstrip()
-        for key, value in request_meta_dict.items()
-        if key.startswith("HTTP_") or (key in ('CONTENT_LENGTH', 'CONTENT_TYPE') and value)
-    }
-
-    return http_headers

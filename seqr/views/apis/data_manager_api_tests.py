@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from django.urls.base import reverse
 import json
@@ -5,17 +6,18 @@ import mock
 from requests import HTTPError
 import responses
 
+from seqr.utils.communication_utils import _set_bulk_notification_stream
 from seqr.views.apis.data_manager_api import elasticsearch_status, upload_qc_pipeline_output, delete_index, \
-    update_rna_seq, load_rna_seq_sample_data, load_phenotype_prioritization_data, write_pedigree, validate_callset, \
+    update_rna_seq, load_rna_seq_sample_data, load_phenotype_prioritization_data, validate_callset, \
     get_loaded_projects, load_data
 from seqr.views.utils.orm_to_json_utils import _get_json_for_models
-from seqr.views.utils.test_utils import AuthenticationTestCase, AirflowTestCase
+from seqr.views.utils.test_utils import AuthenticationTestCase, AirflowTestCase, AirtableTest
 from seqr.utils.search.elasticsearch.es_utils_tests import urllib3_responses
-from seqr.models import Individual, RnaSeqOutlier, RnaSeqTpm, RnaSeqSpliceOutlier, Sample, Project, PhenotypePrioritization
+from seqr.models import Individual, RnaSeqOutlier, RnaSeqTpm, RnaSeqSpliceOutlier, RnaSample, Project, PhenotypePrioritization
 from settings import SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL
 
-
 PROJECT_GUID = 'R0001_1kg'
+NON_ANALYST_PROJECT_GUID = 'R0004_non_analyst_project'
 
 ES_CAT_ALLOCATION=[{
     'node': 'node-1',
@@ -270,50 +272,59 @@ SAMPLE_SV_WGS_QC_DATA = [
     b'NA19678	FALSE\n',
 ]
 
-RNA_MUSCLE_SAMPLE_GUID = 'S000152_na19675_d2'
-RNA_SPLICE_SAMPLE_GUID = 'S000151_na19675_1'
+RNA_TPM_MUSCLE_SAMPLE_GUID = 'RS000162_T_na19675_d2'
+RNA_OUTLIER_MUSCLE_SAMPLE_GUID = 'RS000172_E_na19675_d2'
+RNA_SPLICE_SAMPLE_GUID = 'RS000151_S_na19675_1'
 PLACEHOLDER_GUID = 'S0000100'
 RNA_FILE_ID = 'gs://rna_data/new_muscle_samples.tsv.gz'
-SAMPLE_GENE_OUTLIER_DATA = {
-    'ENSG00000240361': {'gene_id': 'ENSG00000240361', 'p_value': '0.01', 'p_adjust': '0.13', 'z_score': '-3.1'},
-    'ENSG00000233750': {'gene_id': 'ENSG00000233750', 'p_value': '0.064', 'p_adjust': '0.0000057', 'z_score': '7.8'},
-}
-SAMPLE_GENE_TPM_DATA = {
-    'ENSG00000240361': {'gene_id': 'ENSG00000240361', 'tpm': '7.8'},
-    'ENSG00000233750': {'gene_id': 'ENSG00000233750', 'tpm': '0.0'},
-}
-SAMPLE_GENE_SPLICE_DATA = {
-    'ENSG00000233750-2-167254166-167258349-*-psi3': {
-        'chrom': '2', 'start': 167254166, 'end': 167258349, 'strand': '*', 'type': 'psi3',
-        'p_value': 1.56e-25, 'z_score': -4.9, 'delta_psi': -0.46, 'read_count': 166, 'gene_id': 'ENSG00000233750',
-        'rare_disease_samples_with_junction': 1, 'rare_disease_samples_total': 20, 'rank': 1,
+SAMPLE_GENE_OUTLIER_DATA = [
+    {'gene_id': 'ENSG00000240361', 'p_value': '0.01', 'p_adjust': '0.13', 'z_score': '-3.1'},
+    {'gene_id': 'ENSG00000240361', 'p_value': '0.01', 'p_adjust': '0.13', 'z_score': '-3.1'},
+    {'gene_id': 'ENSG00000233750', 'p_value': '0.064', 'p_adjust': '0.0000057', 'z_score': '7.8'},
+]
+SAMPLE_GENE_TPM_DATA = [
+    {'gene_id': 'ENSG00000240361', 'tpm': '7.8'},
+    {'gene_id': 'ENSG00000233750', 'tpm': '0.0'},
+]
+SAMPLE_GENE_SPLICE_DATA = [
+    {
+        'chrom': 'chr2', 'start': '167254166', 'end': '167258349', 'strand': '*', 'type': 'psi3',
+        'p_value': '1.56e-25', 'p_adjust': '-4.9', 'delta_intron_jaccard_index': '-0.46', 'counts': '166',
+        'mean_counts': '16.6', 'total_counts': '1660', 'mean_total_counts': '1.66',
+        'rare_disease_samples_with_this_junction': '1', 'rare_disease_samples_total': '20', 'gene_id': 'ENSG00000233750',
     },
-    'ENSG00000240361-7-132885746-132975168-*-psi5': {
-        'chrom': '7', 'start': 132885746, 'end': 132975168, 'strand': '*', 'type': 'psi5',
-        'p_value': 1.08e-56, 'z_score': -6.53, 'delta_psi': -0.85, 'read_count': 231, 'gene_id': 'ENSG00000240361',
-        'rare_disease_samples_with_junction': 1, 'rare_disease_samples_total': 20, 'rank': 0,
+    {
+        'chrom': 'chr2', 'start': '167254166', 'end': '167258349', 'strand': '*', 'type': 'psi3',
+        'p_value': '1.56e-25', 'p_adjust': '-4.9', 'delta_intron_jaccard_index': '-0.46', 'counts': '166',
+        'mean_counts': '16.6', 'total_counts': '1660', 'mean_total_counts': '1.66',
+        'rare_disease_samples_with_this_junction': '1', 'rare_disease_samples_total': '20', 'gene_id': 'ENSG00000240361',
     },
-}
+    {
+        'chrom': 'chr7', 'start': '132885746', 'end': '132975168', 'strand': '*', 'type': 'psi5',
+        'p_value': '1.08e-56', 'p_adjust': '-6.53', 'delta_intron_jaccard_index': '-0.85', 'counts': '231',
+        'mean_counts': '0.231', 'total_counts': '2313', 'mean_total_counts': '231.3',
+        'rare_disease_samples_with_this_junction': '1', 'rare_disease_samples_total': '20', 'gene_id': 'ENSG00000240361',
+    },
+]
 SAMPLE_GENE_SPLICE_DATA2 = {
-    '-2-167258096-167258349-*-psi3': {
-        'chrom': '2', 'start': 167258096, 'end': 167258349, 'strand': '*', 'type': 'psi3',
-        'p_value': 1.56e-25, 'z_score': 6.33, 'delta_psi': 0.45, 'read_count': 143, 'gene_id': '',
-        'rare_disease_samples_with_junction': 1, 'rare_disease_samples_total': 20, 'rank': 0,
+        'chrom': 'chr2', 'start': '167258096', 'end': '167258349', 'strand': '*', 'type': 'psi3',
+        'p_value': '1.56e-25', 'p_adjust': '6.33', 'delta_intron_jaccard_index': '0.45', 'counts': '143',
+        'mean_counts': '14.3', 'total_counts': '1433', 'mean_total_counts': '143.3',
+        'rare_disease_samples_with_this_junction': '1', 'rare_disease_samples_total': '20', 'gene_id': '',
     }
+RNA_OUTLIER_SAMPLE_DATA = {
+    RNA_OUTLIER_MUSCLE_SAMPLE_GUID: '\n'.join([json.dumps(row) for row in SAMPLE_GENE_OUTLIER_DATA]) + '\n',
+    PLACEHOLDER_GUID: json.dumps({'gene_id': 'ENSG00000240361', 'p_value': '0.04', 'p_adjust': '0.112', 'z_score': '1.9'}) + '\n',
 }
-RNA_OUTLIER_SAMPLE_DATA = [
-    f'{RNA_MUSCLE_SAMPLE_GUID}\t\t{json.dumps(SAMPLE_GENE_OUTLIER_DATA)}\n',
-    f"{PLACEHOLDER_GUID}\t\t{json.dumps({'ENSG00000240361': {'gene_id': 'ENSG00000240361', 'p_value': '0.04', 'p_adjust': '0.112', 'z_score': '1.9'}})}\n",
-]
-RNA_TPM_SAMPLE_DATA = [
-    f'{RNA_MUSCLE_SAMPLE_GUID}\t\t{json.dumps(SAMPLE_GENE_TPM_DATA)}\n',
-    f"{PLACEHOLDER_GUID}\t\t{json.dumps({'ENSG00000240361': {'gene_id': 'ENSG00000240361', 'tpm': '0.112'}})}\n",
-]
-RNA_SPLICE_SAMPLE_DATA = [
-    f'{RNA_SPLICE_SAMPLE_GUID}\t\t{json.dumps(SAMPLE_GENE_SPLICE_DATA)}\n',
-    f'{PLACEHOLDER_GUID}\t\t{json.dumps(SAMPLE_GENE_SPLICE_DATA2)}\n',
-]
-RNA_FILENAME_TEMPLATE = 'rna_sample_data__{}__2020-04-15T00:00:00.json.gz'
+RNA_TPM_SAMPLE_DATA = {
+    RNA_TPM_MUSCLE_SAMPLE_GUID: '\n'.join([json.dumps(row) for row in SAMPLE_GENE_TPM_DATA]) + '\n',
+    PLACEHOLDER_GUID: json.dumps({'gene_id': 'ENSG00000240361', 'tpm': '0.112'}) + '\n',
+}
+RNA_SPLICE_SAMPLE_DATA = {
+    RNA_SPLICE_SAMPLE_GUID: '\n'.join([json.dumps(row) for row in SAMPLE_GENE_SPLICE_DATA]) + '\n',
+    PLACEHOLDER_GUID: json.dumps(SAMPLE_GENE_SPLICE_DATA2) + '\n',
+}
+RNA_FILENAME_TEMPLATE = 'rna_sample_data__{}__2020-04-15T00:00:00'
 
 PHENOTYPE_PRIORITIZATION_HEADER = [['tool', 'project', 'sampleId', 'rank', 'geneId', 'diseaseId', 'diseaseName',
                                    'scoreName1', 'score1', 'scoreName2', 'score2', 'scoreName3', 'score3']]
@@ -377,11 +388,89 @@ EXPECTED_UPDATED_LIRICAL_DATA = [
      'tool': 'lirical', 'rank': 4, 'individualGuid': 'I000002_na19678'},
 ]
 
+PEDIGREE_HEADER = ['Project_GUID', 'Family_GUID', 'Family_ID', 'Individual_ID', 'Paternal_ID', 'Maternal_ID', 'Sex']
+EXPECTED_PEDIGREE_ROWS = [
+    ['R0001_1kg', 'F000001_1', '1', 'NA19675_1', 'NA19678', 'NA19679', 'M'],
+    ['R0001_1kg', 'F000001_1', '1', 'NA19678', '', '', 'M'],
+    ['R0001_1kg', 'F000001_1', '1', 'NA19679', '', '', 'F'],
+    ['R0001_1kg', 'F000002_2', '2', 'HG00731', 'HG00732', 'HG00733', 'F'],
+]
 
-class DataManagerAPITest(AuthenticationTestCase):
-    fixtures = ['users', '1kg_project', 'reference_data']
+PROJECT_OPTION = {
+    'dataTypeLastLoaded': None,
+    'name': 'Non-Analyst Project',
+    'projectGuid': 'R0004_non_analyst_project',
+}
+PROJECT_SAMPLES_OPTION = {**PROJECT_OPTION, 'sampleIds': ['NA21234', 'NA21987', 'NA21988']}
+EMPTY_PROJECT_OPTION = {
+    'dataTypeLastLoaded': None,
+    'name': 'Empty Project',
+    'projectGuid': 'R0002_empty',
+}
+EMPTY_PROJECT_SAMPLES_OPTION = {**EMPTY_PROJECT_OPTION, 'sampleIds': ['HG00738', 'HG00739']}
 
-    @mock.patch('seqr.utils.search.elasticsearch.es_utils.ELASTICSEARCH_SERVICE_HOSTNAME', 'testhost')
+AIRTABLE_PDO_RECORDS = {
+    'records': [
+        {
+            'id': 'recW24C2CJW5lT64K',
+            'fields': {
+                'SeqrProjectURL': 'https://seqr.broadinstitute.org/project/R0002_empty/project_page',
+                'PassingCollaboratorSampleIDs': ['HG00738', None],
+                'SeqrIDs': [None, 'HG00739'],
+            }
+        },
+        {
+            'id': 'rec2B6OGmQpAkQW3s',
+            'fields': {
+                'SeqrProjectURL': 'https://seqr.broadinstitute.org/project/R0004_non_analyst_project/project_page',
+                'PassingCollaboratorSampleIDs': ['NA21234', 'NA21987'],
+                'SeqrIDs': [None, None],
+            }
+        },
+        {
+            'id': 'rec2Nkg10N1KssPc3',
+            'fields': {
+                'SeqrProjectURL': 'https://seqr.broadinstitute.org/project/R0004_non_analyst_project/project_page',
+                'PassingCollaboratorSampleIDs': [None],
+                'SeqrIDs': ['NA21988'],
+            }
+        },
+    ]
+}
+AIRTABLE_SAMPLE_RECORDS = {
+    'records': [
+        {
+            'id': 'recW24C2CJW5lT64K',
+            'fields': {
+                'CollaboratorSampleID': 'NA19678',
+                'SeqrProject': ['https://seqr.broadinstitute.org/project/R0001_1kg/project_page'],
+                'PDOStatus': ['Available in seqr'],
+            }
+        },
+    ],
+}
+AIRTABLE_SECONDARY_SAMPLE_RECORDS = {
+    'records': [
+        {
+            'id': 'recW24C2CJW5lT64K',
+            'fields': {
+                'SeqrCollaboratorSampleID': 'NA21234',
+                'SeqrProject': ['https://seqr.broadinstitute.org/project/R0004_non_analyst_project/project_page'],
+                'PDOStatus': ['Hold for phenotips'],
+            }
+        },
+    ],
+}
+
+PIPELINE_RUNNER_URL = 'http://pipeline-runner:6000/loading_pipeline_enqueue'
+
+
+@mock.patch('seqr.views.apis.data_manager_api.LOADING_DATASETS_DIR', '/local_datasets')
+@mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
+class DataManagerAPITest(AirtableTest):
+
+    PROJECTS = [PROJECT_GUID, NON_ANALYST_PROJECT_GUID]
+
     @urllib3_responses.activate
     def test_elasticsearch_status(self):
         url = reverse(elasticsearch_status)
@@ -397,6 +486,9 @@ class DataManagerAPITest(AuthenticationTestCase):
         urllib3_responses.add_json('/_all/_mapping', ES_INDEX_MAPPING)
 
         response = self.client.get(url)
+        self._assert_expected_es_status(response)
+
+    def _assert_expected_es_status(self, response):
         self.assertEqual(response.status_code, 200)
         response_json = response.json()
         self.assertSetEqual(set(response_json.keys()), {'indices', 'errors', 'diskStats', 'nodeStats'})
@@ -411,12 +503,6 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertListEqual(response_json['diskStats'], EXPECTED_DISK_ALLOCATION)
         self.assertListEqual(response_json['nodeStats'], EXPECTED_NODE_STATS)
 
-        with mock.patch('seqr.utils.search.elasticsearch.es_utils.ELASTICSEARCH_SERVICE_HOSTNAME', ''):
-            response = self.client.get(url)
-            self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.json()['error'], 'Elasticsearch is disabled')
-
-    @mock.patch('seqr.utils.search.elasticsearch.es_utils.ELASTICSEARCH_SERVICE_HOSTNAME', 'testhost')
     @urllib3_responses.activate
     def test_delete_index(self):
         url = reverse(delete_index)
@@ -435,6 +521,9 @@ class DataManagerAPITest(AuthenticationTestCase):
         urllib3_responses.add(urllib3_responses.DELETE, '/unused_index')
 
         response = self.client.post(url, content_type='application/json', data=json.dumps({'index': 'unused_index'}))
+        self._assert_expected_delete_index_response(response)
+
+    def _assert_expected_delete_index_response(self, response):
         self.assertEqual(response.status_code, 200)
         response_json = response.json()
         self.assertSetEqual(set(response_json.keys()), {'indices'})
@@ -444,11 +533,6 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertDictEqual(response_json['indices'][4], TEST_SV_INDEX_EXPECTED_DICT)
 
         self.assertEqual(urllib3_responses.calls[0].request.method, 'DELETE')
-
-        with mock.patch('seqr.utils.search.elasticsearch.es_utils.ELASTICSEARCH_SERVICE_HOSTNAME', ''):
-            response = self.client.post(url, content_type='application/json', data=json.dumps({'index': 'unused_index'}))
-            self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.json()['error'], 'Deleting indices is disabled for the hail backend')
 
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     def test_upload_qc_pipeline_output(self, mock_subprocess):
@@ -650,6 +734,7 @@ class DataManagerAPITest(AuthenticationTestCase):
     RNA_DATA_TYPE_PARAMS = {
         'outlier': {
             'model_cls': RnaSeqOutlier,
+            'data_type': 'E',
             'message_data_type': 'Expression Outlier',
             'header': ['sampleID', 'project', 'geneID', 'tissue', 'detail', 'pValue', 'padjust', 'zScore'],
             'optional_headers': ['detail'],
@@ -660,8 +745,8 @@ class DataManagerAPITest(AuthenticationTestCase):
                 ['NA20870', '1kg project nåme with uniçøde', 'ENSG00000240361', 'fibroblasts', 'detail2', 0.01, 0.13, -3.1],
             ],
             'write_data': {
-                'NA20870\t\t{"ENSG00000233750": {"gene_id": "ENSG00000233750", "p_value": "0.064", "p_adjust": "0.0000057", "z_score": "7.8"}}\n',
-                'NA20870\t\t{"ENSG00000240361": {"gene_id": "ENSG00000240361", "p_value": "0.01", "p_adjust": "0.13", "z_score": "-3.1"}}\n'
+                '{"gene_id": "ENSG00000233750", "p_value": "0.064", "p_adjust": "0.0000057", "z_score": "7.8"}\n',
+                '{"gene_id": "ENSG00000240361", "p_value": "0.01", "p_adjust": "0.13", "z_score": "-3.1"}\n'
             },
             'new_data': [
                 ['NA19675_D2', '1kg project nåme with uniçøde', 'ENSG00000240361', 'muscle', 'detail1', 0.01, 0.13, -3.1],
@@ -670,7 +755,7 @@ class DataManagerAPITest(AuthenticationTestCase):
                 ['NA19675_D3', 'Test Reprocessed Project', 'ENSG00000233750', 'muscle', 'detail1', 0.064, '0.0000057', 7.8],
                 ['NA20888', 'Test Reprocessed Project', 'ENSG00000240361', 'muscle', '', 0.04, 0.112, 1.9],
             ],
-            'skipped_samples': 'NA19675_D3',
+            'skipped_samples': 'NA19675_D3 (Test Reprocessed Project)',
             'sample_tissue_type': 'M',
             'num_parsed_samples': 3,
             'initial_model_count': 3,
@@ -679,10 +764,11 @@ class DataManagerAPITest(AuthenticationTestCase):
             'expected_models_json': [
                 ('ENSG00000240361', 0.13, 0.01, -3.1), ('ENSG00000233750', 0.0000057, 0.064, 7.8),
             ],
-            'sample_guid': RNA_MUSCLE_SAMPLE_GUID,
+            'sample_guid': RNA_OUTLIER_MUSCLE_SAMPLE_GUID,
         },
         'tpm': {
             'model_cls': RnaSeqTpm,
+            'data_type': 'T',
             'message_data_type': 'Expression',
             'header': ['sample_id', 'project', 'gene_id', 'individual_id', 'tissue', 'TPM'],
             'optional_headers': ['individual_id'],
@@ -692,80 +778,76 @@ class DataManagerAPITest(AuthenticationTestCase):
                 ['NA20870', 'Test Reprocessed Project', 'ENSG00000240361', 'NA20870', 'muscle', 7.8],
                 ['NA20870', '1kg project nåme with uniçøde', 'ENSG00000233750', 'NA20870', 'fibroblasts', 0.0],
             ],
-            'write_data': {'NA20870\t\t{"ENSG00000240361": {"gene_id": "ENSG00000240361", "tpm": "7.8"}}\n',
-                           'NA20870\t\t{"ENSG00000233750": {"gene_id": "ENSG00000233750", "tpm": "0.0"}}\n'},
+            'write_data': {'{"gene_id": "ENSG00000240361", "tpm": "7.8"}\n',
+                           '{"gene_id": "ENSG00000233750", "tpm": "0.0"}\n'},
             'new_data': [
                 # existing sample NA19675_D2
                 ['NA19675_D2', '1kg project nåme with uniçøde', 'ENSG00000240361', 'NA19675_D2', 'muscle', 7.8],
                 ['NA19675_D2', '1kg project nåme with uniçøde', 'ENSG00000233750', 'NA19675_D2', 'muscle', 0.0],
                 # no matched individual NA19675_D3
                 ['NA19675_D3', '1kg project nåme with uniçøde', 'ENSG00000233750', 'NA19675_D3', 'fibroblasts', 0.064],
-                # skip GTEX samples
-                ['GTEX_001', '1kg project nåme with uniçøde', 'ENSG00000233750', 'NA19675_D3', 'whole_blood', 1.95],
                 # a different project sample NA20888
                 ['NA20888', 'Test Reprocessed Project', 'ENSG00000240361', 'NA20888', 'muscle', 0.112],
                 # a project mismatched sample NA20878
                 ['NA20878', 'Test Reprocessed Project', 'ENSG00000233750', 'NA20878', 'fibroblasts', 0.064],
-                # conflict tissue types samples
-                ['NA19678', '1kg project nåme with uniçøde', 'ENSG00000233750', 'NA19678', 'muscle', 1.34],
-                ['NA19678', '1kg project nåme with uniçøde', 'ENSG00000135954', 'NA19678', 'fibroblasts', 0.05],
             ],
-            'skipped_samples': 'NA19675_D3, NA20878',
+            'skipped_samples': 'NA19675_D3 (1kg project nåme with uniçøde), NA20878 (Test Reprocessed Project)',
             'sample_tissue_type': 'M',
             'num_parsed_samples': 4,
             'initial_model_count': 4,
             'deleted_count': 3,
-            'extra_warnings': [
-                'Skipped data loading for the following 1 sample(s) due to mismatched tissue type: NA19678 (fibroblasts, muscle)',
-            ],
             'parsed_file_data': RNA_TPM_SAMPLE_DATA,
             'get_models_json': lambda models: list(models.values_list('gene_id', 'tpm')),
             'expected_models_json': [('ENSG00000240361', 7.8), ('ENSG00000233750', 0.0)],
-            'sample_guid': RNA_MUSCLE_SAMPLE_GUID,
+            'sample_guid': RNA_TPM_MUSCLE_SAMPLE_GUID,
+            'mismatch_field': 'tpm',
         },
         'splice_outlier': {
             'model_cls': RnaSeqSpliceOutlier,
+            'data_type': 'S',
             'message_data_type': 'Splice Outlier',
-            'header': ['individualId', 'project', 'geneId', 'chrom', 'start', 'end', 'strand', 'geneName', 'type', 'pValue', 'zScore',
-                       'deltaPsi', 'readCount', 'tissue', 'dotSize', 'rareDiseaseSamplesWithJunction',
+            'header': ['sampleID', 'projectName', 'geneID', 'chrom', 'start', 'end', 'strand', 'type', 'pValue', 'pAdjust',
+                       'deltaIntronJaccardIndex', 'counts', 'meanCounts', 'totalCounts', 'meanTotalCounts', 'tissue', 'rareDiseaseSamplesWithThisJunction',
                        'rareDiseaseSamplesTotal'],
-            'optional_headers': ['geneName', 'dotSize'],
-            'loaded_data_row': ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132886973, '*', 'CHCHD3',
-                                'psi5', 1.08E-56, 12.34, 0.85, 1297, 'fibroblasts', 0.53953638, 1, 20],
-            'no_existing_data': ['NA19678', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132886973, '*', 'CHCHD3',
-                                'psi5', 1.08E-56, 12.34, 0.85, 1297, 'fibroblasts', 0.53953638, 1, 20],
+            'optional_headers': [],
+            'loaded_data_row': ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132886973, '*',
+                                'psi5', 1.08E-56, 3.08E-56, 12.34, 1297, 197, 129, 1297, 'fibroblasts', 0.53953638, 1, 20],
+            'no_existing_data': ['NA19678', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132886973, '*',
+                                'psi5', 1.08E-56, 3.08E-56, 12.34, 1297, 197, 129, 1297, 'fibroblasts', 0.53953638, 1, 20],
             'duplicated_indiv_id_data': [
-                ['NA20870', 'Test Reprocessed Project', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*', 'XIRP2',
-                 'psi3', 1.56E-25, 6.33, 0.45, 143, 'fibroblasts', 0.03454739, 1, 20],
-                ['NA20870', '1kg project nåme with uniçøde', 'ENSG00000135953', 'chr2', 167258096, 167258349, '*', 'XIRP2',
-                 'psi3', 1.56E-25, 6.33, 0.45, 143, 'muscle', 0.03454739, 1, 20],
+                ['NA20870', 'Test Reprocessed Project', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*',
+                 'psi3', 1.56E-25, 6.33, 0.45, 143, 143, 143, 143, 'fibroblasts', 1, 20],
+                ['NA20870', '1kg project nåme with uniçøde', 'ENSG00000135953', 'chr2', 167258096, 167258349, '*',
+                 'psi3', 1.56E-25, 6.33, 0.45, 143, 143, 143, 143, 'muscle', 1, 20],
             ],
-            'write_data': {'NA20870\t\t{"ENSG00000233750-2-167258096-167258349-*-psi3": {"chrom": "2", "start": 167258096,'
-                           ' "end": 167258349, "strand": "*", "type": "psi3", "p_value": 1.56e-25, "z_score": 6.33,'
-                           ' "delta_psi": 0.45, "read_count": 143, "gene_id": "ENSG00000233750",'
-                           ' "rare_disease_samples_with_junction": 1, "rare_disease_samples_total": 20, "rank": 0}}\n',
-                           'NA20870\t\t{"ENSG00000135953-2-167258096-167258349-*-psi3": {"chrom": "2", "start": 167258096,'
-                           ' "end": 167258349, "strand": "*", "type": "psi3", "p_value": 1.56e-25, "z_score": 6.33,'
-                           ' "delta_psi": 0.45, "read_count": 143, "gene_id": "ENSG00000135953",'
-                           ' "rare_disease_samples_with_junction": 1, "rare_disease_samples_total": 20, "rank": 0}}\n',
+            'write_data': {'{"chrom": "chr2", "start": "167258096",'
+                           ' "end": "167258349", "strand": "*", "type": "psi3", "p_value": "1.56e-25", "p_adjust": "6.33",'
+                           ' "delta_intron_jaccard_index": "0.45", "counts": "143",'
+                           ' "mean_counts": "143", "total_counts": "143", "mean_total_counts": "143",'
+                           ' "rare_disease_samples_with_this_junction": "1", "rare_disease_samples_total": "20", "gene_id": "ENSG00000233750"}\n',
+                           '{"chrom": "chr2", "start": "167258096",'
+                           ' "end": "167258349", "strand": "*", "type": "psi3", "p_value": "1.56e-25", "p_adjust": "6.33",'
+                           ' "delta_intron_jaccard_index": "0.45", "counts": "143",'
+                           ' "mean_counts": "143", "total_counts": "143", "mean_total_counts": "143",'
+                           ' "rare_disease_samples_with_this_junction": "1", "rare_disease_samples_total": "20", "gene_id": "ENSG00000135953"}\n',
             },
             'new_data': [
                 # existing sample NA19675_1
-                ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000233750', 'chr2', 167254166, 167258349, '*', 'XIRP2', 'psi3',
-                 1.56E-25, -4.9, -0.46, 166, 'fibroblasts', 0.03850364, 1, 20],
-                ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132975168, '*', 'CHCHD3', 'psi5',
-                 1.08E-56, -6.53, -0.85, 231, 'fibroblasts', 0.53953638, 1, 20],
+                ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000233750;ENSG00000240361', 'chr2', 167254166, 167258349, '*', 'psi3',
+                 1.56E-25, -4.9, -0.46, 166, 16.6, 1660, 1.66, 'fibroblasts', 1, 20],
+                ['NA19675_1', '1kg project nåme with uniçøde', 'ENSG00000240361', 'chr7', 132885746, 132975168, '*', 'psi5',
+                 1.08E-56, -6.53, -0.85, 231, 0.231, 2313, 231.3, 'fibroblasts', 1, 20],
                 # no matched individual NA19675_D3
-                ['NA19675_D3', '1kg project nåme with uniçøde', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*', 'XIRP2',
-                 'psi3', 1.56E-25, 6.33, 0.45, 143, 'muscle', 0.03454739, 1, 20],
+                ['NA19675_D3', '1kg project nåme with uniçøde', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*',
+                 'psi3', 1.56E-25, 6.33, 0.45, 143, 14.3, 1433, 143.3, 'muscle', 1, 20],
                 # a new sample NA20888
-                ['NA20888', 'Test Reprocessed Project', '', 'chr2', 167258096, 167258349, '*', 'XIRP2',
-                 'psi3', 1.56E-25, 6.33, 0.45, 143, 'fibroblasts', 0.03454739, 1, 20],
+                ['NA20888', 'Test Reprocessed Project', '', 'chr2', 167258096, 167258349, '*',
+                 'psi3', 1.56E-25, 6.33, 0.45, 143, 14.3, 1433, 143.3, 'fibroblasts', 1, 20],
                 # a project mismatched sample NA20878
-                ['NA20878', 'Test Reprocessed Project', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*', 'XIRP2', 'psi3',
-                 1.56E-25, 6.33, 0.45, 143, 'fibroblasts', 0.03454739, 1, 20],
+                ['NA20878', 'Test Reprocessed Project', 'ENSG00000233750', 'chr2', 167258096, 167258349, '*', 'psi3',
+                 1.56E-25, 6.33, 0.45, 143, 14.3, 1433, 143.3, 'fibroblasts', 1, 20],
             ],
-            'skipped_samples': 'NA19675_D3, NA20878',
+            'skipped_samples': 'NA19675_D3 (1kg project nåme with uniçøde), NA20878 (Test Reprocessed Project)',
             'sample_tissue_type': 'F',
             'num_parsed_samples': 4,
             'initial_model_count': 7,
@@ -773,18 +855,19 @@ class DataManagerAPITest(AuthenticationTestCase):
             'parsed_file_data': RNA_SPLICE_SAMPLE_DATA,
             'allow_missing_gene': True,
             'get_models_json': lambda models: list(
-                models.values_list('gene_id', 'chrom', 'start', 'end', 'strand', 'type', 'p_value', 'z_score', 'delta_psi',
-                                   'read_count', 'rare_disease_samples_with_junction', 'rare_disease_samples_total')),
+                models.values_list('gene_id', 'chrom', 'start', 'end', 'strand', 'type', 'p_value', 'p_adjust', 'delta_intron_jaccard_index',
+                                   'counts', 'rare_disease_samples_with_this_junction', 'rare_disease_samples_total')),
             'expected_models_json': [
                 ('ENSG00000233750', '2', 167254166, 167258349, '*', 'psi3', 1.56e-25, -4.9, -0.46, 166, 1, 20),
+                ('ENSG00000240361', '2', 167254166, 167258349, '*', 'psi3', 1.56e-25, -4.9, -0.46, 166, 1, 20),
                 ('ENSG00000240361', '7', 132885746, 132975168, '*', 'psi5', 1.08e-56, -6.53, -0.85, 231, 1, 20)
             ],
             'sample_guid': RNA_SPLICE_SAMPLE_GUID,
-            'row_id': 'ENSG00000240361-7-132885746-132886973-*-psi5',
+            'row_id': 'ENSG00000233750-2-167254166-167258349-*-psi3',
         },
     }
 
-    def _has_expected_file_loading_logs(self, file, info=None, warnings=None, additional_logs=None, additional_logs_offset=None):
+    def _has_expected_file_loading_logs(self, file, user, info=None, warnings=None, additional_logs=None, additional_logs_offset=None):
         expected_logs = [
             (f'==> gsutil ls {file}', None),
             (f'==> gsutil cat {file} | gunzip -c -q - ', None),
@@ -798,17 +881,16 @@ class DataManagerAPITest(AuthenticationTestCase):
             else:
                 expected_logs += additional_logs
 
-        self.assert_json_logs(self.data_manager_user, expected_logs)
+        self.assert_json_logs(user, expected_logs)
 
-    def _check_rna_sample_model(self, individual_id, data_source, tissue_type):
-        rna_samples = Sample.objects.filter(individual_id=individual_id, sample_type='RNA', tissue_type=tissue_type)
+    def _check_rna_sample_model(self, individual_id, data_source, data_type, tissue_type, is_active_sample=True):
+        rna_samples = RnaSample.objects.filter(
+            individual_id=individual_id, tissue_type=tissue_type, data_source=data_source, data_type=data_type,
+        )
         self.assertEqual(len(rna_samples), 1)
         sample = rna_samples.first()
-        self.assertTrue(sample.is_active)
-        self.assertIsNone(sample.elasticsearch_index)
-        self.assertEqual(sample.sample_type, 'RNA')
+        self.assertEqual(sample.is_active, is_active_sample)
         self.assertEqual(sample.tissue_type, tissue_type)
-        self.assertEqual(sample.data_source, data_source)
         return sample.guid
 
     def test_update_rna_outlier(self, *args, **kwargs):
@@ -822,16 +904,19 @@ class DataManagerAPITest(AuthenticationTestCase):
 
     @mock.patch('seqr.views.utils.dataset_utils.BASE_URL', 'https://test-seqr.org/')
     @mock.patch('seqr.views.utils.dataset_utils.SEQR_SLACK_DATA_ALERTS_NOTIFICATION_CHANNEL', 'seqr-data-loading')
+    @mock.patch('seqr.views.utils.file_utils.tempfile.gettempdir', lambda: 'tmp/')
+    @mock.patch('seqr.utils.communication_utils.send_html_email')
     @mock.patch('seqr.views.utils.dataset_utils.safe_post_to_slack')
     @mock.patch('seqr.views.apis.data_manager_api.datetime')
-    @mock.patch('seqr.views.apis.data_manager_api.os')
+    @mock.patch('seqr.views.apis.data_manager_api.os.mkdir')
+    @mock.patch('seqr.views.apis.data_manager_api.os.rename')
     @mock.patch('seqr.views.apis.data_manager_api.load_uploaded_file')
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     @mock.patch('seqr.views.apis.data_manager_api.gzip.open')
     def _test_update_rna_seq(self, data_type, mock_open, mock_subprocess, mock_load_uploaded_file,
-                            mock_os, mock_datetime, mock_send_slack):
+                            mock_rename, mock_mkdir, mock_datetime, mock_send_slack, mock_send_email):
         url = reverse(update_rna_seq)
-        self.check_data_manager_login(url)
+        self.check_pm_login(url)
 
         params = self.RNA_DATA_TYPE_PARAMS[data_type]
         model_cls = params['model_cls']
@@ -839,22 +924,29 @@ class DataManagerAPITest(AuthenticationTestCase):
         loaded_data_row = params['loaded_data_row']
 
         # Test errors
-        body = {'dataType': data_type, 'file': 'gs://rna_data/muscle_samples.tsv.gz'}
+        body = {'dataType': data_type, 'file': 'gs://rna_data/muscle_samples.tsv'}
         mock_datetime.now.return_value = datetime(2020, 4, 15)
-        mock_os.path.join.side_effect = lambda *args: '/'.join(args[1:])
+        mock_load_uploaded_file.return_value = [['a']]
         mock_load_uploaded_file.return_value = [['a']]
         mock_does_file_exist = mock.MagicMock()
         mock_does_file_exist.wait.return_value = 1
         mock_subprocess.side_effect = [mock_does_file_exist]
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(response.json(), {'error': 'File not found: gs://rna_data/muscle_samples.tsv.gz'})
+        self.assertDictEqual(response.json(), {'error': 'File not found: gs://rna_data/muscle_samples.tsv'})
 
         mock_does_file_exist.wait.return_value = 0
         mock_file_iter = mock.MagicMock()
         def _set_file_iter_stdout(rows):
             mock_file_iter.stdout = [('\t'.join([str(col) for col in row]) + '\n').encode() for row in rows]
-            mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
+            mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter, mock_does_file_exist]
+
+        _set_file_iter_stdout([])
+        invalid_body = {**body, 'file': body['file'].replace('tsv', 'xlsx')}
+        response = self.client.post(url, content_type='application/json', data=json.dumps(invalid_body))
+        self.assertEqual(response.status_code, 400)
+        self.assertDictEqual(
+            response.json(), {'error': 'Unexpected iterated file type: gs://rna_data/muscle_samples.xlsx'})
 
         _set_file_iter_stdout([['']])
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
@@ -864,21 +956,19 @@ class DataManagerAPITest(AuthenticationTestCase):
                      f'{", ".join(sorted([col for col in header if col not in params["optional_headers"]]))}',
         })
 
-        mismatch_row = loaded_data_row[:-1] + [loaded_data_row[-1] - 2]
-        _set_file_iter_stdout([header, loaded_data_row, loaded_data_row, mismatch_row])
+        mapping_body = {'mappingFile': {'uploadedFileId': 'map.tsv'}}
+        body.update(mapping_body)
+        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 400)
-        response_json = response.json()
-        self.assertTrue('errors' in response_json.keys())
-        self.assertEqual(len(response_json['errors']), 1)
-        self.assertTrue(response_json['errors'][0].startswith(
-            f'Error in {loaded_data_row[0]} data for {params.get("row_id", mismatch_row[2])}: mismatched entries '))
+        self.assertDictEqual(response.json(), {'error': 'Must contain 2 columns: a'})
 
+        mock_load_uploaded_file.return_value = [['NA19675_D2', 'NA19675_1']]
         missing_sample_row = ['NA19675_D3'] + loaded_data_row[1:]
         _set_file_iter_stdout([header, loaded_data_row, missing_sample_row])
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(response.json(), {'error': 'Unable to find matches for the following samples: NA19675_D3'})
+        self.assertDictEqual(response.json(), {'errors': ['Unable to find matches for the following samples: NA19675_D3 (1kg project nåme with uniçøde)'], 'warnings': None})
 
         unknown_gene_id_row1 = loaded_data_row[:2] + ['NOT_A_GENE_ID1'] + loaded_data_row[3:]
         unknown_gene_id_row2 = loaded_data_row[:2] + ['NOT_A_GENE_ID2'] + loaded_data_row[3:]
@@ -893,17 +983,12 @@ class DataManagerAPITest(AuthenticationTestCase):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json()['errors'][0], 'Samples missing required "gene_id": NA19675_D2')
 
-        mapping_body = {'mappingFile': {'uploadedFileId': 'map.tsv'}}
-        mapping_body.update(body)
-        mock_subprocess.side_effect = [mock_does_file_exist, mock_file_iter]
-        response = self.client.post(url, content_type='application/json', data=json.dumps(mapping_body))
-        self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(response.json(), {'error': 'Must contain 2 columns: a'})
-
         # Test already loaded data
         mock_send_slack.reset_mock()
+        mock_subprocess.reset_mock()
         self.reset_logs()
         _set_file_iter_stdout([header, loaded_data_row])
+        body['file'] = 'gs://rna_data/muscle_samples.tsv.gz'
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
         info = [
@@ -912,9 +997,15 @@ class DataManagerAPITest(AuthenticationTestCase):
         ]
         warnings = ['Skipped loading for 1 samples already loaded from this file']
         self.assertDictEqual(response.json(), {'info': info, 'warnings': warnings, 'sampleGuids': [], 'fileName': mock.ANY})
-        self._has_expected_file_loading_logs('gs://rna_data/muscle_samples.tsv.gz', info=info, warnings=warnings)
+        self._has_expected_file_loading_logs('gs://rna_data/muscle_samples.tsv.gz', info=info, warnings=warnings, user=self.pm_user)
         self.assertEqual(model_cls.objects.count(), params['initial_model_count'])
         mock_send_slack.assert_not_called()
+        mock_send_email.assert_not_called()
+        self.assertEqual(mock_subprocess.call_count, 2)
+        mock_subprocess.assert_has_calls([mock.call(command, stdout=-1, stderr=-2, shell=True) for command in [  # nosec
+            f'gsutil ls {body["file"]}',
+            f'gsutil cat {body["file"]} | gunzip -c -q - ',
+        ]])
 
         def _test_basic_data_loading(data, num_parsed_samples, num_loaded_samples, new_sample_individual_id, body,
                                      project_names, num_created_samples=1, warnings=None, additional_logs=None):
@@ -933,47 +1024,43 @@ class DataManagerAPITest(AuthenticationTestCase):
             self.assertDictEqual(response_json, {'info': info, 'warnings': warnings or [], 'sampleGuids': mock.ANY,
                                                  'fileName': file_name})
             new_sample_guid = self._check_rna_sample_model(
-                individual_id=new_sample_individual_id, data_source='new_muscle_samples.tsv.gz',
-                tissue_type=params.get('sample_tissue_type'),
+                individual_id=new_sample_individual_id, data_source='new_muscle_samples.tsv.gz', data_type=params['data_type'],
+                tissue_type=params.get('sample_tissue_type'), is_active_sample=False,
             )
             self.assertTrue(new_sample_guid in response_json['sampleGuids'])
-            additional_logs = [(f'create {num_created_samples} Samples', {'dbUpdate': {
-                'dbEntity': 'Sample', 'updateType': 'bulk_create',
-                'entityIds': response_json['sampleGuids'] if num_created_samples > 1 else [response_json['sampleGuids'][-1]],
+            additional_logs = [(f'create {num_created_samples} RnaSamples', {'dbUpdate': {
+                'dbEntity': 'RnaSample', 'updateType': 'bulk_create',
+                'entityIds': response_json['sampleGuids'] if num_created_samples > 1 else [new_sample_guid],
             }})] + (additional_logs or [])
             self._has_expected_file_loading_logs(
-                'gs://rna_data/new_muscle_samples.tsv.gz', info=info, warnings=warnings,
-                additional_logs=additional_logs, additional_logs_offset=3)
+                'gs://rna_data/new_muscle_samples.tsv.gz', info=info, warnings=warnings, user=self.pm_user,
+                additional_logs=additional_logs, additional_logs_offset=2)
 
             return response_json, new_sample_guid
 
         # Test loading new data
         mock_open.reset_mock()
+        mock_subprocess.reset_mock()
         self.reset_logs()
-        mock_load_uploaded_file.return_value = [['NA19675_D2', 'NA19675_1']]
-        mock_writes = []
-        def mock_write(content):
-            mock_writes.append(content)
-        mock_open.return_value.__enter__.return_value.write.side_effect = mock_write
+        mock_files = defaultdict(mock.MagicMock)
+        mock_open.side_effect = lambda file_name, *args: mock_files[file_name]
         body.update({'ignoreExtraSamples': True, 'mappingFile': {'uploadedFileId': 'map.tsv'}, 'file': RNA_FILE_ID})
         warnings = [
             f'Skipped loading for the following {len(params["skipped_samples"].split(","))} '
             f'unmatched samples: {params["skipped_samples"]}']
-        if params.get('extra_warnings'):
-            warnings = params['extra_warnings'] + warnings
         deleted_count = params.get('deleted_count', params['initial_model_count'])
         response_json, new_sample_guid = _test_basic_data_loading(
             params['new_data'], params["num_parsed_samples"], 2, 16, body,
-            '1kg project nåme with uniçøde, Test Reprocessed Project', warnings=warnings,
+            '1kg project nåme with uniçøde, Test Reprocessed Project', warnings=warnings, num_created_samples=2,
             additional_logs=[
+                ('update 1 RnaSamples', {'dbUpdate': {
+                    'dbEntity': 'RnaSample', 'entityIds': [params['sample_guid']],
+                    'updateType': 'bulk_update', 'updateFields': ['is_active']}}),
                 (f'delete {model_cls.__name__}s', {'dbUpdate': {
                     'dbEntity': model_cls.__name__, 'numEntities': deleted_count,
                    'parentEntityIds': [params['sample_guid']], 'updateType': 'bulk_delete'}}),
-                ('update 1 Samples', {'dbUpdate': {
-                    'dbEntity': 'Sample', 'entityIds': [params['sample_guid']],
-                    'updateType': 'bulk_update', 'updateFields': ['data_source']}}),
             ])
-        self.assertTrue(params['sample_guid'] in response_json['sampleGuids'])
+        self.assertFalse(params['sample_guid'] in response_json['sampleGuids'])
         self.assertEqual(mock_send_slack.call_count, 2)
         mock_send_slack.assert_has_calls([
             mock.call(
@@ -981,21 +1068,47 @@ class DataManagerAPITest(AuthenticationTestCase):
                 f'0 new RNA {params["message_data_type"]} samples are loaded in <https://test-seqr.org/project/R0001_1kg/project_page|1kg project nåme with uniçøde>\n``````',
             ), mock.call(
                 'seqr-data-loading',
-                f'1 new RNA {params["message_data_type"]} samples are loaded in <https://test-seqr.org/project/'
-                f'R0003_test/project_page|Test Reprocessed Project>\n```NA20888```',
+                f'1 new RNA {params["message_data_type"]} samples are loaded in <https://test-seqr.org/project/R0003_test/project_page|Test Reprocessed Project>\n```NA20888```',
             ),
+        ])
+        self.assertEqual(mock_send_email.call_count, 2)
+        self._assert_expected_notifications(mock_send_email, [
+            {'data_type': f'RNA {params["message_data_type"]}', 'user': self.data_manager_user,
+             'email_body': f'data for 0 new RNA {params["message_data_type"]} sample(s)'},
+            {'data_type': f'RNA {params["message_data_type"]}', 'user': self.data_manager_user,
+             'email_body': f'data for 1 new RNA {params["message_data_type"]} sample(s)',
+             'project_guid': 'R0003_test', 'project_name': 'Test Reprocessed Project'}
         ])
 
         # test database models are correct
         self.assertEqual(model_cls.objects.count(), params['initial_model_count'] - deleted_count)
-        sample_guid = self._check_rna_sample_model(individual_id=1, data_source='new_muscle_samples.tsv.gz',
-                                                   tissue_type=params.get('sample_tissue_type'))
+        sample_guid = self._check_rna_sample_model(individual_id=1, data_source='new_muscle_samples.tsv.gz', data_type=params['data_type'],
+                                                   tissue_type=params.get('sample_tissue_type'), is_active_sample=False)
         self.assertSetEqual(set(response_json['sampleGuids']), {sample_guid, new_sample_guid})
 
         # test correct file interactions
-        mock_subprocess.assert_called_with(f'gsutil cat {RNA_FILE_ID} | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)
-        mock_open.assert_called_with(RNA_FILENAME_TEMPLATE.format(data_type), 'wt')
-        self.assertListEqual(mock_writes, [row.replace(PLACEHOLDER_GUID, new_sample_guid) for row in params['parsed_file_data']])
+        file_path = RNA_FILENAME_TEMPLATE.format(data_type)
+        expected_subprocess_calls = [
+            f'gsutil ls {RNA_FILE_ID}',
+            f'gsutil cat {RNA_FILE_ID} | gunzip -c -q - ',
+        ] + self._additional_expected_loading_subprocess_calls(file_path)
+        self.assertEqual(mock_subprocess.call_count, len(expected_subprocess_calls))
+        mock_subprocess.assert_has_calls([
+            mock.call(command, stdout=-1, stderr=-2, shell=True) for command in expected_subprocess_calls  # nosec
+        ])
+        mock_mkdir.assert_any_call(f'tmp/temp_uploads/{file_path}')
+        filename = f'tmp/temp_uploads/{file_path}/{new_sample_guid}.json.gz'
+        expected_files = {
+            f'tmp/temp_uploads/{file_path}/{new_sample_guid if guid == PLACEHOLDER_GUID else sample_guid}.json.gz': data
+            for guid, data in params['parsed_file_data'].items()
+        }
+        self.assertIn(filename, expected_files)
+        file_rename = self._assert_expected_file_open(mock_rename, mock_open, expected_files.keys())
+        for filename in expected_files:
+            self.assertEqual(
+                ''.join([call.args[0] for call in mock_files[file_rename[filename]].write.call_args_list]),
+                expected_files[filename],
+            )
 
         # test loading new data without deleting existing data
         data = [params['no_existing_data']]
@@ -1004,18 +1117,54 @@ class DataManagerAPITest(AuthenticationTestCase):
 
         # Test loading data when where are duplicated individual ids in different projects.
         data = params['duplicated_indiv_id_data']
-        mock_writes = []
+        mock_files = defaultdict(mock.MagicMock)
         _test_basic_data_loading(data, 2, 2, 20, body, '1kg project nåme with uniçøde, Test Reprocessed Project',
                                  num_created_samples=2)
-        self.assertSetEqual(set([s.split('_', 1)[1] for s in mock_writes]), params['write_data'])
 
-    @mock.patch('seqr.views.apis.data_manager_api.os')
-    @mock.patch('seqr.views.apis.data_manager_api.gzip.open')
-    def test_load_rna_seq_sample_data(self, mock_open, mock_os):
-        mock_os.path.join.side_effect = lambda *args: '/'.join(args[1:])
+        self.assertSetEqual(
+            {''.join([call.args[0] for call in mock_file.write.call_args_list]) for mock_file in mock_files.values()},
+            params['write_data'],
+        )
 
-        url = reverse(load_rna_seq_sample_data, args=[RNA_MUSCLE_SAMPLE_GUID])
-        self.check_data_manager_login(url)
+        # Test loading data when where an individual has multiple tissue types
+        data = [data[1][:2] + data[0][2:], data[1]]
+        mock_files = defaultdict(mock.MagicMock)
+        mock_rename.reset_mock()
+        new_sample_individual_id = 7
+        response_json, new_sample_guid = _test_basic_data_loading(data, 2, 2, new_sample_individual_id, body,
+                                                                  '1kg project nåme with uniçøde')
+        second_tissue_sample_guid = self._check_rna_sample_model(
+            individual_id=new_sample_individual_id, data_source='new_muscle_samples.tsv.gz', data_type=params['data_type'],
+            tissue_type='M' if params.get('sample_tissue_type') == 'F' else 'F', is_active_sample=False,
+        )
+        self.assertTrue(second_tissue_sample_guid != new_sample_guid)
+        self.assertTrue(second_tissue_sample_guid in response_json['sampleGuids'])
+        self._assert_expected_file_open(mock_rename, mock_open, [
+            f'tmp/temp_uploads/{RNA_FILENAME_TEMPLATE.format(data_type)}/{sample_guid}.json.gz'
+            for sample_guid in response_json['sampleGuids']
+        ])
+        self.assertSetEqual(
+            {''.join([call.args[0] for call in mock_file.write.call_args_list]) for mock_file in mock_files.values()},
+            params['write_data'],
+        )
+
+    @staticmethod
+    def _additional_expected_loading_subprocess_calls(file_path):
+        return []
+
+    def _get_expected_read_file_subprocess_calls(self, file_name, sample_guid):
+        return []
+
+    def _assert_expected_file_open(self, mock_rename, mock_open, expected_file_names):
+        file_rename = {call.args[1]: call.args[0] for call in mock_rename.call_args_list}
+        self.assertSetEqual(set(expected_file_names), set(file_rename.keys()))
+        mock_open.assert_has_calls([mock.call(file_rename[filename], 'at') for filename in expected_file_names])
+        return file_rename
+
+    def test_load_rna_seq_sample_data(self):
+
+        url = reverse(load_rna_seq_sample_data, args=[RNA_TPM_MUSCLE_SAMPLE_GUID])
+        self.check_pm_login(url)
 
         for data_type, params in self.RNA_DATA_TYPE_PARAMS.items():
             with self.subTest(data_type):
@@ -1024,37 +1173,66 @@ class DataManagerAPITest(AuthenticationTestCase):
                 model_cls = params['model_cls']
                 model_cls.objects.all().delete()
                 self.reset_logs()
-                mock_open.return_value.__enter__.return_value.__iter__.return_value = params['parsed_file_data']
-                file_name = RNA_FILENAME_TEMPLATE.format(data_type)
+                parsed_file_lines = params['parsed_file_data'][sample_guid].strip().split('\n')
 
-                response = self.client.post(url, content_type='application/json', data=json.dumps({
-                    'fileName': file_name, 'dataType': data_type,
-                }))
+                file_name = RNA_FILENAME_TEMPLATE.format(data_type)
+                not_found_logs = self._set_file_not_found(file_name, sample_guid)
+
+                body = {'fileName': file_name, 'dataType': data_type}
+                response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+                self.assertEqual(response.status_code, 400)
+                self.assertDictEqual(response.json(), {'error': 'Data for this sample was not properly parsed. Please re-upload the data'})
+                self.assert_json_logs(self.pm_user, [
+                    ('Loading outlier data for NA19675_1', None),
+                    *not_found_logs,
+                    (f'No saved temp data found for {sample_guid} with file prefix {file_name}', {
+                        'severity': 'ERROR', '@type': 'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent',
+                    }),
+                ])
+
+                self._add_file_iter([row.encode('utf-8') for row in parsed_file_lines])
+
+                self.reset_logs()
+                response = self.client.post(url, content_type='application/json', data=json.dumps(body))
                 self.assertEqual(response.status_code, 200)
                 self.assertDictEqual(response.json(), {'success': True})
 
                 models = model_cls.objects.all()
-                self.assertEqual(models.count(), 2)
+                num_models = len(params['expected_models_json'])
+                self.assertEqual(models.count(), num_models)
                 self.assertSetEqual({model.sample.guid for model in models}, {sample_guid})
+                self.assertTrue(all(model.sample.is_active for model in models))
 
-                mock_open.assert_called_with(file_name, 'rt')
+                subprocess_logs = self._get_expected_read_file_subprocess_calls(file_name, sample_guid)
 
-                self.assert_json_logs(self.data_manager_user, [
-                    (f'Loading outlier data for {params["loaded_data_row"][0]}', None),
+                self.assert_json_logs(self.pm_user, [
+                    ('Loading outlier data for NA19675_1', None),
+                    *subprocess_logs,
                     (f'create {model_cls.__name__}s', {'dbUpdate': {
-                        'dbEntity': model_cls.__name__, 'numEntities': 2, 'parentEntityIds': [sample_guid],
+                        'dbEntity': model_cls.__name__, 'numEntities': num_models, 'parentEntityIds': [sample_guid],
                         'updateType': 'bulk_create',
                     }}),
                 ])
 
                 self.assertListEqual(list(params['get_models_json'](models)), params['expected_models_json'])
 
+                mismatch_row = {**json.loads(parsed_file_lines[0]), params.get('mismatch_field', 'p_value'): '0.05'}
+                self._add_file_iter([json.dumps(mismatch_row).encode('utf-8')])
+                response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+                self.assertEqual(response.status_code, 400)
+                self.assertDictEqual(response.json(), {
+                    'error': f'Error in {sample_guid.split("_", 1)[-1].upper()}: mismatched entries for {params.get("row_id", mismatch_row["gene_id"])}'
+                })
+
     @classmethod
     def _join_data(cls, data):
         return ['\t'.join(line).encode('utf-8') for line in data]
 
+    @mock.patch('seqr.views.apis.data_manager_api.BASE_URL', 'https://test-seqr.org/')
+    @mock.patch('seqr.models.random')
+    @mock.patch('seqr.utils.communication_utils.send_html_email')
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
-    def test_load_phenotype_prioritization_data(self, mock_subprocess):
+    def test_load_phenotype_prioritization_data(self, mock_subprocess, mock_send_email, mock_random):
         url = reverse(load_phenotype_prioritization_data)
         self.check_data_manager_login(url)
 
@@ -1063,7 +1241,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'File not found: gs://seqr_data/lirical_data.tsv.gz')
-        mock_subprocess.assert_called_with('gsutil ls gs://seqr_data/lirical_data.tsv.gz', stdout=-1, stderr=-2, shell=True)
+        mock_subprocess.assert_called_with('gsutil ls gs://seqr_data/lirical_data.tsv.gz', stdout=-1, stderr=-2, shell=True)  # nosec
 
         mock_subprocess.reset_mock()
         mock_subprocess.return_value.wait.return_value = 0
@@ -1071,14 +1249,14 @@ class DataManagerAPITest(AuthenticationTestCase):
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'Invalid file: missing column(s) project, diseaseId')
-        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)
+        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)  # nosec
 
         mock_subprocess.reset_mock()
         mock_subprocess.return_value.stdout = self._join_data(PHENOTYPE_PRIORITIZATION_HEADER + LIRICAL_NO_PROJECT_DATA)
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'Both sample ID and project fields are required.')
-        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)
+        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)  # nosec
 
         mock_subprocess.return_value.stdout = self._join_data(PHENOTYPE_PRIORITIZATION_HEADER + LIRICAL_DATA + EXOMISER_DATA)
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
@@ -1090,6 +1268,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'Project CMG_Beggs_WGS not found. ')
 
+        mock_random.randint.return_value = 12345
         project = Project.objects.create(created_by=self.data_manager_user,
                                          name='1kg project nåme with uniçøde', workspace_namespace='my-seqr-billing')
         mock_subprocess.return_value.stdout = self._join_data(
@@ -1108,6 +1287,7 @@ class DataManagerAPITest(AuthenticationTestCase):
         mock_subprocess.reset_mock()
         mock_subprocess.return_value.stdout = self._join_data(PHENOTYPE_PRIORITIZATION_HEADER + LIRICAL_DATA)
         self.reset_logs()
+        mock_random.randint.side_effect = [256989491, 295284416]
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 200)
         info = [
@@ -1116,24 +1296,31 @@ class DataManagerAPITest(AuthenticationTestCase):
             'Project Test Reprocessed Project: loaded 1 record(s)'
         ]
         self.assertEqual(response.json()['info'], info)
-        self._has_expected_file_loading_logs('gs://seqr_data/lirical_data.tsv.gz', additional_logs=[
-            ('delete PhenotypePrioritizations', {'dbUpdate': {
-                'dbEntity': 'PhenotypePrioritization', 'numEntities': 1, 'updateType': 'bulk_delete',
-                'parentEntityIds': ['I000002_na19678'],
+        self._has_expected_file_loading_logs('gs://seqr_data/lirical_data.tsv.gz', user=self.data_manager_user, additional_logs=[
+            ('delete 1 PhenotypePrioritizations', {'dbUpdate': {
+                'dbEntity': 'PhenotypePrioritization', 'updateType': 'bulk_delete',
+                'entityIds': ['PP000003_NA19678_ENSG000002689'],
             }}),
-            ('create PhenotypePrioritizations', {'dbUpdate': {
-                'dbEntity': 'PhenotypePrioritization', 'numEntities': 2, 'updateType': 'bulk_create',
-                'parentEntityIds': ['I000002_na19678', 'I000015_na20885'],
+            ('create 2 PhenotypePrioritizations', {'dbUpdate': {
+                'dbEntity': 'PhenotypePrioritization', 'updateType': 'bulk_create',
+                "entityIds": ['PP256989491_na19678ensg0000010', 'PP295284416_na20885ensg0000010'],
             }}),
         ])
         saved_data = _get_json_for_models(PhenotypePrioritization.objects.filter(tool='lirical').order_by('id'),
                                           nested_fields=[{'fields': ('individual', 'guid'), 'key': 'individualGuid'}])
         self.assertListEqual(saved_data, EXPECTED_LIRICAL_DATA)
-        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)
+        mock_subprocess.assert_called_with('gsutil cat gs://seqr_data/lirical_data.tsv.gz | gunzip -c -q - ', stdout=-1, stderr=-2, shell=True)  # nosec
+        self._assert_expected_notifications(mock_send_email, [
+            {'data_type': 'Lirical', 'user': self.data_manager_user, 'email_body': 'Lirical data for 1 sample(s)'},
+            {'data_type': 'Lirical', 'user': self.data_manager_user, 'email_body': 'Lirical data for 1 sample(s)',
+             'project_guid': 'R0003_test', 'project_name': 'Test Reprocessed Project'}
+        ], has_html=True)
 
         # Test uploading new data
         self.reset_logs()
+        mock_send_email.reset_mock()
         mock_subprocess.return_value.stdout = self._join_data(PHENOTYPE_PRIORITIZATION_HEADER + UPDATE_LIRICAL_DATA)
+        mock_random.randint.side_effect = [177442291, 215071655]
         response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 200)
         info = [
@@ -1141,99 +1328,88 @@ class DataManagerAPITest(AuthenticationTestCase):
             'Project 1kg project nåme with uniçøde: deleted 1 record(s), loaded 2 record(s)'
         ]
         self.assertEqual(response.json()['info'], info)
-        self._has_expected_file_loading_logs('gs://seqr_data/lirical_data.tsv.gz', additional_logs=[
-            ('delete PhenotypePrioritizations', {'dbUpdate': {
-                'dbEntity': 'PhenotypePrioritization', 'numEntities': 1, 'updateType': 'bulk_delete',
-                'parentEntityIds': ['I000002_na19678'],
+        self._has_expected_file_loading_logs('gs://seqr_data/lirical_data.tsv.gz', user=self.data_manager_user, additional_logs=[
+            ('delete 1 PhenotypePrioritizations', {'dbUpdate': {
+                'dbEntity': 'PhenotypePrioritization', 'updateType': 'bulk_delete',
+                'entityIds': ['PP256989491_na19678ensg0000010'],
             }}),
-            ('create PhenotypePrioritizations', {'dbUpdate': {
-                'dbEntity': 'PhenotypePrioritization', 'numEntities': 2, 'updateType': 'bulk_create',
-                'parentEntityIds': ['I000002_na19678'],
+            ('create 2 PhenotypePrioritizations', {'dbUpdate': {
+                'dbEntity': 'PhenotypePrioritization', 'updateType': 'bulk_create',
+                'entityIds': ['PP177442291_na19678ensg0000010', 'PP215071655_na19678ensg0000010'],
             }}),
         ])
         saved_data = _get_json_for_models(PhenotypePrioritization.objects.filter(tool='lirical'),
                                           nested_fields=[{'fields': ('individual', 'guid'), 'key': 'individualGuid'}])
         self.assertListEqual(saved_data, EXPECTED_UPDATED_LIRICAL_DATA)
+        self._assert_expected_notifications(mock_send_email, [
+            {'data_type': 'Lirical', 'user': self.data_manager_user, 'email_body': 'Lirical data for 2 sample(s)'},
+        ], has_html=True)
 
     @staticmethod
-    def _ls_subprocess_calls(file, is_error=True):
-        calls = [
-            mock.call(f'gsutil ls {file}',stdout=-1, stderr=-2, shell=True),
-            mock.call().wait(),
-        ]
-        if is_error:
-            calls.append(mock.call().stdout.__iter__())
-        return calls
+    def _assert_expected_notifications(mock_send_email, expected_notifs: list[dict], has_html=False):
+        calls = []
+        for notif_dict in expected_notifs:
+            project_guid = notif_dict.get('project_guid', PROJECT_GUID)
+            project_name = notif_dict.get('project_name', '1kg project nåme with uniçøde')
+            url = f'https://test-seqr.org/project/{project_guid}/project_page'
+            project_link = f'<a href={url}>{project_name}</a>' if has_html else f'<{url}|{project_name}>'
+            expected_email_body = (
+                f'Dear seqr user,\n\nThis is to notify you that {notif_dict["email_body"]} '
+                f'has been loaded in seqr project {project_link}\n\nAll the best,\nThe seqr team'
+            )
+            calls.append(
+                mock.call(
+                    email_body=expected_email_body,
+                    subject=f'New {notif_dict["data_type"]} data available in seqr',
+                    to=['test_user_manager@test.com'],
+                    process_message=_set_bulk_notification_stream,
+                )
+            )
+        mock_send_email.assert_has_calls(calls)
 
-    @mock.patch('seqr.views.utils.export_utils.open')
-    @mock.patch('seqr.views.utils.export_utils.TemporaryDirectory')
+    @mock.patch('seqr.utils.file_utils.os.path.isfile')
+    @mock.patch('seqr.utils.file_utils.glob.glob')
     @mock.patch('seqr.utils.file_utils.subprocess.Popen')
-    def test_write_pedigree(self, mock_subprocess, mock_temp_dir, mock_open):
-        mock_temp_dir.return_value.__enter__.return_value = '/mock/tmp'
-        mock_subprocess.return_value.wait.return_value = 1
-
-        url = reverse(write_pedigree, args=[PROJECT_GUID])
-        self.check_data_manager_login(url)
-
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['error'], f'No gs://seqr-datasets/v02 project directory found for {PROJECT_GUID}')
-        mock_subprocess.assert_has_calls(
-            self._ls_subprocess_calls('gs://seqr-datasets/v02/GRCh37/RDG_WGS_Broad_Internal/base/projects/R0001_1kg') +
-            self._ls_subprocess_calls('gs://seqr-datasets/v02/GRCh37/RDG_WES_Broad_Internal/base/projects/R0001_1kg') +
-            self._ls_subprocess_calls('gs://seqr-datasets/v02/GRCh37/RDG_WGS_Broad_External/base/projects/R0001_1kg') +
-            self._ls_subprocess_calls('gs://seqr-datasets/v02/GRCh37/RDG_WES_Broad_External/base/projects/R0001_1kg')
-        )
-
-        # Test success
-        mock_subprocess.reset_mock()
-        mock_subprocess.return_value.wait.side_effect = [1, 0, 0]
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response.json(), {'success': True})
-
-        mock_open.assert_called_with(f'/mock/tmp/{PROJECT_GUID}_pedigree.tsv', 'w')
-        write_call = mock_open.return_value.__enter__.return_value.write.call_args.args[0]
-        file = [row.split('\t') for row in write_call.split('\n')]
-        self.assertEqual(len(file), 15)
-        self.assertListEqual(file[:5], [
-            ['Project_GUID', 'Family_GUID', 'Family_ID', 'Individual_ID', 'Paternal_ID', 'Maternal_ID', 'Sex'],
-            ['R0001_1kg', 'F000001_1', '1', 'NA19675_1', 'NA19678', 'NA19679', 'M'],
-            ['R0001_1kg', 'F000001_1', '1', 'NA19678', '', '', 'M'],
-            ['R0001_1kg', 'F000001_1', '1', 'NA19679', '', '', 'F'],
-            ['R0001_1kg', 'F000002_2', '2', 'HG00731', 'HG00732', 'HG00733', 'F'],
-         ])
-
-        mock_subprocess.assert_has_calls(
-            self._ls_subprocess_calls('gs://seqr-datasets/v02/GRCh37/RDG_WGS_Broad_Internal/base/projects/R0001_1kg') +
-            self._ls_subprocess_calls(
-                'gs://seqr-datasets/v02/GRCh37/RDG_WES_Broad_Internal/base/projects/R0001_1kg', is_error=False,
-            ) + [
-            mock.call('gsutil mv /mock/tmp/* gs://seqr-datasets/v02/GRCh37/RDG_WES_Broad_Internal/base/projects/R0001_1kg', stdout=-1, stderr=-2, shell=True),
-            mock.call().wait(),
-        ])
-
-    @mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
-    @mock.patch('seqr.utils.file_utils.subprocess.Popen')
-    def test_validate_callset(self, mock_subprocess):
+    def test_validate_callset(self, mock_subprocess, mock_glob, mock_os_isfile):
         url = reverse(validate_callset)
         self.check_pm_login(url)
 
+        mock_os_isfile.return_value = False
+        mock_glob.return_value = []
         mock_subprocess.return_value.wait.return_value = -1
         mock_subprocess.return_value.stdout = [b'File not found']
-        body = {'filePath': 'gs://test_bucket/mito_callset.mt', 'datasetType': 'SV'}
+        body = {'filePath': f'{self.CALLSET_DIR}/mito_callset.mt', 'datasetType': 'SV'}
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 400)
         self.assertListEqual(response.json()['errors'], [
-            'Invalid VCF file format - file path must end with .bed or .vcf or .vcf.gz or .vcf.bgz',
+            'Invalid VCF file format - file path must end with .bed or .bed.gz or .vcf or .vcf.gz or .vcf.bgz',
         ])
 
         body['datasetType'] = 'MITO'
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(response.json()['errors'], ['Data file or path gs://test_bucket/mito_callset.mt is not found.'])
+        self.assertListEqual(response.json()['errors'], [f'Data file or path {self.CALLSET_DIR}/mito_callset.mt is not found.'])
 
+        mock_os_isfile.return_value = True
         mock_subprocess.return_value.wait.return_value = 0
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'success': True})
+
+        mock_subprocess.return_value.communicate.return_value = (
+            b'', b'CommandException: One or more URLs matched no objects.',
+        )
+        body = {'filePath': f'{self.CALLSET_DIR}/sharded_vcf/part0*.vcf', 'datasetType': 'SNV_INDEL'}
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self.assertEqual(response.status_code, 400)
+        self.assertListEqual(
+            response.json()['errors'], [f'Data file or path {self.CALLSET_DIR}/sharded_vcf/part0*.vcf is not found.'],
+        )
+
+        mock_subprocess.return_value.communicate.return_value = (
+            b'gs://test_bucket/sharded_vcf/part001.vcf\ngs://test_bucket/sharded_vcf/part002.vcf\n', b'',
+        )
+        mock_glob.return_value = ['/local_dir/sharded_vcf/part001.vcf', '/local_dir/sharded_vcf/part002.vcf']
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {'success': True})
@@ -1243,110 +1419,417 @@ class DataManagerAPITest(AuthenticationTestCase):
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
 
-    @mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
+    @mock.patch('seqr.views.utils.permissions_utils.INTERNAL_NAMESPACES', ['my-seqr-billing', 'ext-data'])
+    @mock.patch('seqr.views.apis.data_manager_api.BASE_URL', 'https://seqr.broadinstitute.org/')
+    @responses.activate
     def test_get_loaded_projects(self):
         url = reverse(get_loaded_projects, args=['WGS', 'SV'])
         self.check_pm_login(url)
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response.json(), {'projects': [
-            {'dataTypeLastLoaded': None, 'name': '1kg project nåme with uniçøde', 'projectGuid': 'R0001_1kg'},
-            {'dataTypeLastLoaded': '2018-02-05T06:42:55.397Z', 'name': 'Non-Analyst Project', 'projectGuid': 'R0004_non_analyst_project'},
-        ]})
+        self.assertDictEqual(response.json(), {'projects': [{**PROJECT_OPTION, 'dataTypeLastLoaded': '2018-02-05T06:31:55.397Z'}]})
+
+        response = self.client.get(url.replace('SV', 'MITO'))
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'projects': [PROJECT_OPTION]})
 
         # test data manager access
         self.login_data_manager_user()
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
+        # test with airtable filter
+        responses.add(
+            responses.GET, 'https://api.airtable.com/v0/app3Y97xtbbaOopVR/PDO', json=AIRTABLE_PDO_RECORDS, status=200,
+        )
+        snv_indel_url = url.replace('SV', 'SNV_INDEL')
+        response = self.client.get(snv_indel_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'projects': self.WGS_PROJECT_OPTIONS})
+        self._assert_expected_get_projects_requests()
 
-class LoadDataAPITest(AirflowTestCase):
-    fixtures = ['users', 'social_auth', '1kg_project']
-
-    DAG_NAME = 'RDG_WGS_Broad_Internal_MITO'
-    LOADING_PROJECT_GUID = 'R0004_non_analyst_project'
-
-    def _get_expected_dag_variables(self, *args, **kwargs):
-        variables = super(LoadDataAPITest, self)._get_expected_dag_variables()
-        variables.update({
-            'vcf_path': 'gs://test_bucket/mito_callset.mt',
-            'version_path': 'gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_MITO/v01',
-        })
-        return variables
+        # test projects with no data loaded are returned for any sample type
+        response = self.client.get(snv_indel_url.replace('WGS', 'WES'))
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'projects': self.WES_PROJECT_OPTIONS})
 
     @responses.activate
-    @mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
-    @mock.patch('seqr.utils.file_utils.subprocess.Popen')
-    def test_load_data(self, mock_subprocess):
+    @mock.patch('seqr.views.apis.data_manager_api.BASE_URL', 'https://seqr.broadinstitute.org/')
+    @mock.patch('seqr.views.utils.export_utils.os.makedirs')
+    @mock.patch('seqr.views.utils.export_utils.open')
+    @mock.patch('seqr.views.utils.export_utils.TemporaryDirectory')
+    def test_load_data(self, mock_temp_dir, mock_open, mock_mkdir):
         url = reverse(load_data)
         self.check_pm_login(url)
 
-        responses.replace(responses.GET, f'{self.dag_url}/dagRuns', json={'dag_runs': []})
-        mock_subprocess.return_value.communicate.return_value = b'', b'File not found'
-        body = {'filePath': 'gs://test_bucket/mito_callset.mt', 'datasetType': 'MITO', 'sampleType': 'WGS', 'projects': [
-            'R0001_1kg', 'R0004_non_analyst_project',
+        responses.add(responses.POST, PIPELINE_RUNNER_URL)
+        mock_temp_dir.return_value.__enter__.return_value = '/mock/tmp'
+        body = {'filePath': f'{self.CALLSET_DIR}/mito_callset.mt', 'datasetType': 'MITO', 'sampleType': 'WGS', 'genomeVersion': '38', 'projects': [
+            json.dumps({'projectGuid': 'R0001_1kg'}), json.dumps(PROJECT_OPTION), json.dumps({'projectGuid': 'R0005_not_project'}),
         ]}
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
-        self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response.json(), {'success': True})
+        self.assertEqual(response.status_code, 400)
+        self.assertDictEqual(response.json(), {'error': 'The following projects are invalid: R0005_not_project'})
 
-        self.assert_airflow_calls()
-        mock_subprocess.assert_called_with(
-            'gsutil ls gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_MITO', stdout=-1, stderr=-1, shell=True)  # nosec
-
-        slack_message = """*test_pm_user@test.com* triggered loading internal WGS MITO data for 2 projects
-
-        DAG seqr_vcf_to_es_RDG_WGS_Broad_Internal_MITO_v0.0.1 is triggered with following:
-        ```{
-    "active_projects": [
-        "R0001_1kg",
-        "R0004_non_analyst_project"
-    ],
-    "projects_to_run": [
-        "R0001_1kg",
-        "R0004_non_analyst_project"
-    ],
-    "vcf_path": "gs://test_bucket/mito_callset.mt",
-    "version_path": "gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_MITO/v01"
-}```
-    """
-
-        self.mock_slack.assert_called_once_with(SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, slack_message)
-
-        # Test loading trigger error
-        self.mock_slack.reset_mock()
-        responses.calls.reset()
-        mock_subprocess.return_value.communicate.return_value = b'gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_SV/\ngs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_SV/v01/\ngs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_SV/v02/', b''
-
-        body.update({'datasetType': 'SV', 'filePath': 'gs://test_bucket/sv_callset.vcf'})
+        self.reset_logs()
+        body['projects'] = body['projects'][:-1]
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {'success': True})
 
-        self.assert_airflow_calls(trigger_error=True, dag_name='RDG_WGS_Broad_Internal_SV')
+        self._assert_expected_load_data_requests()
+        self._has_expected_ped_files(mock_open, mock_mkdir, 'MITO')
 
-        mock_subprocess.assert_called_with(
-            'gsutil ls gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_SV', stdout=-1, stderr=-1, shell=True)  # nosec
+        dag_json = {
+            'projects_to_run': [
+                'R0001_1kg',
+                'R0004_non_analyst_project'
+            ],
+            'callset_path': f'{self.TRIGGER_CALLSET_DIR}/mito_callset.mt',
+            'sample_type': 'WGS',
+            'dataset_type': 'MITO',
+            'reference_genome': 'GRCh38',
+        }
+        self._assert_success_notification(dag_json)
+
+        # Test loading trigger error
+        self._set_loading_trigger_error()
+        mock_open.reset_mock()
+        mock_mkdir.reset_mock()
+        responses.calls.reset()
+        self.reset_logs()
+
+        body.update({'datasetType': 'SV', 'filePath': f'{self.CALLSET_DIR}/sv_callset.vcf', 'sampleType': 'WES'})
+        self._trigger_error(url, body, dag_json, mock_open, mock_mkdir)
+
+        # Test loading with sample subset
+        responses.add(responses.POST, PIPELINE_RUNNER_URL)
+        responses.calls.reset()
+        mock_open.reset_mock()
+        mock_mkdir.reset_mock()
+        body.update({'datasetType': 'SNV_INDEL', 'sampleType': 'WGS', 'projects': [json.dumps(PROJECT_SAMPLES_OPTION)]})
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self._test_load_sample_subset(mock_open, mock_mkdir, response, url, body)
+
+        # Test write pedigree error
+        self.reset_logs()
+        responses.calls.reset()
+        mock_mkdir.reset_mock()
+        mock_open.reset_mock()
+        mock_open.side_effect = OSError('Restricted filesystem')
+        self.login_data_manager_user()
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self._assert_write_pedigree_error(response)
+        self.assert_json_logs(self.data_manager_user, [
+            ('Uploading Pedigrees failed. Errors: Restricted filesystem', {
+                'severity': 'ERROR',
+                '@type': 'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent',
+                'detail': {'R0004_non_analyst_project_pedigree': mock.ANY},
+            }),
+        ])
+
+    def _trigger_error(self, url, body, dag_json, mock_open, mock_mkdir):
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self._assert_expected_load_data_requests(trigger_error=True, dataset_type='GCNV', sample_type='WES')
+        self._assert_trigger_error(response, body, dag_json)
+        self._has_expected_ped_files(mock_open, mock_mkdir, 'SV', sample_type='WES')
+
+    def _has_expected_ped_files(self, mock_open, mock_mkdir, dataset_type, sample_type='WGS', has_project_subset=False, single_project=False):
+        mock_open.assert_has_calls([
+            mock.call(f'{self._local_pedigree_path(dataset_type, sample_type)}/{project}_pedigree.tsv', 'w')
+            for project in self.PROJECTS[(1 if single_project else 0):]
+        ], any_order=True)
+        files = [
+            [row.split('\t') for row in write_call.args[0].split('\n')]
+            for write_call in mock_open.return_value.__enter__.return_value.write.call_args_list
+        ]
+        self.assertEqual(len(files), 1 if single_project else 2)
+
+        num_rows = 4 if has_project_subset else 15
+        if not single_project:
+            self.assertEqual(len(files[0]), num_rows)
+            self.assertListEqual(files[0][:5], [PEDIGREE_HEADER] + EXPECTED_PEDIGREE_ROWS[:num_rows-1])
+        file = files[0 if single_project else 1]
+        self.assertEqual(len(file), 3)
+        self.assertListEqual(file, [
+            PEDIGREE_HEADER,
+            ['R0004_non_analyst_project', 'F000014_14', '14', 'NA21234', '', '', 'F'],
+            ['R0004_non_analyst_project', 'F000014_14', '14', 'NA21987', '', '', 'M'],
+        ])
+
+
+class LocalDataManagerAPITest(AuthenticationTestCase, DataManagerAPITest):
+    fixtures = ['users', '1kg_project', 'reference_data']
+
+    TRIGGER_CALLSET_DIR = '/local_datasets'
+    CALLSET_DIR = ''
+    WGS_PROJECT_OPTIONS = [EMPTY_PROJECT_OPTION, PROJECT_OPTION]
+    WES_PROJECT_OPTIONS = [
+        {'name': '1kg project nåme with uniçøde', 'projectGuid': 'R0001_1kg', 'dataTypeLastLoaded': '2017-02-05T06:25:55.397Z'},
+        EMPTY_PROJECT_OPTION,
+    ]
+
+    def setUp(self):
+        patcher = mock.patch('seqr.utils.file_utils.os.path.isfile')
+        self.mock_does_file_exist = patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.utils.file_utils.gzip.open')
+        self.mock_open = patcher.start()
+        self.mock_file_iter = self.mock_open.return_value.__enter__.return_value.__iter__
+        self.mock_file_iter.return_value = []
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def _set_file_not_found(self, file_name, sample_guid):
+        self.mock_does_file_exist.return_value = False
+        self.mock_file_iter.return_value = []
+        return []
+
+    def _add_file_iter(self, stdout):
+        self.mock_does_file_exist.return_value = True
+        self.mock_file_iter.return_value += stdout
+
+    def _assert_expected_get_projects_requests(self):
+        self.assertEqual(len(responses.calls), 0)
+
+    def _assert_expected_load_data_requests(self, dataset_type='MITO', sample_type='WGS', trigger_error=False, skip_project=False):
+        self.assertEqual(len(responses.calls), 1)
+        projects = [PROJECT_GUID, NON_ANALYST_PROJECT_GUID]
+        if skip_project:
+            projects = projects[1:]
+        self.assertDictEqual(json.loads(responses.calls[0].request.body), {
+            'projects_to_run': projects,
+            'callset_path': '/local_datasets/sv_callset.vcf' if trigger_error else '/local_datasets/mito_callset.mt',
+            'sample_type': sample_type,
+            'dataset_type': dataset_type,
+            'reference_genome': 'GRCh38',
+        })
+
+    @staticmethod
+    def _local_pedigree_path(dataset_type, sample_type):
+        return f'/local_datasets/GRCh38/{dataset_type}/pedigrees/{sample_type}'
+
+    def _has_expected_ped_files(self, mock_open, mock_mkdir, dataset_type, *args, sample_type='WGS', **kwargs):
+        super()._has_expected_ped_files(mock_open, mock_mkdir, dataset_type,  *args, sample_type, **kwargs)
+        mock_mkdir.assert_called_once_with(self._local_pedigree_path(dataset_type, sample_type), exist_ok=True)
+
+    def _assert_success_notification(self, dag_json):
+        self.maxDiff = None
+        self.assert_json_logs(self.pm_user, [('Triggered loading pipeline', {'detail': dag_json})])
+
+    def _set_loading_trigger_error(self):
+        responses.add(responses.POST, PIPELINE_RUNNER_URL, status=400)
+
+    def _trigger_error(self, url, body, dag_json, mock_open, mock_mkdir):
+        super()._trigger_error(url, body, dag_json, mock_open, mock_mkdir)
+
+        responses.add(responses.POST, PIPELINE_RUNNER_URL, status=409)
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self._assert_trigger_error(response, body, dag_json, response_body={
+            'errors': ['Loading pipeline is already running. Wait for it to complete and resubmit'], 'warnings': None,
+        })
+
+    def _assert_trigger_error(self, response, body, *args, response_body=None, **kwargs):
+        self.assertEqual(response.status_code, 400)
+        error = f'400 Client Error: Bad Request for url: {PIPELINE_RUNNER_URL}'
+        self.assertDictEqual(response.json(), response_body or {'error': error})
+        self.assert_json_logs(self.pm_user, [
+            (error, {'severity': 'WARNING', 'requestBody': body, 'httpRequest': mock.ANY, 'traceback': mock.ANY}),
+        ])
+
+    def _test_load_sample_subset(self, mock_open, mock_mkdir, response, *args):
+        # Loading with sample subset does not change behavior when airtable is disabled
+        self.assertEqual(response.status_code, 200)
+        self._assert_expected_load_data_requests(dataset_type='SNV_INDEL', skip_project=True, trigger_error=True)
+        self._has_expected_ped_files(mock_open, mock_mkdir, 'SNV_INDEL', single_project=True)
+
+    def _assert_write_pedigree_error(self, response):
+        self.assertEqual(response.status_code, 500)
+        self.assertDictEqual(response.json(), {'error': 'Restricted filesystem'})
+        self.assertEqual(len(responses.calls), 0)
+
+
+@mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
+class AnvilDataManagerAPITest(AirflowTestCase, DataManagerAPITest):
+    fixtures = ['users', 'social_auth', '1kg_project', 'reference_data']
+
+    LOADING_PROJECT_GUID = NON_ANALYST_PROJECT_GUID
+    CALLSET_DIR = 'gs://test_bucket'
+    TRIGGER_CALLSET_DIR = CALLSET_DIR
+    LOCAL_WRITE_DIR = '/mock/tmp'
+    WGS_PROJECT_OPTIONS = [EMPTY_PROJECT_SAMPLES_OPTION, PROJECT_SAMPLES_OPTION]
+    WES_PROJECT_OPTIONS = [EMPTY_PROJECT_SAMPLES_OPTION]
+
+    def setUp(self):
+        patcher = mock.patch('seqr.utils.file_utils.subprocess.Popen')
+        self.mock_subprocess = patcher.start()
+        self.mock_does_file_exist = mock.MagicMock()
+        self.mock_file_iter = mock.MagicMock()
+        self.mock_file_iter.stdout = []
+        self.mock_subprocess.side_effect = [self.mock_does_file_exist, self.mock_file_iter]
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def _set_file_not_found(self, file_name, sample_guid):
+        self.mock_file_iter.stdout = []
+        self.mock_does_file_exist.wait.return_value = 1
+        self.mock_does_file_exist.stdout = [b'CommandException: One or more URLs matched no objects']
+        self.mock_subprocess.side_effect = [self.mock_does_file_exist]
+        return [
+            (f'==> gsutil ls gs://seqr-scratch-temp/{file_name}/{sample_guid}.json.gz', None),
+            ('CommandException: One or more URLs matched no objects', None),
+        ]
+
+    def _add_file_iter(self, stdout):
+        self.mock_does_file_exist.wait.return_value = 0
+        self.mock_file_iter.stdout += stdout
+        self.mock_subprocess.side_effect = [self.mock_does_file_exist, self.mock_file_iter]
+
+    def _get_expected_read_file_subprocess_calls(self, file_name, sample_guid):
+        gsutil_cat = f'gsutil cat gs://seqr-scratch-temp/{file_name}/{sample_guid}.json.gz | gunzip -c -q - '
+        self.mock_subprocess.assert_called_with(gsutil_cat, stdout=-1, stderr=-2, shell=True)  # nosec
+        return [
+            (f'==> gsutil ls gs://seqr-scratch-temp/{file_name}/{sample_guid}.json.gz', None),
+            (f'==> {gsutil_cat}', None),
+        ]
+
+    @staticmethod
+    def _additional_expected_loading_subprocess_calls(file_path):
+        return [f'gsutil mv tmp/temp_uploads/{file_path} gs://seqr-scratch-temp/{file_path}']
+
+    def _assert_expected_es_status(self, response):
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Elasticsearch is disabled')
+
+    def _assert_expected_delete_index_response(self, response):
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Deleting indices is disabled for the hail backend')
+
+    def _assert_expected_get_projects_requests(self):
+        self.assertEqual(len(responses.calls), 1)
+        self.assert_expected_airtable_call(
+            call_index=0,
+            filter_formula="OR(PDOStatus='Methods (Loading)',PDOStatus='On hold for phenotips, but ready to load')",
+            fields=['PassingCollaboratorSampleIDs', 'SeqrIDs', 'SeqrProjectURL'],
+        )
+
+    @staticmethod
+    def _get_dag_variable_overrides(*args, **kwargs):
+        return {
+            'callset_path': 'mito_callset.mt',
+            'sample_source': 'Broad_Internal',
+            'sample_type': 'WGS',
+            'dataset_type': 'MITO',
+        }
+
+    def _assert_expected_load_data_requests(self, **kwargs):
+        self.assert_airflow_calls(**kwargs)
+
+    def _set_loading_trigger_error(self):
+        self.set_dag_trigger_error_response(status=400)
+        self.mock_authorized_session.reset_mock()
+
+    def _assert_success_notification(self, dag_json):
+        dag_json['sample_source'] = 'Broad_Internal'
+
+        message = f"""*test_pm_user@test.com* triggered loading internal WGS MITO data for 2 projects
+
+        Pedigree files have been uploaded to gs://seqr-loading-temp/v3.1/GRCh38/MITO/pedigrees/WGS
+
+        DAG LOADING_PIPELINE is triggered with following:
+        ```{json.dumps(dag_json, indent=4)}```
+    """
+        self.mock_slack.assert_called_once_with(SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, message)
+        self.mock_slack.reset_mock()
+
+    def _assert_trigger_error(self, response, body, dag_json, **kwargs):
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'success': True})
+
         self.mock_airflow_logger.warning.assert_not_called()
         self.mock_airflow_logger.error.assert_called_with(mock.ANY, self.pm_user)
-        error = self.mock_airflow_logger.error.call_args.args[0]
-        self.assertRegex(error, 'Connection refused by Responses')
+        errors = [call.args[0] for call in self.mock_airflow_logger.error.call_args_list]
+        for error in errors:
+            self.assertRegex(error, '400 Client Error: Bad Request')
 
-        error_message = f"""ERROR triggering internal WGS SV loading: {error}
+        dag_json = json.dumps(dag_json, indent=4).replace('mito_callset.mt', 'sv_callset.vcf').replace(
+            'WGS', 'WES').replace('MITO', 'GCNV').replace('v01', 'v3.1')
+        error_message = f"""ERROR triggering internal WES SV loading: {errors[0]}
         
-        DAG seqr_vcf_to_es_RDG_WGS_Broad_Internal_SV_v0.0.1 should be triggered with following: 
-        ```{{
-    "active_projects": [
-        "R0001_1kg",
-        "R0004_non_analyst_project"
-    ],
-    "projects_to_run": [
-        "R0001_1kg",
-        "R0004_non_analyst_project"
-    ],
-    "vcf_path": "gs://test_bucket/sv_callset.vcf",
-    "version_path": "gs://seqr-datasets/v02/GRCh38/RDG_WGS_Broad_Internal_SV/v03"
-}}```
+        DAG LOADING_PIPELINE should be triggered with following: 
+        ```{dag_json}```
         """
         self.mock_slack.assert_called_once_with(SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, error_message)
+
+    def _test_load_sample_subset(self, mock_open, mock_mkdir, response, url, body):
+        self.assertEqual(response.status_code, 400)
+        self.assertDictEqual(response.json(), {
+            'warnings': None,
+            'errors': ['The following samples are included in airtable but missing from seqr: NA21988'],
+        })
+
+        sample_ids = PROJECT_SAMPLES_OPTION['sampleIds']
+        body['projects'] = [json.dumps({**PROJECT_OPTION, 'sampleIds': [sample_ids[1]]})]
+        airtable_samples_url = 'https://api.airtable.com/v0/app3Y97xtbbaOopVR/Samples'
+        responses.add(responses.GET, airtable_samples_url, json=AIRTABLE_SAMPLE_RECORDS, status=200)
+        responses.add(responses.GET, airtable_samples_url, json=AIRTABLE_SECONDARY_SAMPLE_RECORDS, status=200)
+
+        # Non-Broad users can not access airtable
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self.assertEqual(response.status_code, 403)
+
+        responses.calls.reset()
+        self.login_data_manager_user()
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self.assertEqual(response.status_code, 400)
+        self.assertDictEqual(response.json(), {
+            'warnings': None,
+            'errors': ['The following families have previously loaded samples absent from airtable: 14 (NA21234)'],
+        })
+        self.assert_expected_airtable_call(
+            call_index=0,
+            filter_formula="OR({CollaboratorSampleID}='NA21234')",
+            fields=['CollaboratorSampleID', 'PDOStatus', 'SeqrProject'],
+        )
+        self.assert_expected_airtable_call(
+            call_index=1,
+            filter_formula="OR({SeqrCollaboratorSampleID}='NA21234')",
+            fields=['SeqrCollaboratorSampleID', 'PDOStatus', 'SeqrProject'],
+        )
+
+        responses.calls.reset()
+        responses.add(responses.GET, airtable_samples_url, json=AIRTABLE_SAMPLE_RECORDS, status=200)
+        body['projects'] = [
+            json.dumps({'projectGuid': 'R0001_1kg', 'sampleIds': ['NA19675_1', 'NA19679']}),
+            json.dumps({**PROJECT_OPTION, 'sampleIds': sample_ids[:2]}),
+        ]
+        body['sampleType'] = 'WES'
+        response = self.client.post(url, content_type='application/json', data=json.dumps(body))
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response.json(), {'success': True})
+        self._has_expected_ped_files(mock_open, mock_mkdir, 'SNV_INDEL', sample_type='WES', has_project_subset=True)
+        self.assert_expected_airtable_call(
+            call_index=0,
+            filter_formula="OR({CollaboratorSampleID}='NA19678')",
+            fields=['CollaboratorSampleID', 'PDOStatus', 'SeqrProject'],
+        )
+        body['projects'] = body['projects'][1:]
+
+    @staticmethod
+    def _local_pedigree_path(*args):
+        return '/mock/tmp'
+
+    def _has_expected_ped_files(self, mock_open, mock_mkdir, dataset_type, *args, sample_type='WGS', **kwargs):
+        super()._has_expected_ped_files(mock_open, mock_mkdir, dataset_type, sample_type, **kwargs)
+
+        mock_mkdir.assert_not_called()
+        self.mock_subprocess.assert_called_once_with(
+            f'gsutil mv /mock/tmp/* gs://seqr-loading-temp/v3.1/GRCh38/{dataset_type}/pedigrees/{sample_type}/',
+            stdout=-1, stderr=-2, shell=True,  # nosec
+        )
+        self.mock_subprocess.reset_mock()
+
+    def _assert_write_pedigree_error(self, response):
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(responses.calls), 1)

@@ -10,10 +10,10 @@ const SequenceContainer = styled.span`
   color: ${props => props.color || 'inherit'};
 `
 
-export const TranscriptLink = styled.a.attrs(({ variant, transcript }) => ({
+export const TranscriptLink = styled.a.attrs(({ variant, transcript, idField = 'transcriptId', ensemblEntity = 'Transcript', ensemblKey = 't' }) => ({
   target: '_blank',
-  href: `http://${variant.genomeVersion === GENOME_VERSION_37 ? 'grch37' : 'useast'}.ensembl.org/Homo_sapiens/Transcript/Summary?t=${transcript.transcriptId}`,
-  children: transcript.transcriptId,
+  href: `http://${variant.genomeVersion === GENOME_VERSION_37 ? 'grch37' : 'useast'}.ensembl.org/Homo_sapiens/${ensemblEntity}/Summary?${ensemblKey}=${transcript[idField]}`,
+  children: transcript.hgvsc?.startsWith(transcript.transcriptId) ? transcript.hgvsc.split(':')[0] : transcript[idField],
 }))`
   font-size: 1.3em;
   font-weight: normal;
@@ -87,6 +87,8 @@ export const getOverlappedIntervals = (variant, intervals, getIntervalGroup, pad
   ), [])
 }
 
+export const SPLICE_OUTLIER_OVERLAP_ARGS = [fGuid => fGuid, RNASEQ_JUNCTION_PADDING]
+
 export const getOverlappedSpliceOutliers = (variant, spliceOutliersByFamily) => (
-  getOverlappedIntervals(variant, spliceOutliersByFamily, fGuid => fGuid, RNASEQ_JUNCTION_PADDING)
+  getOverlappedIntervals(variant, spliceOutliersByFamily, ...SPLICE_OUTLIER_OVERLAP_ARGS)
 )

@@ -16,7 +16,7 @@ from seqr.views.utils.orm_to_json_utils import get_json_for_user, get_json_for_p
     get_project_collaborators_by_username, get_json_for_project_collaborator_groups, PROJECT_ACCESS_GROUP_NAMES
 from seqr.views.utils.permissions_utils import get_project_guids_user_can_view, get_project_and_check_permissions, \
     login_and_policies_required, login_active_required, active_user_has_policies_and_passes_test
-from seqr.views.utils.terra_api_utils import google_auth_enabled, anvil_enabled
+from seqr.views.utils.terra_api_utils import oauth_enabled, anvil_enabled
 from settings import BASE_URL, SEQR_TOS_VERSION, SEQR_PRIVACY_VERSION, SUPPORT_EMAIL
 
 logger = SeqrLogger(__name__)
@@ -49,14 +49,17 @@ def get_all_user_group_options(request):
 @login_and_policies_required
 def get_project_collaborator_options(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user)
+    user_fields = {'display_name', 'username', 'email'}
     users = get_project_collaborators_by_username(
-        request.user, project, fields={'display_name', 'username', 'email'}, expand_user_groups=True,
+        request.user, project, fields=user_fields, expand_user_groups=True,
     )
+    if not users:
+        users = {request.user.username: get_json_for_user(request.user, user_fields)}
     return create_json_response(users)
 
 
 def forgot_password(request):
-    if google_auth_enabled():
+    if oauth_enabled():
         raise PermissionDenied('Username/ password authentication is disabled')
 
     request_json = json.loads(request.body)
@@ -85,7 +88,7 @@ def forgot_password(request):
 
 
 def set_password(request, username):
-    if google_auth_enabled():
+    if oauth_enabled():
         raise PermissionDenied('Username/ password authentication is disabled')
     user = User.objects.get(username=username)
 

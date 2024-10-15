@@ -15,7 +15,8 @@ import {
   getMmeSubmissionsByGuid,
   getGenesById,
 } from 'redux/selectors'
-import { DISCOVERY_CATEGORY_NAME, MME_TAG_NAME } from 'shared/utils/constants'
+import { DISCOVERY_CATEGORY_NAME, MME_TAG_NAME, GREGOR_FINDING_TAG_NAME } from 'shared/utils/constants'
+import { snakecaseToTitlecase } from 'shared/utils/stringUtils'
 import VariantClassify from './VariantClassify'
 import PopupWithModal from '../../PopupWithModal'
 import { HorizontalSpacer } from '../../Spacers'
@@ -58,19 +59,48 @@ const VARIANT_NOTE_FIELDS = [{
 }]
 
 const DEPRECATED_MME_TAG = 'seqr MME (old)'
+const AIP_TAG_TYPE = 'AIP'
+const NO_EDIT_TAG_TYPES = [AIP_TAG_TYPE, GREGOR_FINDING_TAG_NAME]
+const TAG_TYPE_TILES = {
+  [AIP_TAG_TYPE]: 'Categories',
+  [GREGOR_FINDING_TAG_NAME]: 'Finding Detail',
+}
+
+const aipCategoryContent = (key, { name, date }) => ([
+  <Table.HeaderCell key="name" content={`${key} - ${name} `} />,
+  <Table.Cell key="date" disabled content={`(${new Date(date).toLocaleDateString()})`} />,
+])
+
+const structuredMetadataRow = ([key, value]) => (
+  <Table.Row key={key}>
+    {typeof value === 'string' ? [
+      <Table.HeaderCell key="key" textAlign="right" content={snakecaseToTitlecase(key)} />,
+      <Table.Cell key="value" content={value} />,
+    ] : aipCategoryContent(key, value)}
+  </Table.Row>
+)
 
 export const taggedByPopup = (tag, title) => (trigger, hideMetadata) => (
   <Popup
     position="top right"
     size="tiny"
     trigger={trigger}
-    header={title || 'Tagged by'}
+    header={title || (tag.structuredMetadata ? TAG_TYPE_TILES[tag.name] : 'Tagged by')}
     hoverable
     flowing
     content={
       <div>
-        {tag.createdBy || 'unknown user'}
-        {tag.lastModifiedDate && <span>{` on ${new Date(tag.lastModifiedDate).toLocaleDateString()}`}</span>}
+        {tag.structuredMetadata ? (
+          <NoBorderTable basic="very" compact="very">
+            <Table.Body>
+              {Object.entries(tag.structuredMetadata).filter(e => e[0] !== 'removed').map(structuredMetadataRow)}
+              {tag.structuredMetadata.removed && [
+                <Table.Row key="removedHeader"><Table.HeaderCell colSpan={2} content="Removed Categories" /></Table.Row>,
+                ...Object.entries(tag.structuredMetadata.removed).map(structuredMetadataRow),
+              ]}
+            </Table.Body>
+          </NoBorderTable>
+        ) : `${tag.createdBy || 'unknown user'}${tag.lastModifiedDate ? ` on ${new Date(tag.lastModifiedDate).toLocaleDateString()}` : ''}`}
         {tag.metadata && !hideMetadata && (
           <div>
             {tag.metadataTitle ? (
@@ -260,6 +290,7 @@ const FamilyVariantTags = React.memo(({
               tagOptions={projectTagTypes}
               displayMetadata
               disabledTagType={DEPRECATED_MME_TAG}
+              noEditTagTypes={NO_EDIT_TAG_TYPES}
               onSubmit={dispatchUpdateFamilyVariantTags}
             />
             <HorizontalSpacer width={5} />
