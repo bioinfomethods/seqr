@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 import { Popup, Icon } from 'semantic-ui-react'
 
 import { fetchProjects } from 'redux/rootReducer'
-import { getProjectsIsLoading, getUser, getOauthLoginEnabled, getArchieDocsUrlPath} from 'redux/selectors'
+import { getProjectsIsLoading, getUser, getOauthLoginEnabled, getArchieDocsUrlPath } from 'redux/selectors'
 import HorizontalStackedBar from 'shared/components/graph/HorizontalStackedBar'
 import DataTable from 'shared/components/table/DataTable'
 import DataLoader from 'shared/components/DataLoader'
@@ -193,9 +193,8 @@ const getColumns = (oauthLoginEnabled, isAnvil, isSuperuser) => {
   return isSuperuser ? SUPERUSER_COLUMNS_NO_ANVIL : COLUMNS_NO_ANVIL
 }
 
-const ProjectsTable = React.memo(({ visibleProjects, loading, load, user, oauthLoginEnabled, archieDocsUrlPath }) => (
+const ProjectsTable = React.memo(({ visibleProjects, loading, load, user, oauthLoginEnabled }) => (
   <DataLoader content load={load} loading={false}>
-    {archieDocsUrlPath && <McriBannerMessage archieDocsUrlPath={archieDocsUrlPath} />}
     <ProjectTableContainer>
       <VerticalSpacer height={10} />
       <HorizontalSpacer width={10} />
@@ -226,7 +225,6 @@ ProjectsTable.propTypes = {
   user: PropTypes.object,
   load: PropTypes.func,
   oauthLoginEnabled: PropTypes.bool,
-  archieDocsUrlPath: PropTypes.string,
 }
 
 export { ProjectsTable as ProjectsTableComponent }

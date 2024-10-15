@@ -57,7 +57,9 @@ const getFreqLinkPath = ({ chrom, pos, variant, value }) => {
 }
 
 const FreqSummary = React.memo((props) => {
-  const { field, fieldTitle, variant, urls, conditionalQueryParams, acDisplay, titleContainer, showAcOnly, precision = 2 } = props
+  const {
+    field, fieldTitle, variant, urls, conditionalQueryParams, acDisplay, titleContainer, showAcOnly, precision = 2,
+  } = props
   const { populations = {}, chrom } = variant
   const population = populations[field] || {}
   if (population.af === null || population.af === undefined) {
