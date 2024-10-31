@@ -74,7 +74,7 @@ metadata:
     env: prod
 spec:
   capacity:
-    storage: 600Gi
+    storage: 1200Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -96,7 +96,7 @@ metadata:
     env: prod
 spec:
   capacity:
-    storage: 600Gi
+    storage: 1200Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -118,7 +118,7 @@ metadata:
     env: prod
 spec:
   capacity:
-    storage: 600Gi
+    storage: 1200Gi
   accessModes:
     - ReadWriteOnce
   claimRef:
@@ -129,6 +129,50 @@ spec:
   gcePersistentDisk:
     fsType: ext4
     pdName: pd-es-data-prod2-2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-prod2-3
+  labels:
+    name: pv-es-data-prod2-3
+    env: prod
+spec:
+  capacity:
+    storage: 1200Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-3
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-prod2-3
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-prod2-4
+  labels:
+    name: pv-es-data-prod2-4
+    env: prod
+spec:
+  capacity:
+    storage: 1200Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-4
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-prod2-4
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -173,3 +217,25 @@ spec:
   gcePersistentDisk:
     fsType: ext4
     pdName: pd-es-data-loading-prod2-1
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: default
+  name: pv-es-data-loading-prod2-2
+  labels:
+    name: pv-es-data-loading-prod2-2
+    env: prod
+spec:
+  capacity:
+    storage: 150Gi
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: default
+    name: elasticsearch-data-elasticsearch-es-data-loading-node-2
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: pd-standard-expandable-storage-class
+  gcePersistentDisk:
+    fsType: ext4
+    pdName: pd-es-data-loading-prod2-2

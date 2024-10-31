@@ -56,9 +56,9 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 2Gi
+              memory: 2.5Gi
             limits:
-              memory: 2Gi
+              memory: 2.5Gi
           # env:
           # - name: ES_JAVA_OPTS
           #   value: "-Xms1536m -Xmx1536m"
@@ -114,9 +114,9 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 1.5Gi
+              memory: 2.0Gi
             limits:
-              memory: 1.5Gi
+              memory: 2.0Gi
           # env:
           # - name: ES_JAVA_OPTS
           #   value: "-Xms1024m -Xmx1024m"
@@ -131,7 +131,7 @@ spec:
               requests:
                 storage: 10Gi
   - name: data
-    count: 3
+    count: 5
     config:
       node.master: false
       node.data: true
@@ -168,12 +168,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 7Gi
+              memory: 6.0Gi
             limits:
-              memory: 7Gi
+              memory: 6.0Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms6144m -Xmx6144m"
+            value: "-Xms4608m -Xmx4608m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
@@ -187,9 +187,9 @@ spec:
         storageClassName: pd-standard-expandable-storage-class
         resources:
           requests:
-            storage: 1000Gi
+            storage: 1200Gi
   - name: data-loading-node
-    count: 2
+    count: 3
     config:
       node.master: false
       node.data: true
@@ -226,12 +226,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 4Gi
+              memory: 3Gi
             limits:
-              memory: 4Gi
+              memory: 3Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms3278m -Xmx3278m"
+            value: "-Xms2048m -Xmx2048m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data
@@ -242,6 +242,8 @@ spec:
             resources:
               requests:
                 storage: 150Gi
+  podDisruptionBudget: {}
+
 ---
 apiVersion: v1
 kind: Service

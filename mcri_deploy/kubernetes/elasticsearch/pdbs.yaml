@@ -1,0 +1,57 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-master-pdb
+  namespace: default
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      name: elasticsearch
+      role: master
+      env: prod
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-data-pdb
+  namespace: default
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      name: elasticsearch
+      role: data
+      env: prod
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-client-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      name: elasticsearch
+      role: client
+      env: prod
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-data-loading-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      name: elasticsearch
+      role: ingest
+      env: prod
