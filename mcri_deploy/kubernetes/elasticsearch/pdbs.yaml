@@ -4,12 +4,10 @@ metadata:
   name: elasticsearch-master-pdb
   namespace: default
 spec:
-  minAvailable: 2
+  maxUnavailable: 1
   selector:
     matchLabels:
-      name: elasticsearch
-      role: master
-      env: prod
+      elasticsearch.k8s.elastic.co/statefulset-name: elasticsearch-es-master-node
 
 ---
 
@@ -19,12 +17,10 @@ metadata:
   name: elasticsearch-data-pdb
   namespace: default
 spec:
-  minAvailable: 3
+  maxUnavailable: 1
   selector:
     matchLabels:
-      name: elasticsearch
-      role: data
-      env: prod
+      elasticsearch.k8s.elastic.co/statefulset-name: elasticsearch-es-data
 
 ---
 
@@ -34,12 +30,10 @@ metadata:
   name: elasticsearch-client-pdb
   namespace: default
 spec:
-  minAvailable: 1
+  maxUnavailable: 1
   selector:
     matchLabels:
-      name: elasticsearch
-      role: client
-      env: prod
+      elasticsearch.k8s.elastic.co/statefulset-name: elasticsearch-es-client-node
 
 ---
 
@@ -49,9 +43,7 @@ metadata:
   name: elasticsearch-data-loading-pdb
   namespace: default
 spec:
-  minAvailable: 1
+  maxUnavailable: 1
   selector:
     matchLabels:
-      name: elasticsearch
-      role: ingest
-      env: prod
+      elasticsearch.k8s.elastic.co/statefulset-name: elasticsearch-es-data-loading-node

@@ -33,7 +33,7 @@ spec:
     podTemplate:
       metadata:
         labels:
-          name: elasticsearch
+          app: elasticsearch
           role: master
           env: prod
       spec:
@@ -91,7 +91,7 @@ spec:
     podTemplate:
       metadata:
         labels:
-          name: elasticsearch
+          app: elasticsearch
           role: client
           env: prod
       spec:
@@ -145,7 +145,7 @@ spec:
     podTemplate:
       metadata:
         labels:
-          name: elasticsearch
+          app: elasticsearch
           role: data
           env: prod
       spec:
@@ -203,7 +203,7 @@ spec:
     podTemplate:
       metadata:
         labels:
-          name: elasticsearch
+          app: elasticsearch
           role: ingest
           env: prod
       spec:
