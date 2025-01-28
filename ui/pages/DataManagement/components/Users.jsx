@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Icon, Button } from 'semantic-ui-react'
 import Cookies from 'js-cookie'
-import { getHijakEnabled } from 'redux/selectors'
+import { getHijakEnabled, getUser } from 'redux/selectors'
 import DataTable from 'shared/components/table/DataTable'
 import DataLoader from 'shared/components/DataLoader'
 import { getAllUsers, getAllUsersLoading } from '../selectors'
@@ -26,13 +26,16 @@ const COLUMNS = [
   { name: 'username', content: 'Username' },
   { name: 'dateJoined', content: 'Date Joined', format: ({ dateJoined }) => (dateJoined || '').slice(0, 10) },
   { name: 'lastLogin', content: 'Last Login', format: ({ lastLogin }) => (lastLogin || '').slice(0, 10) },
-  hasFieldColumn('hasGoogleAuth', 'OAuth?'),
+  hasFieldColumn('hasCloudAuth', 'OAuth?'),
   hasPrivilegeColumn('isAnalyst', 'Analyst?'),
   hasPrivilegeColumn('isPm', 'PM?'),
   hasPrivilegeColumn('isDataManager', 'Data Manager?'),
   hasPrivilegeColumn('isSuperuser', 'Superuser?'),
   hasFieldColumn('isActive', 'Active?'),
 ]
+
+const LOCAL_COLUMNS = [...COLUMNS]
+LOCAL_COLUMNS.splice(-5, 2)
 
 const hijakLogIn = (e, { value }) => {
   const hijackFormData = new FormData()
@@ -55,9 +58,16 @@ const HIJAK_COLUMNS = [
   { name: 'id', format: val => <Button content="Log In" value={val} onClick={hijakLogIn} /> },
 ]
 
+const getColumns = (hijak, { isAnalyst }) => {
+  if (hijak) {
+    return HIJAK_COLUMNS
+  }
+  return isAnalyst ? COLUMNS : LOCAL_COLUMNS
+}
+
 const getUserFilterVal = ({ email, displayName }) => `${email}-${displayName}`
 
-const Users = React.memo(({ users, loading, load, hijak }) => (
+const Users = React.memo(({ users, currentUser, loading, load, hijak }) => (
   <DataLoader load={load} content loading={false}>
     <DataTable
       striped
@@ -65,7 +75,7 @@ const Users = React.memo(({ users, loading, load, hijak }) => (
       defaultSortColumn="email"
       loading={loading}
       data={users}
-      columns={hijak ? HIJAK_COLUMNS : COLUMNS}
+      columns={getColumns(hijak, currentUser)}
       getRowFilterVal={getUserFilterVal}
       downloadFileName="users"
       downloadAlign="1em"
@@ -78,12 +88,14 @@ Users.propTypes = {
   loading: PropTypes.bool,
   load: PropTypes.func,
   hijak: PropTypes.bool,
+  currentUser: PropTypes.object,
 }
 
 const mapStateToProps = state => ({
   users: getAllUsers(state),
   loading: getAllUsersLoading(state),
   hijak: getHijakEnabled(state),
+  currentUser: getUser(state),
 })
 
 const mapDispatchToProps = {

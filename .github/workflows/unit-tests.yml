@@ -10,12 +10,16 @@ on:
       - 'mcri/*'
     paths-ignore:
       - 'hail_search/**'
-      - '.github/workflows/hail-search-unit-tests.yaml'
+      - 'vlm/**'
+      - '.github/workflows/*hail-search*.yaml'
+      - '.github/workflows/*vlm*.yaml'
   pull_request:
     types: [opened, synchronize, reopened]
     paths-ignore:
       - 'hail_search/**'
-      - '.github/workflows/hail-search-unit-tests.yaml'
+      - 'vlm/**'
+      - '.github/workflows/*hail-search*.yaml'
+      - '.github/workflows/*vlm*.yaml'
 
 jobs:
   python:

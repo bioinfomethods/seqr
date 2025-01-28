@@ -8,22 +8,28 @@ import { Error404, Error401 } from 'shared/components/page/Errors'
 
 import Anvil from './components/Anvil'
 import CustomSearch from './components/CustomSearch'
-import DiscoverySheet from './components/DiscoverySheet'
+import FamilyMetadata from './components/FamilyMetadata'
 import Gregor from './components/Gregor'
 import SeqrStats from './components/SeqrStats'
+import VariantMetadata from './components/VariantMetadata'
 
-export const REPORT_PAGES = [
-  { path: 'anvil', component: Anvil },
+const LOCAL_REPORT_PAGES = [
   { path: 'custom_search', params: '/:searchHash?', component: CustomSearch },
-  { path: 'discovery_sheet', params: '/:projectGuid?', component: DiscoverySheet },
-  { path: 'gregor', component: Gregor },
+  { path: 'family_metadata', params: '/:projectGuid?', component: FamilyMetadata },
+  { path: 'variant_metadata', params: '/:projectGuid?', component: VariantMetadata },
   { path: 'seqr_stats', component: SeqrStats },
 ]
 
-const Report = ({ match, user }) => (
-  user.isAnalyst ? (
+export const REPORT_PAGES = [
+  { path: 'anvil', component: Anvil },
+  { path: 'gregor', component: Gregor },
+  ...LOCAL_REPORT_PAGES,
+]
+
+const Report = ({ match, user, pages }) => (
+  (user.isAnalyst || user.isPm) ? (
     <Switch>
-      {REPORT_PAGES.map(
+      {pages.map(
         ({ path, params, component }) => <Route key={path} path={`${match.url}/${path}${params || ''}`} component={component} />,
       )}
       <Route path={match.url} component={null} />
@@ -35,10 +41,15 @@ const Report = ({ match, user }) => (
 Report.propTypes = {
   user: PropTypes.object,
   match: PropTypes.object,
+  pages: PropTypes.arrayOf(PropTypes.object),
 }
 
-const mapStateToProps = state => ({
-  user: getUser(state),
-})
+export const mapStateToProps = (state) => {
+  const user = getUser(state)
+  return {
+    user,
+    pages: user.isAnalyst ? REPORT_PAGES : LOCAL_REPORT_PAGES,
+  }
+}
 
 export default connect(mapStateToProps)(Report)

@@ -473,22 +473,6 @@
         "model": "seqr.varianttagtype",
         "pk": null,
         "fields": {
-            "guid": "VTT_matchbox_mme",
-            "created_date": "2018-04-27T00:00:00.000Z",
-            "created_by": null,
-            "last_modified_date": null,
-            "project": null,
-            "name": "MatchBox (MME)",
-            "category": "Data Sharing",
-            "description": "Gene, variant, and phenotype to be submitted to Matchmaker Exchange",
-            "color": "#531B86",
-            "order": 24.0
-        }
-    },
-    {
-        "model": "seqr.varianttagtype",
-        "pk": null,
-        "fields": {
             "guid": "VTT_submit_to_clinvar",
             "created_date": "2018-04-27T00:00:00.000Z",
             "created_by": null,

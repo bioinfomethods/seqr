@@ -55,8 +55,11 @@ export const loadMmeSubmissions = () => loadCurrentProjectChildEntities('mme sub
 
 const loadFamilyNotes = () => loadCurrentProjectChildEntities('family notes', REQUEST_FAMILIES, RECEIVE_FAMILIES)
 
+const loadSamples = () => loadCurrentProjectChildEntities('samples', REQUEST_INDIVIDUALS)
+
 export const loadProjectExportData = () => (dispatch, getState) => Promise.all([
   loadIndividuals()(dispatch, getState),
+  loadSamples()(dispatch, getState),
   loadFamilyNotes()(dispatch, getState),
 ])
 
@@ -161,9 +164,14 @@ export const updateFamilies = values => (dispatch, getState) => {
 export const updateIndividuals = values => (dispatch, getState) => {
   let action = 'edit_individuals'
   if (values.uploadedFileId) {
+    // Triggered by submitting EditIndividualsBulkForm
     action = `save_individuals_table/${values.uploadedFileId}`
   } else if (values.delete) {
+    // Triggered by selecting "delete" in the EditIndividualsForm or directly on the IndividualRow
     action = 'delete_individuals'
+  } else if (values.workspaceName) {
+    // Triggered by submitting ImportGregorMetadata
+    action = 'import_gregor_metadata'
   }
 
   return new HttpRequestHelper(`/api/project/${getState().currentProjectGuid}/${action}`,
@@ -190,15 +198,22 @@ export const addVariantsDataset = values => (dispatch, getState) => new HttpRequ
   },
 ).post(values)
 
+export const updateIndividualIGV = (values, onError) => dispatch => (
+  new HttpRequestHelper(
+    `/api/individual/${values.individualGuid}/update_igv_sample`,
+    responseJson => dispatch({ type: RECEIVE_DATA, updatesById: responseJson }),
+    onError,
+  ).post(values)
+)
+
 export const addIGVDataset = ({ mappingFile, ...values }) => (dispatch) => {
   const errors = []
 
   return Promise.all(mappingFile.updates.map(
-    ({ individualGuid, individualId, ...update }) => new HttpRequestHelper(
-      `/api/individual/${individualGuid}/update_igv_sample`,
-      responseJson => dispatch({ type: RECEIVE_DATA, updatesById: responseJson }),
+    ({ individualGuid, individualId, ...update }) => updateIndividualIGV(
+      { individualGuid, ...update, ...values },
       e => errors.push(`Error updating ${individualId}: ${e.body && e.body.error ? e.body.error : e.message}`),
-    ).post({ ...update, ...values }),
+    )(dispatch),
   )).then(() => {
     if (errors.length) {
       const err = new Error()
@@ -234,7 +249,7 @@ export const updateCollaboratorGroup = values => updateEntity(
 )
 
 export const updateAnalysisGroup = values => updateEntity(
-  values, RECEIVE_DATA, null, 'analysisGroupGuid', null, state => `/api/project/${state.currentProjectGuid}/analysis_groups`,
+  values, RECEIVE_DATA, null, 'analysisGroupGuid', null, state => `/api/project/${state.currentProjectGuid}/${values.criteria ? 'dynamic_' : ''}analysis_groups`,
 )
 
 export const getMmeMatches = submissionGuid => (dispatch, getState) => {
@@ -319,10 +334,22 @@ export const loadRnaSeqData = individualGuid => (dispatch, getState) => {
   }
 }
 
+const MAX_EXPECTED_PHENOTYPE_PRIORITY_RANK = 10
+
 export const loadPhenotypeGeneScores = individualGuid => (dispatch, getState) => {
   const state = getState()
   const { familyGuid } = state.individualsByGuid[individualGuid]
-  if (!state.phenotypeGeneScoresByIndividual[individualGuid]) {
+  const loadedToolCounts = Object.values(state.phenotypeGeneScoresByIndividual[individualGuid] || {}).reduce(
+    (acc, dataByTool) => (
+      Object.entries(dataByTool).reduce((acc2, [tool, data]) => ({
+        ...acc2,
+        [tool]: (acc2[tool] || 0) + data.length,
+      }), acc)
+    ), {},
+  )
+  // Data can be loaded for only a subset of genes if previously loaded variant information
+  // The top 10 genes are expected to be loaded per tool, so load data if fewer than that are available
+  if (!Object.values(loadedToolCounts).some(val => val >= MAX_EXPECTED_PHENOTYPE_PRIORITY_RANK)) {
     dispatch({ type: REQUEST_PHENOTYPE_GENE_SCORES })
     new HttpRequestHelper(`/api/family/${familyGuid}/phenotype_gene_scores`,
       (responseJson) => {
@@ -386,6 +413,7 @@ export const reducers = {
   rnaSeqDataLoading: loadingReducer(REQUEST_RNA_SEQ_DATA, RECEIVE_DATA),
   phenotypeDataLoading: loadingReducer(REQUEST_PHENOTYPE_GENE_SCORES, RECEIVE_DATA),
   familyTagTypeCounts: createObjectsByIdReducer(RECEIVE_DATA, 'familyTagTypeCounts'),
+  importStats: createObjectsByIdReducer(RECEIVE_DATA, 'importStats'),
   savedVariantFamilies: createSingleObjectReducer(RECEIVE_SAVED_VARIANT_FAMILIES),
   familiesLoading: loadingReducer(REQUEST_FAMILIES, RECEIVE_FAMILIES),
   familyVariantSummaryLoading: loadingReducer(REQUEST_FAMILY_VARIANT_SUMMARY, RECEIVE_DATA),

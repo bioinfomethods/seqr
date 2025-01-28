@@ -5,10 +5,10 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { Segment, Header, Grid, Button, List } from 'semantic-ui-react'
 
-import { getGoogleLoginEnabled } from 'redux/selectors'
+import { getOauthLoginProvider } from 'redux/selectors'
 import { VerticalSpacer } from 'shared/components/Spacers'
 import { SeqrPaperLink } from 'shared/components/page/Footer'
-import { LOCAL_LOGIN_URL, GOOGLE_LOGIN_URL } from 'shared/utils/constants'
+import { LOCAL_LOGIN_URL } from 'shared/utils/constants'
 
 const PageSegment = styled(Segment).attrs({ padded: 'very' })`
   padding-left: 20% !important;
@@ -50,7 +50,7 @@ SeqrAvailability.propTypes = {
   hasFootnote: PropTypes.bool,
 }
 
-const LandingPage = ({ googleLoginEnabled }) => (
+const LandingPage = ({ oauthLoginProvider }) => (
   <Segment.Group>
     <PageSegment textAlign="center" size="massive" secondary>
       <Header size="huge" content={<i>seqr</i>} />
@@ -58,8 +58,8 @@ const LandingPage = ({ googleLoginEnabled }) => (
       <VerticalSpacer height={20} />
       An open source software platform for rare disease genomics
       <VerticalSpacer height={40} />
-      {googleLoginEnabled ?
-        <Button as="a" href={GOOGLE_LOGIN_URL} {...LOGIN_BUTTON_PROPS} /> :
+      {oauthLoginProvider ?
+        <Button as="a" href={`/login/${oauthLoginProvider}`} {...LOGIN_BUTTON_PROPS} /> :
         <Button as={Link} to={LOCAL_LOGIN_URL} {...LOGIN_BUTTON_PROPS} />}
     </PageSegment>
     <Segment padded>
@@ -124,11 +124,11 @@ const LandingPage = ({ googleLoginEnabled }) => (
 )
 
 LandingPage.propTypes = {
-  googleLoginEnabled: PropTypes.bool,
+  oauthLoginProvider: PropTypes.string,
 }
 
 const mapStateToProps = state => ({
-  googleLoginEnabled: getGoogleLoginEnabled(state),
+  oauthLoginProvider: getOauthLoginProvider(state),
 })
 
 export default connect(mapStateToProps)(LandingPage)
