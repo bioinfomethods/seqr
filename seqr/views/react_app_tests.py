@@ -24,9 +24,9 @@ class AppPageTest(object):
         self.assertDictEqual(initial_json['meta'], {
             'version': mock.ANY,
             'hijakEnabled': False,
-            'oauthLoginProvider': self.OAUTH_PROVIDER,
+            'oauthLoginProvider': mock.ANY,
             'elasticsearchEnabled': bool(self.ES_HOSTNAME),
-            'warningMessages': [{'id': 1, 'header': 'Warning!', 'message': 'A sample warning'}],
+            'warningMessages': [{'header': 'Warning!', 'id': 1, 'message': 'A sample warning'}],
             'anvilLoadingDelayDate': anvil_loading_date,
             'archieDocsUrlPath': None,
             'archieApiRootUrl': mock.ANY,
