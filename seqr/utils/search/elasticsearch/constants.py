@@ -359,12 +359,6 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
-    'genetale_var_class_num': {'response_key': 'genetale_var_class_num'},
-    'genetale_gene_class_info': {
-        'response_key': 'genetale_gene_class_info',
-        'format_value': lambda values: [v for v in values],
-        'default_value': []
-    },
     'alpha_missense_genome': {'response_key': 'am_genome'},
     'alpha_missense_uniprot_id': {'response_key': 'am_uniprot_id'},
     'alpha_missense_transcript_id': {'response_key': 'am_transcript_id'},

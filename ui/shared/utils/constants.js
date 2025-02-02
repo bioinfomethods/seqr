@@ -1229,7 +1229,6 @@ const SORT_BY_TAGGED_DATE = 'TAGGED_DATE'
 const SORT_BY_SIZE = 'SIZE'
 
 const SORT_BY_POP_MCRI_WGS = 'POP_MCRI_WGS'
-const SORT_BY_GENETALE_VAR_CLASS_NUM = 'GENETALE_VAR_CLASS_NUM'
 
 export const getPermissionedHgmdClass = (variant, user, familiesByGuid, projectByGuid) => (
   user.isAnalyst || variant.familyGuids.some(
@@ -1348,7 +1347,6 @@ const VARIANT_SORT_OPTONS = [
   { value: SORT_BY_GNOMAD_GENOMES, text: 'gnomAD Genomes Frequency', comparator: populationComparator('gnomad_genomes') },
   { value: SORT_BY_GNOMAD_EXOMES, text: 'gnomAD Exomes Frequency', comparator: populationComparator('gnomad_exomes') },
   { value: SORT_BY_POP_MCRI_WGS, text: 'MCRI Genomes AF', comparator: populationComparator('pop_mcri_wgs') },
-  { value: SORT_BY_GENETALE_VAR_CLASS_NUM, text: 'Genetale Variant Class', comparator: predictionComparator('genetale_var_class_num') },
   { value: SORT_BY_CALLSET_AF, text: 'Callset AF', comparator: populationComparator('callset') },
   { value: SORT_BY_CADD, text: 'CADD', comparator: predictionComparator('cadd') },
   { value: SORT_BY_REVEL, text: 'REVEL', comparator: predictionComparator('revel') },
@@ -1488,8 +1486,6 @@ const MUTTASTER_MAP = {
   P: { color: 'green', value: 'polymorphism automatic' },
 }
 
-export const GENETALE_INHERITANCE_CODES = ['AR', 'AD', 'XLR', 'XLD']
-
 const MITOTIP_MAP = {
   likely_pathogenic: { color: 'red', value: 'likely pathogenic' },
   possibly_pathogenic: { color: 'red', value: 'possibly pathogenic' },
@@ -1546,7 +1542,6 @@ export const ORDERED_PREDICTOR_FIELDS = [
   { field: 'mitotip', indicatorMap: MITOTIP_MAP, fieldTitle: 'MitoTIP' },
   { field: 'hmtvar', thresholds: [undefined, undefined, 0.35, 0.35, undefined], fieldTitle: 'HmtVar' },
   { field: 'mlc', thresholds: [undefined, 0.5, 0.5, 0.75, undefined], fieldTitle: 'MLC' },
-  { field: 'genetale_var_class_num', group: CODING_IN_SILICO_GROUP, warningThreshold: 5, dangerThreshold: 6, min: 3, max: 7, infoField: 'genetale_gene_class_info', infoTitle: 'Gene Class Info' }, // ranges from 3 to 7
 ]
 
 export const coloredIcon = color => React.createElement(color.startsWith('#') ? ColoredIcon : Icon, { name: 'circle', size: 'small', color })
@@ -1667,7 +1662,6 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'pop_mcri_wgs_freq', getVal: getPopAf('pop_mcri_wgs') },
   { header: 'pop_mcri_wes_freq', getVal: getPopAf('pop_mcri_wes') },
   { header: 'topmed_freq', getVal: getPopAf('topmed') },
-  { header: 'genetale_var_class_num', getVal: variant => (variant.predictions || {}).genetale_var_class_num },
   { header: 'cadd', getVal: variant => (variant.predictions || {}).cadd },
   { header: 'revel', getVal: variant => (variant.predictions || {}).revel },
   { header: 'eigen', getVal: variant => (variant.predictions || {}).eigen },
