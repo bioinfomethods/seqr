@@ -278,7 +278,6 @@ POPULATION_SORTS = {
     }] for sort, pop_key in {'gnomad': 'gnomad_genomes', 'gnomad_exomes': 'gnomad_exomes', 'callset_af': 'callset'}.items()}
 SORT_FIELDS.update(POPULATION_SORTS)
 PREDICTOR_SORT_FIELDS = {
-    'am_pathogenicity': 'alpha_missense_am_pathogenicity',
     'cadd': 'cadd_PHRED',
     'revel': 'dbnsfp_REVEL_score',
     'eigen': 'eigen_Eigen_phred',
@@ -359,12 +358,6 @@ PREDICTION_FIELDS_CONFIG = {
     'dbnsfp_REVEL_score': {},
     'dbnsfp_SIFT_pred': {},
     'StrVCTVRE_score': {'response_key': 'strvctvre'},
-    'alpha_missense_genome': {'response_key': 'am_genome'},
-    'alpha_missense_uniprot_id': {'response_key': 'am_uniprot_id'},
-    'alpha_missense_transcript_id': {'response_key': 'am_transcript_id'},
-    'alpha_missense_protein_variant': {'response_key': 'am_protein_variant'},
-    'alpha_missense_am_pathogenicity': {'response_key': 'am_pathogenicity'},
-    'alpha_missense_am_class': {'response_key': 'am_class'},
 }
 MITO_PREDICTION_FIELDS_CONFIG = {
     'mitimpact_apogee': {},
