@@ -5,7 +5,7 @@ import { Popup, Divider } from 'semantic-ui-react'
 
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import { GENOME_VERSION_37, GENOME_VERSION_38, getVariantMainGeneId } from '../../../utils/constants'
-import { GNOMAD_SV_CRITERIA_MESSAGE, SV_CALLSET_CRITERIA_MESSAGE, TOPMED_FREQUENCY } from '../search/constants'
+import { GNOMAD_SV_CRITERIA_MESSAGE, TOPMED_FREQUENCY } from '../search/constants'
 
 const FreqValue = styled.span`
   color: black;
@@ -161,7 +161,7 @@ gnomadLink.propTypes = {
 
 const GNOMAD_URL_INFO = {
   urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org', [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
-  queryParams: { [GENOME_VERSION_38]: 'dataset=gnomad_r4', [GENOME_VERSION_37]: 'dataset=gnomad_r2_1' },
+  queryParams: { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1', [GENOME_VERSION_38]: 'dataset=gnomad_r3' },
 }
 
 const sectionTitle = ({ fieldTitle, section }) => (
@@ -175,9 +175,7 @@ const sectionTitle = ({ fieldTitle, section }) => (
 const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
 
-const SV_CALLSET_POP = { field: 'sv_callset', fieldTitle: 'This Callset', acDisplay: 'AC', helpMessage: SV_CALLSET_CRITERIA_MESSAGE }
-const CALLSET_POP = { field: 'callset', fieldTitle: 'This Callset', acDisplay: 'AC' }
-const SEQR_POP = { ...CALLSET_POP, field: 'seqr', fieldTitle: 'seqr' }
+const SEQR_POP = { field: 'seqr', fieldTitle: 'seqr' }
 
 const MCRI_POP_WES = { field: 'pop_mcri_wes', fieldTitle: 'MCRI exomes', acDisplay: 'AC', showAcOnly: true }
 const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisplay: 'AC' }
@@ -185,9 +183,6 @@ const MCRI_POP_WGS = { field: 'pop_mcri_wgs', fieldTitle: 'MCRI genomes', acDisp
 const POPULATIONS = [
   MCRI_POP_WES,
   MCRI_POP_WGS,
-  SV_CALLSET_POP,
-  { ...SV_CALLSET_POP, field: 'sv_seqr', fieldTitle: 'seqr' },
-  CALLSET_POP,
   SEQR_POP,
   {
     field: 'exac',
@@ -200,17 +195,17 @@ const POPULATIONS = [
     fieldTitle: 'gnomAD exomes',
     titleContainer: gnomadLink,
     esVersion: 'v2',
-    conditionalQueryParams: populations => (populations.seqr ? GNOMAD_URL_INFO.queryParams : { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1' }),
-    ...GNOMAD_URL_INFO,
+    urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org', [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
+    queryParams: { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1', [GENOME_VERSION_38]: 'dataset=gnomad_r2_1' },
   },
   {
     field: 'gnomad_genomes',
     fieldTitle: 'gnomAD genomes',
     titleContainer: gnomadLink,
     esVersion: 'v3',
-    conditionalQueryParams: populations => (populations.seqr ? GNOMAD_URL_INFO.queryParams : { [GENOME_VERSION_38]: 'dataset=gnomad_r3' }),
+    urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org', [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
+    queryParams: { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1', [GENOME_VERSION_38]: 'dataset=gnomad_r3' },
     precision: 3,
-    ...GNOMAD_URL_INFO,
   },
   {
     field: TOPMED_FREQUENCY,
@@ -241,7 +236,6 @@ const CALLSET_HET_POP = {
 
 const MITO_POPULATIONS = [
   {
-    ...CALLSET_POP,
     titleContainer: sectionTitle,
     section: HOM_SECTION,
   },
