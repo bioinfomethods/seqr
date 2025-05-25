@@ -7,13 +7,29 @@
             "created_date": "2022-02-04T20:49:42Z",
             "created_by": null,
             "last_modified_date": "2024-04-01T16:11:45.701Z",
-            "name": "De Novo/Dominant Restrictive",
+            "name": "De Novo/Dominant Restrictive (MCRI)",
             "order": 1.0,
             "search": {
                 "freqs": {
+                    "g1k": {
+                        "ac": null,
+                        "af": 0.001
+                    },
+                    "exac": {
+                        "ac": null,
+                        "af": 0.001
+                    },
                     "topmed": {
                         "ac": null,
                         "af": 0.01
+                    },
+                    "callset": {
+                        "ac": null,
+                        "af": 1
+                    },
+                    "pop_mcri": {
+                        "ac": null,
+                        "af": 1
                     },
                     "gnomad_exomes": {
                         "ac": null,
@@ -22,53 +38,50 @@
                     "gnomad_genomes": {
                         "ac": null,
                         "af": 0.001
-                    },
-                    "pop_mcri": {
-                        "ac": null,
-                        "af": 1.0
                     }
                 },
                 "annotations": {
+                    "other": [
+                        "non_coding_transcript_exon_variant__canonical"
+                    ],
                     "in_frame": [
                         "inframe_insertion",
                         "inframe_deletion"
                     ],
                     "missense": [
                         "stop_lost",
+                        "initiator_codon_variant",
                         "start_lost",
                         "protein_altering_variant",
                         "missense_variant"
                     ],
-                    "synonymous": [
-                        "start_retained_variant"
-                    ],
                     "nonsense": [
                         "stop_gained"
                     ],
-                    "splice_ai": "0.2",
+                    "splice_ai": 0.2,
                     "frameshift": [
                         "frameshift_variant"
                     ],
+                    "synonymous": [
+                        "start_retained_variant"
+                    ],
+                    "UTRAnnotator": [
+                        "5_prime_UTR_premature_start_codon_gain_variant",
+                        "5_prime_UTR_premature_start_codon_loss_variant",
+                        "5_prime_UTR_stop_codon_gain_variant",
+                        "5_prime_UTR_stop_codon_loss_variant",
+                        "5_prime_UTR_uORF_frameshift_variant"
+                    ],
                     "extended_splice_site": [
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_5th_base",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "other": [
-                        "non_coding_transcript_exon_variant__canonical"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 },
                 "inheritance": {
@@ -104,29 +117,36 @@
             "created_date": "2022-02-04T21:28:12Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:08.983Z",
-            "name": "Recessive Restrictive",
+            "name": "Recessive Restrictive (MCRI)",
             "order": 3.0,
             "search": {
                 "freqs": {
+                    "g1k": {
+                        "ac": null,
+                        "af": 0.01
+                    },
+                    "exac": {
+                        "ac": null,
+                        "af": 0.01
+                    },
                     "topmed": {
                         "ac": null,
                         "af": 0.1
                     },
+                    "callset": {
+                        "ac": null,
+                        "af": 1
+                    },
                     "gnomad_exomes": {
                         "ac": null,
-                        "af": 0.01,
-                        "hh": 5
+                        "af": 0.01
                     },
                     "gnomad_genomes": {
                         "ac": null,
-                        "af": 0.01,
-                        "hh": 5
-                    },
-                    "pop_mcri": {
-                        "ac": null,
-                        "af": 1.0
+                        "af": 0.01
                     }
                 },
+                "locus": {},
                 "annotations": {
                     "other": [
                         "non_coding_transcript_exon_variant__canonical"
@@ -137,6 +157,7 @@
                     ],
                     "missense": [
                         "stop_lost",
+                        "initiator_codon_variant",
                         "start_lost",
                         "protein_altering_variant",
                         "missense_variant"
@@ -144,30 +165,30 @@
                     "nonsense": [
                         "stop_gained"
                     ],
-                    "splice_ai": "0.2",
+                    "splice_ai": 0.2,
                     "frameshift": [
                         "frameshift_variant"
                     ],
                     "synonymous": [
                         "start_retained_variant"
                     ],
+                    "UTRAnnotator": [
+                        "5_prime_UTR_premature_start_codon_gain_variant",
+                        "5_prime_UTR_premature_start_codon_loss_variant",
+                        "5_prime_UTR_stop_codon_gain_variant",
+                        "5_prime_UTR_stop_codon_loss_variant",
+                        "5_prime_UTR_uORF_frameshift_variant"
+                    ],
                     "extended_splice_site": [
-                        "splice_donor_5th_base",
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 },
                 "inheritance": {
@@ -175,8 +196,7 @@
                     "filter": {
                         "A": null,
                         "N": null
-                    },
-                    "annotationSecondary": true
+                    }
                 },
                 "pathogenicity": {
                     "hgmd": [
@@ -194,6 +214,9 @@
                     "affected_only": true
                 },
                 "annotations_secondary": {
+                    "other": [
+                        "non_coding_transcript_exon_variant__canonical"
+                    ],
                     "in_frame": [
                         "inframe_insertion",
                         "inframe_deletion"
@@ -210,30 +233,19 @@
                     "frameshift": [
                         "frameshift_variant"
                     ],
+                    "synonymous": [
+                        "start_retained_variant"
+                    ],
                     "extended_splice_site": [
-                        "splice_donor_5th_base",
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "other": [
-                        "non_coding_transcript_exon_variant__canonical"
-                    ],
-                    "splice_ai": "0.2",
-                    "synonymous": [
-                        "start_retained_variant"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 }
             }
@@ -247,13 +259,25 @@
             "created_date": "2022-02-04T20:51:58Z",
             "created_by": null,
             "last_modified_date": "2024-04-01T16:12:23.216Z",
-            "name": "De Novo/Dominant Permissive",
+            "name": "De Novo/Dominant Permissive (MCRI)",
             "order": 2.0,
             "search": {
                 "freqs": {
+                    "g1k": {
+                        "ac": null,
+                        "af": 0.001
+                    },
+                    "exac": {
+                        "ac": null,
+                        "af": 0.001
+                    },
                     "topmed": {
                         "ac": null,
                         "af": 0.01
+                    },
+                    "callset": {
+                        "ac": null,
+                        "af": 1
                     },
                     "gnomad_exomes": {
                         "ac": null,
@@ -262,20 +286,53 @@
                     "gnomad_genomes": {
                         "ac": null,
                         "af": 0.001
-                    },
-                    "pop_mcri": {
-                        "ac": null,
-                        "af": 1.0
                     }
                 },
                 "annotations": {
                     "other": [
-                        "transcript_ablation",
                         "5_prime_UTR_variant",
                         "3_prime_UTR_variant",
+                        "TF_binding_site_variant",
                         "non_coding_exon_variant",
+                        "regulatory_region_variant",
                         "transcript_ablation",
-                        "non_coding_transcript_exon_variant__canonical"
+                        "transcript_amplification",
+                        "TFBS_ablation",
+                        "TFBS_amplification",
+                        "regulatory_region_ablation",
+                        "regulatory_region_amplification",
+                        "non_coding_transcript_exon_variant__canonical",
+                        "non_coding_transcript_exon_variant"
+                    ],
+                    "in_frame": [
+                        "inframe_insertion",
+                        "inframe_deletion"
+                    ],
+                    "missense": [
+                        "stop_lost",
+                        "initiator_codon_variant",
+                        "start_lost",
+                        "protein_altering_variant",
+                        "missense_variant"
+                    ],
+                    "nonsense": [
+                        "stop_gained"
+                    ],
+                    "splice_ai": 0.1,
+                    "frameshift": [
+                        "frameshift_variant"
+                    ],
+                    "synonymous": [
+                        "synonymous_variant",
+                        "stop_retained_variant",
+                        "start_retained_variant"
+                    ],
+                    "UTRAnnotator": [
+                        "5_prime_UTR_premature_start_codon_gain_variant",
+                        "5_prime_UTR_premature_start_codon_loss_variant",
+                        "5_prime_UTR_stop_codon_gain_variant",
+                        "5_prime_UTR_stop_codon_loss_variant",
+                        "5_prime_UTR_uORF_frameshift_variant"
                     ],
                     "motif_feature": [
                         "TFBS_ablation",
@@ -287,44 +344,16 @@
                         "regulatory_region_ablation",
                         "regulatory_region_amplification"
                     ],
-                    "in_frame": [
-                        "inframe_insertion",
-                        "inframe_deletion"
-                    ],
-                    "missense": [
-                        "stop_lost",
-                        "start_lost",
-                        "protein_altering_variant",
-                        "missense_variant"
-                    ],
-                    "nonsense": [
-                        "stop_gained"
-                    ],
-                    "splice_ai": "0.1",
-                    "frameshift": [
-                        "frameshift_variant"
-                    ],
-                    "synonymous": [
-                        "synonymous_variant",
-                        "stop_retained_variant"
-                    ],
                     "extended_splice_site": [
-                        "splice_donor_5th_base",
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 },
                 "inheritance": {
@@ -361,13 +390,25 @@
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
-            "name": "Recessive Permissive",
+            "name": "Recessive Permissive (MCRI)",
             "order": 4.0,
             "search": {
                 "freqs": {
-                    "topmed": {
+                    "g1k": {
                         "ac": null,
                         "af": 0.01
+                    },
+                    "exac": {
+                        "ac": null,
+                        "af": 0.01
+                    },
+                    "topmed": {
+                        "ac": null,
+                        "af": 0.1
+                    },
+                    "callset": {
+                        "ac": null,
+                        "af": 1
                     },
                     "gnomad_exomes": {
                         "ac": null,
@@ -376,10 +417,6 @@
                     "gnomad_genomes": {
                         "ac": null,
                         "af": 0.01
-                    },
-                    "pop_mcri": {
-                        "ac": null,
-                        "af": 1.0
                     }
                 },
                 "annotations": {
@@ -392,6 +429,7 @@
                     ],
                     "missense": [
                         "stop_lost",
+                        "initiator_codon_variant",
                         "start_lost",
                         "protein_altering_variant",
                         "missense_variant"
@@ -406,23 +444,23 @@
                     "synonymous": [
                         "start_retained_variant"
                     ],
+                    "UTRAnnotator": [
+                        "5_prime_UTR_premature_start_codon_gain_variant",
+                        "5_prime_UTR_premature_start_codon_loss_variant",
+                        "5_prime_UTR_stop_codon_gain_variant",
+                        "5_prime_UTR_stop_codon_loss_variant",
+                        "5_prime_UTR_uORF_frameshift_variant"
+                    ],
                     "extended_splice_site": [
-                        "splice_donor_5th_base",
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 },
                 "inheritance": {
@@ -430,8 +468,7 @@
                     "filter": {
                         "A": null,
                         "N": null
-                    },
-                    "annotationSecondary": true
+                    }
                 },
                 "pathogenicity": {
                     "hgmd": [
@@ -466,30 +503,20 @@
                     "nonsense": [
                         "stop_gained"
                     ],
-                    "frameshift": [
-                        "frameshift_variant"
-                    ],
                     "synonymous": [
-                        "stop_retained_variant"
+                        "stop_retained_variant",
+                        "start_retained_variant"
                     ],
                     "extended_splice_site": [
-                        "splice_donor_5th_base",
+                        "splice_donor_5th_base_variant",
                         "splice_region_variant",
-                        "splice_donor_region",
-                        "splice_polypyrimidine_tract",
-                        "extended_intronic_splice_region"
+                        "splice_donor_region_variant",
+                        "splice_polypyrimidine_tract_variant",
+                        "extended_intronic_splice_region_variant"
                     ],
-                    "splice_ai": "0.1",
                     "essential_splice_site": [
                         "splice_donor_variant",
                         "splice_acceptor_variant"
-                    ],
-                    "UTRAnnotator": [
-                        "premature_start_codon_gain",
-                        "premature_start_codon_loss",
-                        "stop_codon_gain",
-                        "stop_codon_loss",
-                        "UORF_frameshift"
                     ]
                 }
             }
