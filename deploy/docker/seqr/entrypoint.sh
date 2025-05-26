@@ -42,7 +42,7 @@ done
 # run any pending migrations and load missing data
 python -u manage.py migrate
 python -u manage.py migrate --database=reference_data
-python -u manage.py loaddata variant_searches
+python -u manage.py loaddata variant_searches_mcri
 python -u manage.py loaddata variant_tag_types
 
 python -u manage.py check

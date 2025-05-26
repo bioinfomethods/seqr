@@ -1,9 +1,9 @@
 [
     {
         "model": "seqr.variantsearch",
-        "pk": 79516,
+        "pk": 1,
         "fields": {
-            "guid": "VS0079516_",
+            "guid": "VS0000001_de_novo_dom_res_mcri",
             "created_date": "2022-02-04T20:49:42Z",
             "created_by": null,
             "last_modified_date": "2024-04-01T16:11:45.701Z",
@@ -111,9 +111,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 79525,
+        "pk": 2,
         "fields": {
-            "guid": "VS0079525_",
+            "guid": "VS0000002_rece_restrictiv_mcri",
             "created_date": "2022-02-04T21:28:12Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:08.983Z",
@@ -253,9 +253,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 79517,
+        "pk": 3,
         "fields": {
-            "guid": "VS0079517_",
+            "guid": "VS0000003_de_novo_dom_per_mcri",
             "created_date": "2022-02-04T20:51:58Z",
             "created_by": null,
             "last_modified_date": "2024-04-01T16:12:23.216Z",
@@ -384,9 +384,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 145435,
+        "pk": 7,
         "fields": {
-            "guid": "VS0145435_",
+            "guid": "VS0000007_recess_perm_mcri",
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
@@ -524,9 +524,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 145435,
+        "pk": 4,
         "fields": {
-            "guid": "VS0145435_",
+            "guid": "VS0000004_deno_dom_res_sv_mcri",
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
@@ -644,9 +644,163 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 145435,
+        "pk": 5,
         "fields": {
-            "guid": "VS0145435_",
+            "guid": "VS0000005_deno_rec_res_sv_mcri",
+            "created_date": "2023-11-06T16:31:06Z",
+            "created_by": null,
+            "last_modified_date": "2024-05-03T18:21:23.219Z",
+            "name": "De Novo/ Recessive Restrictive LRS_SV (MCRI)",
+            "order": 5.0,
+            "search": {
+                "freqs": {
+                    "g1k": {
+                        "ac": null,
+                        "af": 0.01
+                    },
+                    "exac": {
+                        "ac": null,
+                        "af": 0.01
+                    },
+                    "topmed": {
+                        "ac": null,
+                        "af": 0.1
+                    },
+                    "callset": {
+                        "ac": null,
+                        "af": 1.0
+                    },
+                    "gnomad_exomes": {
+                        "ac": null,
+                        "af": 0.01
+                    },
+                    "gnomad_genomes": {
+                        "ac": null,
+                        "af": 0.01
+                    }
+                },
+                "annotations": {
+                    "other": [
+                        "transcript_ablation",
+                        "transcript_amplification",
+                        "5_prime_UTR_variant",
+                        "3_prime_UTR_variant",
+                        "non_coding_transcript_exon_variant__canonical",
+                        "TFBS_ablation",
+                        "TFBS_amplification",
+                        "TF_binding_site_variant",
+                        "regulatory_region_variant",
+                        "regulatory_region_ablation",
+                        "regulatory_region_amplification"
+                    ],
+                    "SCREEN": [
+                        "PLS",
+                        "pELS",
+                        "dELS"
+                    ],
+                    "in_frame": [
+                        "inframe_insertion",
+                        "inframe_deletion"
+                    ],
+                    "missense": [
+                        "stop_lost",
+                        "initiator_codon_variant",
+                        "start_lost",
+                        "protein_altering_variant",
+                        "missense_variant"
+                    ],
+                    "nonsense": [
+                        "stop_gained"
+                    ],
+                    "splice_ai": 0.1,
+                    "frameshift": [
+                        "frameshift_variant"
+                    ],
+                    "extended_splice_site": [
+                        "splice_region_variant"
+                    ],
+                    "essential_splice_site": [
+                        "splice_donor_variant",
+                        "splice_acceptor_variant"
+                    ],
+                    "structural_consequence": [
+                        "LOF",
+                        "COPY_GAIN",
+                        "DUP_PARTIAL",
+                        "INTRONIC",
+                        "INV_SPAN",
+                        "UTR",
+                        "INTRAGENIC_EXON_DUP",
+                        "PARTIAL_EXON_DUP",
+                        "BREAKEND_EXONIC",
+                        "PROMOTER"
+                    ]
+                },
+                "inheritance": {
+                    "mode": "recessive",
+                    "filter": {
+                        "A": null,
+                        "N": null
+                    }
+                },
+                "pathogenicity": {
+                    "hgmd": [
+                        "disease_causing"
+                    ],
+                    "clinvar": [
+                        "pathogenic",
+                        "likely_pathogenic"
+                    ]
+                },
+                "qualityFilter": {
+                    "min_ab": 20,
+                    "min_gq": 10,
+                    "min_gq_sv": 20,
+                    "vcf_filter": "pass",
+                    "affected_only": true
+                },
+                "annotations_secondary": {
+                    "in_frame": [
+                        "inframe_insertion",
+                        "inframe_deletion"
+                    ],
+                    "missense": [
+                        "stop_lost",
+                        "initiator_codon_variant",
+                        "start_lost",
+                        "protein_altering_variant",
+                        "missense_variant"
+                    ],
+                    "nonsense": [
+                        "stop_gained"
+                    ],
+                    "frameshift": [
+                        "frameshift_variant"
+                    ],
+                    "essential_splice_site": [
+                        "splice_donor_variant",
+                        "splice_acceptor_variant"
+                    ],
+                    "structural_consequence": [
+                        "LOF",
+                        "COPY_GAIN",
+                        "DUP_PARTIAL",
+                        "INV_SPAN",
+                        "UTR",
+                        "INTRAGENIC_EXON_DUP",
+                        "PARTIAL_EXON_DUP",
+                        "BREAKEND_EXONIC",
+                        "PROMOTER"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "model": "seqr.variantsearch",
+        "pk": 6,
+        "fields": {
+            "guid": "VS0000006_deno_dom_per_sv_mcri",
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
@@ -795,9 +949,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 145435,
+        "pk": 38718,
         "fields": {
-            "guid": "VS0145435_",
+            "guid": "VS0038718_",
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
@@ -985,9 +1139,9 @@
     },
     {
         "model": "seqr.variantsearch",
-        "pk": 145435,
+        "pk": 8,
         "fields": {
-            "guid": "VS0145435_",
+            "guid": "VS0000008_recess_perm_lrs_mcri",
             "created_date": "2023-11-06T16:31:06Z",
             "created_by": null,
             "last_modified_date": "2024-05-03T18:21:23.219Z",
