@@ -105,6 +105,8 @@ or resizing zonal persistent disks](https://cloud.google.com/compute/docs/disks/
 The required persistent disks can be found in `elasticsearch/es-data-<env>.yaml` and the names of these persistent disks
 must match the name in `gcePersistentDisk.pdName` property.
 
+**NOTE: This assumes you are using env=prod2**
+
 ```bash
 cd $SEQR/mcri_deploy/kubernetes
 
@@ -121,7 +123,7 @@ kubectl apply -f elasticsearch/es-data-prod2.yaml
 # kubectl apply -f elasticsearch/es-data-prod.yaml
 
 # Note that elasticsearch/crds.yaml and elasticsearch/operator.yaml needs to be applied before this can continue, usually only takes a few minutes
-kubectl apply -f elasticsearch/elasticsearch.gcloud.yaml
+kubectl apply -f elasticsearch/elasticsearch.gcloud.prod2.yaml
 
 # After 5-10 minutes, all workloads and services should be up and running
 seqr@seqr-build:~/seqr/mcri_deploy/kubernetes$ kubectl get all
