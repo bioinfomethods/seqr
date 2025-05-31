@@ -256,7 +256,7 @@ metadata:
     cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
-  loadBalancerIP: 10.152.0.7
+  loadBalancerIP: 10.152.0.5
   ports:
     - name: http
       port: 9200
