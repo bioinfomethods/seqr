@@ -4,7 +4,7 @@ metadata:
   name: elasticsearch
   labels:
     name: elasticsearch
-    env: prod
+    env: prod1
 spec:
   version: 7.16.3
   image: "docker.elastic.co/elasticsearch/elasticsearch:7.16.3"
@@ -35,7 +35,7 @@ spec:
         labels:
           app: elasticsearch
           role: master
-          env: prod
+          env: prod1
       spec:
         affinity:
           nodeAffinity:
@@ -93,7 +93,7 @@ spec:
         labels:
           app: elasticsearch
           role: client
-          env: prod
+          env: prod1
       spec:
         affinity:
           nodeAffinity:
@@ -147,7 +147,7 @@ spec:
         labels:
           app: elasticsearch
           role: data
-          env: prod
+          env: prod1
       spec:
         affinity:
           nodeAffinity:
@@ -168,12 +168,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 6.0Gi
+              memory: 12.0Gi
             limits:
-              memory: 6.0Gi
+              memory: 12.0Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms4608m -Xmx4608m"
+            value: "-Xms9216m -Xmx9216m"
           volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: elasticsearch-data
@@ -205,7 +205,7 @@ spec:
         labels:
           app: elasticsearch
           role: ingest
-          env: prod
+          env: prod1
       spec:
         affinity:
           nodeAffinity:
@@ -226,12 +226,12 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: 3Gi
+              memory: 6Gi
             limits:
-              memory: 3Gi
+              memory: 6Gi
           env:
           - name: ES_JAVA_OPTS
-            value: "-Xms2048m -Xmx2048m"
+            value: "-Xms4096m -Xmx4096m"
     volumeClaimTemplates:
         - metadata:
             name: elasticsearch-data
@@ -251,7 +251,7 @@ metadata:
   name: elasticsearch-es-http-ilb
   labels:
     name: elasticsearch-es-http-ilb
-    env: prod
+    env: prod1
   annotations:
     cloud.google.com/load-balancer-type: "Internal"
 spec:
