@@ -4,15 +4,15 @@ export ENV=prod
 export GCP_ZONE="australia-southeast1-b"
 export GCP_PROJECT="mcri-01"
 # New pool details
-export NEW_POOL_NAME="prod2-highmem4-pool"
-export NEW_MACHINE_TYPE="e2-highmem-4"
+export NEW_POOL_NAME="default-pool"
+export NEW_MACHINE_TYPE="e2-highmem-2"
 export NEW_POOL_NUM_NODES=5
 export NEW_POOL_MIN_NODES=5
-export NEW_POOL_MAX_NODES=6
+export NEW_POOL_MAX_NODES=8
 export NEW_POOL_DISK_SIZE=100
-export NEW_ELASTICSEARCH_CONFIG="elasticsearch.highmem4.yaml"
+export NEW_ELASTICSEARCH_CONFIG="elasticsearch.highmem2.yaml"
 # Existing pool details
-export OLD_POOL_NAME="default-pool"
+export OLD_POOL_NAME="prod2-highmem4-pool"
 
 # Ensure that you switch to the correct cluster and context
 kubectl config use-context $CONTEXT_NAME
@@ -56,6 +56,7 @@ gcloud container node-pools delete $OLD_POOL_NAME \
   --cluster $CLUSTER_NAME  \
   --zone $GCP_ZONE \
   --project $GCP_PROJECT
+
 
 # Step 5. Checks
 # Ensure that pods are not PENDING or FAILED:
