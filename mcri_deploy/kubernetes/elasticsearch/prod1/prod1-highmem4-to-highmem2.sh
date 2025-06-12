@@ -4,15 +4,15 @@ export ENV=prod1
 export GCP_ZONE="australia-southeast1-b"
 export GCP_PROJECT="mcri-01"
 # New pool details
-export NEW_POOL_NAME="prod1-highmem4-pool"
-export NEW_MACHINE_TYPE="e2-highmem-4"
+export NEW_POOL_NAME="prod1-highmem2-pool"
+export NEW_MACHINE_TYPE="e2-highmem-2"
 export NEW_POOL_NUM_NODES=5
 export NEW_POOL_MIN_NODES=5
-export NEW_POOL_MAX_NODES=6
+export NEW_POOL_MAX_NODES=8
 export NEW_POOL_DISK_SIZE=100
-export NEW_ELASTICSEARCH_CONFIG="elasticsearch.highmem4.yaml"
+export NEW_ELASTICSEARCH_CONFIG="elasticsearch.highmem2.yaml"
 # Existing pool details
-export OLD_POOL_NAME="prod1-highmem2-pool"
+export OLD_POOL_NAME="prod1-highmem4-pool"
 
 # Ensure that you switch to the correct cluster and context
 kubectl config use-context $CONTEXT_NAME
@@ -51,3 +51,21 @@ gcloud container node-pools delete $OLD_POOL_NAME \
   --zone $GCP_ZONE \
   --project $GCP_PROJECT
 
+
+# Step 5. Checks
+# Ensure that pods are not PENDING or FAILED:
+# kubectl get pods -o wide
+
+# If need be you can run:
+# kubectl describe pod [PODNAME]
+# e.g. kubectl describe pod elasticsearch-es-data-2
+# This will give you details regarding why things have failed
+
+# Step 6. If necessary
+# Change autoscaling min and max nodees
+# gcloud container clusters update $CLUSTER_NAME \
+#   --node-pool $POOL_NAME \
+#   --min-nodes=FIXME_NEW_VALUE_A \
+#   --max-nodes=FIXME_NEW_VALUE_B \
+#   --zone $GCP_ZONE \
+#   --project $GCP_PROJECT
