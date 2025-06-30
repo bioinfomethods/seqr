@@ -35,7 +35,7 @@ class McriKeycloakOAuth2(KeycloakOAuth2):  # pylint: disable=abstract-method
                 key=self.public_key(),
                 algorithms=self.algorithm(),
                 audience=self.audience(),
-                leeyway=10
+                leeway=10
             )
             keep = {key: data[key] for key in data.keys() if key in [OIDC_GROUPS_CLAIM]}
             result.update(keep)
