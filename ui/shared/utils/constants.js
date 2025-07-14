@@ -1519,7 +1519,7 @@ export const ORDERED_PREDICTOR_FIELDS = [
     infoTitle: 'Predicted Consequence',
     fieldTitle: 'SpliceAI',
     getHref: ({ chrom, pos, ref, alt, genomeVersion }) => (
-      `https://spliceailookup.broadinstitute.org/#variant=${chrom}-${pos}-${ref}-${alt}&hg=${genomeVersion}&distance=1000&mask=0`
+      `https://spliceailookup.broadinstitute.org/#variant=${chrom}-${pos}-${ref}-${alt}&hg=${genomeVersion}&distance=5000&mask=0&ra=1`
     ),
   },
   { field: 'primate_ai', group: MISSENSE_IN_SILICO_GROUP, thresholds: [undefined, 0.484, 0.79, 0.867, undefined], fieldTitle: 'PrimateAI', requiresCitation: true },
