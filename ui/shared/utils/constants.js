@@ -1505,6 +1505,39 @@ const PRED_COLOR_MAP = ['green', 'olive', 'grey', 'yellow', 'red', '#8b0000']
 const REVERSE_PRED_COLOR_MAP = [...PRED_COLOR_MAP].reverse()
 
 export const ORDERED_PREDICTOR_FIELDS = [
+    {
+      field: 'am_pathogenicity',
+      group: MISSENSE_IN_SILICO_GROUP,
+      warningThreshold: 0.34,
+      dangerThreshold: 0.564,
+      thresholds: [undefined, undefined, 0.34, 0.564, undefined],
+      /* eslint-disable-next-line camelcase */
+      infoField: ({ am_class, am_transcript_id, am_protein_variant }) => (
+        <div>
+          <div>
+            <b>Classification:&nbsp;</b>
+            {/* eslint-disable-next-line camelcase */}
+            { am_class }
+          </div>
+          <div>
+            <b>Transcript:&nbsp;</b>
+            {/* eslint-disable-next-line camelcase */}
+            { am_transcript_id }
+          </div>
+          <div>
+            <b>Protein variant:&nbsp;</b>
+            {/* eslint-disable-next-line camelcase */}
+            { am_protein_variant }
+          </div>
+        </div>
+      ),
+      infoTitle: 'AlphaMissense',
+      fieldTitle: 'AlphaMissense',
+      hideClinGenFooter: true,
+      getHref: ({ predictions }) => (
+        `https://www.uniprot.org/uniprotkb/${predictions.am_uniprot_id}/entry`
+      ),
+    },
   { field: 'cadd', group: CODING_IN_SILICO_GROUP, thresholds: [0.151, 22.8, 25.3, 28.1, undefined], min: 1, max: 99, fieldTitle: 'CADD', requiresCitation: true },
   { field: 'revel', group: MISSENSE_IN_SILICO_GROUP, thresholds: [0.0161, 0.291, 0.644, 0.773, 0.932], fieldTitle: 'REVEL', requiresCitation: true },
   { field: 'alphamissense', fieldTitle: 'AlphaMissense', displayOnly: true },
