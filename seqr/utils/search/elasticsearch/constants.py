@@ -322,6 +322,7 @@ CORE_FIELDS_CONFIG = {
     'screen_region_type': {'response_key': 'screenRegionType', 'format_value': lambda types: types[0] if types else None},
     'start': {'response_key': 'pos', 'format_value': int},
     'svType': {},
+    'SVLEN': {},
     'variantId': {},
     'xpos': {'format_value': int},
     XSTOP_FIELD:  {'format_value': int},

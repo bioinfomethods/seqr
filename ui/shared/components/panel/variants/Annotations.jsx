@@ -531,7 +531,7 @@ UtrAnnotatorDetail.propTypes = {
 const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcriptsById }) => {
   const {
     rsid, svType, numExon, pos, end, svTypeDetail, svSourceDetail, cpxIntervals, algorithms, bothsidesSupport,
-    endChrom, CAID,
+    endChrom, CAID, SVLEN
   } = variant
   const mainTranscript = getVariantMainTranscript(variant)
   const lofDetails = getLofDetails(mainTranscript.loftee || mainTranscript)
@@ -594,6 +594,12 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcripts
             </span>
           )}
         </div>
+      )}
+      {svType === 'INS' && SVLEN && (
+        <b>
+          <HorizontalSpacer width={5} />
+          {svSizeDisplay(SVLEN)}
+        </b>
       )}
       {svType && end && !endChrom && end !== pos && (
         <b>
