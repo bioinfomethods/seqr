@@ -531,7 +531,7 @@ UtrAnnotatorDetail.propTypes = {
 const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcriptsById }) => {
   const {
     rsid, svType, numExon, pos, end, svTypeDetail, svSourceDetail, cpxIntervals, algorithms, bothsidesSupport,
-    endChrom, CAID, SVLEN
+    endChrom, CAID, SVLEN,
   } = variant
   const mainTranscript = getVariantMainTranscript(variant)
   const lofDetails = getLofDetails(mainTranscript.loftee || mainTranscript)
