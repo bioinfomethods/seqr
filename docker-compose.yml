@@ -4,6 +4,8 @@ services:
   postgres:
     image: postgres:12.6
     command: postgres -c listen_addresses='*'
+    ports:
+      - 5432:5433
     environment:
       - PGPORT=5433
       - POSTGRES_PASSWORD=docker-compose-postgres-password
