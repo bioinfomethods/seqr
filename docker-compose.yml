@@ -84,6 +84,7 @@ services:
   seqr:
     image: gcr.io/seqr-project/seqr:gcloud-prod
     volumes:
+    - .:/seqr
     - ./data/readviz:/readviz
     - ./data/seqr_static_files:/seqr_static_files
     ports:
