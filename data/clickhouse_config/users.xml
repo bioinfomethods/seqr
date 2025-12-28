@@ -1,6 +1,14 @@
 <?xml version="1.0"?>
 <clickhouse>
     <users>
+        <default>
+            <profile>default</profile>
+            <networks>
+                <ip>127.0.0.1</ip>
+            </networks>
+            <access_management>1</access_management>
+        </default>
+
         <seqr_user>
             <password>docker-compose-clickhouse-password</password>
             <networks>
