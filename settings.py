@@ -12,6 +12,9 @@ import google.auth.transport.requests
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Suppress ForeignKey unique warnings for ClickHouse models
+SILENCED_SYSTEM_CHECKS = ['fields.W342']
+
 #########################################################
 #  Django settings
 #########################################################
