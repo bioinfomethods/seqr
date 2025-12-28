@@ -14,7 +14,13 @@ AS
 SELECT
     DISTINCT ON (key)
     key,
-    COLUMNS('.*') EXCEPT(version, variantId, key)
+    alleleId AS allele_id,
+    conflictingPathogenicities AS conflicting_pathogenicities,
+    goldStars AS gold_stars,
+    submitters,
+    conditions,
+    assertions,
+    pathogenicity
 FROM `$reference_genome/$dataset_type/reference_data/clinvar/all_variants` src
 INNER JOIN `$reference_genome/$dataset_type/key_lookup` dst
 ON assumeNotNull(src.variantId) = dst.variantId
