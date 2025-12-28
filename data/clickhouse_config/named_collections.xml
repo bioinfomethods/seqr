@@ -6,7 +6,7 @@
             <port>5433</port>
             <user>postgres</user>
             <password>docker-compose-postgres-password</password>
-            <db>seqrdb</db>
+            <database>seqrdb</database>
         </seqr_postgres_named_collection>
     </named_collections>
 </clickhouse>
