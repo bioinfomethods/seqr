@@ -14,9 +14,9 @@ AS
 SELECT
     DISTINCT ON (key)
     key,
-    alleleId AS allele_id,
-    conflictingPathogenicities AS conflicting_pathogenicities,
-    goldStars AS gold_stars,
+    alleleId,
+    conflictingPathogenicities,
+    goldStars,
     submitters,
     conditions,
     assertions,
