@@ -2,6 +2,7 @@
 <clickhouse>
     <users>
         <default>
+            <password>docker-compose-clickhouse-password</password>
             <profile>default</profile>
             <networks>
                 <ip>127.0.0.1</ip>
