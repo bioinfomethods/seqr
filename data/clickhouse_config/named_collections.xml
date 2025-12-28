@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <named_collections>
+        <seqr_postgres_named_collection>
+            <host>postgres</host>
+            <port>5433</port>
+            <user>postgres</user>
+            <password>docker-compose-postgres-password</password>
+            <db>seqrdb</db>
+        </seqr_postgres_named_collection>
+    </named_collections>
+</clickhouse>
