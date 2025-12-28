@@ -168,12 +168,21 @@ LOGGING = {
         'json_log_formatter': {
             '()': 'seqr.utils.logging_utils.JsonLogFormatter',
         },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console_json': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'json_log_formatter',
+        },
+        'console_verbose': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
         'null': {
             'class': 'logging.NullHandler',
@@ -198,6 +207,18 @@ LOGGING = {
         },
         'django.request': {
             'handlers': ['console_json'],
+            'propagate': False,
+        },
+        # Log all SQL queries
+        'django.db.backends': {
+            'handlers': ['console_verbose'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        # Log ClickHouse-specific queries
+        'clickhouse_backend': {
+            'handlers': ['console_verbose'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     }
