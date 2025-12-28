@@ -36,7 +36,6 @@ SELECT
 DISTINCT ON (key)
 key,
 alleleId,
-conflictingPathogenicities,
 goldStars,
 submitters,
 conditions,
