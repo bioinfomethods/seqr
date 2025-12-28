@@ -114,9 +114,9 @@ Remove ElasticSearch infrastructure:
 ## Migration Checklist
 
 ### Phase 1: Infrastructure Setup
-- [ ] Add Clickhouse service to docker-compose.yml
-- [ ] Create clickhouse_config directory and configuration files
-- [ ] Create .env file with Clickhouse credentials
+- [x] Add Clickhouse service to docker-compose.yml
+- [x] Create clickhouse_config directory and configuration files
+- [x] Create .env file with Clickhouse credentials
 - [ ] Start Clickhouse container
 - [ ] Verify Clickhouse connectivity
 - [ ] Verify health checks pass

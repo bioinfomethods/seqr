@@ -57,6 +57,31 @@ services:
       timeout: 5s
       retries: 100
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse
+    ports:
+      - 8123:8123
+      - 9000:9000
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+      - ./data/clickhouse_config:/etc/clickhouse-server/config.d
+    environment:
+      - CLICKHOUSE_DB=seqr
+      - CLICKHOUSE_USER=seqr_user
+      - CLICKHOUSE_PASSWORD=docker-compose-clickhouse-password
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 100
+
+
   seqr:
     image: gcr.io/seqr-project/seqr:gcloud-prod
     volumes:
@@ -74,6 +99,11 @@ services:
       - ELASTICSEARCH_SERVICE_HOSTNAME=elasticsearch
       - REDIS_SERVICE_HOSTNAME=redis
       - KIBANA_SERVICE_HOSTNAME=kibana
+      - CLICKHOUSE_SERVICE_HOSTNAME=clickhouse
+      - CLICKHOUSE_SERVICE_PORT=9000
+      - CLICKHOUSE_USERNAME=seqr_user
+      - CLICKHOUSE_PASSWORD=docker-compose-clickhouse-password
+      - CLICKHOUSE_DATABASE=seqr
       - PGHOST=postgres
       - PGPORT=5433
       - PGUSER=postgres
@@ -84,6 +114,8 @@ services:
       elasticsearch:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
     healthcheck:
       test: bash -c "curl -s 'http://localhost:8000' | grep html"
