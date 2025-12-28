@@ -63,6 +63,8 @@ services:
     ports:
       - 8123:8123
       - 9001:9001
+    volumes:
+      - ./data/clickhouse-seqr-data:/var/seqr/clickhouse-data
     environment:
       - CLICKHOUSE_DB=seqr
       - CLICKHOUSE_USER=seqr_user
@@ -102,6 +104,7 @@ services:
       - CLICKHOUSE_WRITER_PASSWORD=docker-compose-clickhouse-password
       - CLICKHOUSE_READER_USER=seqr_user
       - CLICKHOUSE_READER_PASSWORD=docker-compose-clickhouse-password
+      - CLICKHOUSE_DATA_DIR=/var/seqr/clickhouse-data
       - PGHOST=postgres
       - PGPORT=5433
       - PGUSER=postgres
