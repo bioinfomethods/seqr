@@ -58,7 +58,7 @@ services:
       retries: 100
 
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:25.12
     container_name: clickhouse
     ports:
       - 8123:8123
