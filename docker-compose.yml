@@ -64,7 +64,7 @@ services:
     container_name: clickhouse
     ports:
       - 8123:8123
-      - 9001:9001
+      - 9001:9000
     volumes:
       - ./data/clickhouse-seqr-data:/var/lib/clickhouse/user_files/seqr-data
     environment:
