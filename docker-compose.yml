@@ -75,6 +75,7 @@ services:
       - CLICKHOUSE_USER=seqr_user
       - CLICKHOUSE_PASSWORD=docker-compose-clickhouse-password
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - CLICKHOUSE_ACCESS_MANAGEMENT=1
     ulimits:
       nofile:
         soft: 262144
