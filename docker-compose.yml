@@ -108,6 +108,7 @@ services:
       - CLICKHOUSE_READER_USER=seqr_user
       - CLICKHOUSE_READER_PASSWORD=docker-compose-clickhouse-password
       - CLICKHOUSE_DATA_DIR=/var/lib/clickhouse/user_files/seqr-data
+      - CLICKHOUSE_IN_MEMORY_DIR=/var/lib/clickhouse/user_files/in-memory
       - PGHOST=postgres
       - PGPORT=5433
       - PGUSER=postgres
@@ -135,4 +136,3 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-
