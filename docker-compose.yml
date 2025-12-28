@@ -98,9 +98,10 @@ services:
       - KIBANA_SERVICE_HOSTNAME=kibana
       - CLICKHOUSE_SERVICE_HOSTNAME=clickhouse
       - CLICKHOUSE_SERVICE_PORT=9000
-      - CLICKHOUSE_USERNAME=seqr_user
-      - CLICKHOUSE_PASSWORD=docker-compose-clickhouse-password
-      - CLICKHOUSE_DATABASE=seqr
+      - CLICKHOUSE_WRITER_USER=seqr_user
+      - CLICKHOUSE_WRITER_PASSWORD=docker-compose-clickhouse-password
+      - CLICKHOUSE_READER_USER=seqr_user
+      - CLICKHOUSE_READER_PASSWORD=docker-compose-clickhouse-password
       - PGHOST=postgres
       - PGPORT=5433
       - PGUSER=postgres
