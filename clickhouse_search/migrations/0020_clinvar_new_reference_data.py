@@ -36,8 +36,7 @@ SELECT
 DISTINCT ON (key)
 key,
 alleleId,
-`conflictingPathogenicities.pathogenicity` AS `conflictingPathogenicities.pathogenicity`,
-`conflictingPathogenicities.count` AS `conflictingPathogenicities.count`,
+conflictingPathogenicities,
 goldStars,
 submitters,
 conditions,
