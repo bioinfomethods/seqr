@@ -15,7 +15,8 @@ SELECT
     DISTINCT ON (dst.key)
     dst.key,
     src.alleleId,
-    src.conflictingPathogenicities,
+    src.conflictingPathogenicities.pathogenicity AS `conflictingPathogenicities.pathogenicity`,
+    src.conflictingPathogenicities.count AS `conflictingPathogenicities.count`,
     src.goldStars,
     src.submitters,
     src.conditions,
