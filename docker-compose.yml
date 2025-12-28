@@ -62,10 +62,7 @@ services:
     container_name: clickhouse
     ports:
       - 8123:8123
-      - 9000:9000
-    volumes:
-      - ./data/clickhouse:/var/lib/clickhouse
-      - ./data/clickhouse_config:/etc/clickhouse-server/config.d
+      - 9001:9001
     environment:
       - CLICKHOUSE_DB=seqr
       - CLICKHOUSE_USER=seqr_user
