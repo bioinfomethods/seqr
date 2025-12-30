@@ -280,6 +280,7 @@ if CLICKHOUSE_SERVICE_HOSTNAME:
         'OPTIONS': {
             'settings': {
                 'use_client_time_zone': False,
+                'flatten_nested': 0,
             }
         },
     }
