@@ -131,12 +131,15 @@ services:
 
 
   pipeline-runner:
-    image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
+    image: seqr-loading
+    command: uv run python -m v03_pipeline.api
     volumes:
-      - ./data/seqr-reference-data:/seqr-reference-data
-      - ./data/vep_data:/vep_data
+      - ./data/seqr-reference-data:/var/seqr/seqr-reference-data
+      - ./data/vep_data:/var/seqr/vep-reference-data
       - ./data/input_vcfs:/input_vcfs
-      - ~/.config:/root/.config
+      - .config:/root/.config
+    ports:
+      - 6000:6000
     depends_on:
-      elasticsearch:
+      clickhouse:
         condition: service_healthy
