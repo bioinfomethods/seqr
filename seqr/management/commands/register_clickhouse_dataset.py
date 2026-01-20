@@ -61,9 +61,10 @@ class Command(BaseCommand):
         table_name = entry_class._meta.db_table
         
         with connections['clickhouse'].cursor() as cursor:
+            # Escape table name with backticks since it contains forward slashes
             cursor.execute(f"""
                 SELECT DISTINCT arrayJoin(calls.sampleId) as sample_id
-                FROM {table_name}
+                FROM `{table_name}`
                 WHERE project_guid = %s
             """, [project_guid])
             sample_ids = [row[0] for row in cursor.fetchall()]
