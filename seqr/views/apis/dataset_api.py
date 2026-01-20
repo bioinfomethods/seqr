@@ -1,13 +1,95 @@
 import json
 
+from django.utils import timezone
+
 from seqr.utils.search.add_data_utils import basic_notify_search_data_loaded
 from seqr.utils.search.elasticsearch.es_utils import validate_es_index_metadata_and_get_samples
-from seqr.utils.search.utils import es_only
+from seqr.utils.search.utils import es_only, clickhouse_only
 from seqr.models import Individual, Family, Sample
 from seqr.views.utils.dataset_utils import match_and_update_search_samples, load_mapping_file
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.orm_to_json_utils import get_json_for_samples
 from seqr.views.utils.permissions_utils import get_project_and_check_permissions, data_manager_required
+
+
+@data_manager_required
+@clickhouse_only
+def add_clickhouse_dataset_handler(request, project_guid):
+    """Create or update samples for the given ClickHouse dataset
+
+    Args:
+        request: Django request object
+        project_guid (string): GUID of the project that should be updated
+
+    HTTP POST
+        Request body - should contain the following json structure:
+        {
+            'sampleType': <String> (required) - WES or WGS
+            'datasetType': <String> (required) - SNV_INDEL, SV, MITO
+            'ignoreExtraSamplesInCallset': <Boolean>
+            'mappingFilePath': <String>
+        }
+
+        Response body - will contain the following structure:
+    """
+    project = get_project_and_check_permissions(project_guid, request.user, can_edit=True)
+    request_json = json.loads(request.body)
+
+    sample_type = request_json.get('sampleType')
+    dataset_type = request_json.get('datasetType')
+    
+    if not sample_type or sample_type not in Sample.SAMPLE_TYPE_LOOKUP:
+        return create_json_response({'errors': [f'Invalid sample type: {sample_type}']}, status=400)
+    
+    if not dataset_type or dataset_type not in Sample.DATASET_TYPE_LOOKUP:
+        return create_json_response({'errors': [f'Invalid dataset type: {dataset_type}']}, status=400)
+
+    # Get sample IDs from ClickHouse
+    from clickhouse_search.models import ENTRY_CLASS_MAP
+    entry_class = ENTRY_CLASS_MAP.get(project.genome_version, {}).get(dataset_type)
+    if not entry_class:
+        return create_json_response({
+            'errors': [f'No ClickHouse table found for {project.genome_version} {dataset_type}']
+        }, status=400)
+
+    # Query ClickHouse for samples in this project
+    sample_ids = list(entry_class.objects.filter(
+        project_guid=project_guid
+    ).values_list('calls__sampleId', flat=True).distinct())
+    
+    if not sample_ids:
+        return create_json_response({'errors': ['No samples found in ClickHouse for this project']}, status=400)
+
+    sample_data = {
+        'loaded_date': timezone.now(),
+    }
+
+    try:
+        sample_id_to_individual_id_mapping = load_mapping_file(
+            request_json['mappingFilePath'], request.user) if request_json.get('mappingFilePath') else {}
+        ignore_extra_samples = request_json.get('ignoreExtraSamplesInCallset')
+        sample_project_tuples = [(sample_id, project.name) for sample_id in sample_ids]
+        
+        new_samples, updated_samples, inactivated_sample_guids, updated_family_guids = match_and_update_search_samples(
+            projects=[project],
+            user=request.user,
+            sample_project_tuples=sample_project_tuples,
+            sample_data=sample_data,
+            sample_type=sample_type,
+            dataset_type=dataset_type,
+            sample_id_to_individual_id_mapping=sample_id_to_individual_id_mapping,
+            raise_unmatched_error_template=None if ignore_extra_samples else 'Matches not found for sample ids: {sample_ids}. Uploading a mapping file for these samples, or select the "Ignore extra samples in callset" checkbox to ignore.'
+        )
+    except ValueError as e:
+        return create_json_response({'errors': [str(e)]}, status=400)
+
+    basic_notify_search_data_loaded(project, dataset_type, sample_type, new_samples.values_list('sample_id', flat=True))
+
+    response_json = _get_samples_json(updated_samples, inactivated_sample_guids, project_guid)
+    response_json['familiesByGuid'] = {family_guid: {'analysisStatus': Family.ANALYSIS_STATUS_ANALYSIS_IN_PROGRESS}
+                                       for family_guid in updated_family_guids}
+
+    return create_json_response(response_json)
 
 
 @data_manager_required
