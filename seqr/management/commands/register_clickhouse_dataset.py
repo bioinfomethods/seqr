@@ -55,9 +55,18 @@ class Command(BaseCommand):
 
         # Query ClickHouse for samples in this project
         self.stdout.write('Querying ClickHouse for samples...')
-        sample_ids = list(entry_class.objects.filter(
-            project_guid=project_guid
-        ).values_list('calls__sampleId', flat=True).distinct())
+        
+        # Use raw SQL since ClickHouse doesn't support joins on array fields
+        from django.db import connections
+        table_name = entry_class._meta.db_table
+        
+        with connections['clickhouse'].cursor() as cursor:
+            cursor.execute(f"""
+                SELECT DISTINCT arrayJoin(calls.sampleId) as sample_id
+                FROM {table_name}
+                WHERE project_guid = %s
+            """, [project_guid])
+            sample_ids = [row[0] for row in cursor.fetchall()]
 
         if not sample_ids:
             raise CommandError('No samples found in ClickHouse for this project')
