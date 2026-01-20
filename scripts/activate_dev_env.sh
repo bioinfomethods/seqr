@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Activate uv environment
-source ~/work/tools/uv/environments/seqr/.venv/bin/activate
+source ~/work/tools/uv/environments/seqr/bin/activate
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -13,7 +13,7 @@ export PYTHONPATH="$PROJECT_DIR"
 
 # Database connections (from docker-compose)
 export POSTGRES_SERVICE_HOSTNAME=localhost
-export POSTGRES_SERVICE_PORT=5433
+export POSTGRES_SERVICE_PORT=5432
 export POSTGRES_USERNAME=postgres
 export POSTGRES_PASSWORD=docker-compose-postgres-password
 
