@@ -86,9 +86,7 @@ class Command(BaseCommand):
                 raise CommandError(f'Error loading mapping file: {e}')
 
         # Prepare sample data
-        sample_data = {
-            'loaded_date': timezone.now(),
-        }
+        sample_data = {}
 
         # Match and update samples
         sample_project_tuples = [(sample_id, project.name) for sample_id in sample_ids]
