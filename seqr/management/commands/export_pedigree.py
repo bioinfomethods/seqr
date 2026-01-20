@@ -63,12 +63,12 @@ class Command(BaseCommand):
                 
                 output_file.write(f'{individual_id}\t{family_guid}\t{sex}\t{maternal_id}\t{paternal_id}\n')
 
-            self.stdout.write(self.style.SUCCESS(
+            self.stderr.write(self.style.SUCCESS(
                 f'Successfully exported {individuals.count()} individuals from project {project.name}'
             ))
             
             if output_path:
-                self.stdout.write(self.style.SUCCESS(f'Output written to: {output_path}'))
+                self.stderr.write(self.style.SUCCESS(f'Output written to: {output_path}'))
 
         finally:
             if output_path:
