@@ -49,6 +49,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 - Added VPC data sources to query default VPC and subnets
 - Used AWS provider ~> 5.0 for latest features
 - All resources will use default_tags from provider configuration
+- Created setup-backend.sh script to automate S3 bucket and DynamoDB table creation
+- Region set to ap-southeast-2 (Sydney)
 
 ---
 
