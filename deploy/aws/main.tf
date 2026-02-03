@@ -139,6 +139,14 @@ resource "aws_instance" "bastion" {
   vpc_security_group_ids      = [aws_security_group.bastion.id]
   associate_public_ip_address = true
 
+  user_data = <<-EOF
+              #!/bin/bash
+              # Install PostgreSQL client
+              dnf install -y postgresql15
+              EOF
+
+  user_data_replace_on_change = true
+
   tags = {
     Name = "${local.name_prefix}-bastion"
   }
