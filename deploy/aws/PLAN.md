@@ -147,7 +147,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 4: Container Registry (ECR)
-**Status**: Complete
+**Status**: Complete ✓
 
 - [x] **4.1** Create ECR repository for seqr-web (Django)
   - Repository name: mcri-seqr-dev-seqr-web
@@ -158,7 +158,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - [x] **4.2** Create ECR repository for clickhouse (if custom image needed)
   - Skipped: Using stock Clickhouse image for now
   
-- [ ] **4.3** Test: Push a test image to ECR repository
+- [x] **4.3** Test: Push a test image to ECR repository
 
 **Notes/Decisions**:
 - Created ECR repository for seqr-web Django application
@@ -166,6 +166,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - Image scanning and lifecycle policies can be added later if needed
 - No Clickhouse repository needed yet - will use stock image from Docker Hub
 - Repository URL output available for docker push commands
+- Successfully pushed gcr.io/seqr-project/seqr:gcloud-prod image to ECR
 
 ---
 
@@ -309,8 +310,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 4 (Testing)
+- **Current Phase**: Phase 4 (Complete)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Test pushing an image to ECR, then begin Phase 5 - Clickhouse Database
+- **Next Steps**: Begin Phase 5 - Clickhouse Database
 
