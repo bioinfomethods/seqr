@@ -55,3 +55,51 @@ data "aws_subnets" "default" {
     values = [local.vpc_id]
   }
 }
+
+# Get availability zones for the region
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# Create dedicated subnet for seqr infrastructure
+resource "aws_subnet" "seqr" {
+  vpc_id            = local.vpc_id
+  cidr_block        = var.subnet_cidr
+  availability_zone = data.aws_availability_zones.available.names[0]
+  
+  tags = {
+    Name = "${local.name_prefix}-subnet"
+  }
+}
+
+# Security group for bastion host
+resource "aws_security_group" "bastion" {
+  name        = "${local.name_prefix}-bastion-sg"
+  description = "Security group for bastion host"
+  vpc_id      = local.vpc_id
+
+  # Allow SSH from specified CIDR blocks
+  dynamic "ingress" {
+    for_each = var.allowed_ssh_cidrs
+    content {
+      description = "SSH from allowed CIDR"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
+  }
+
+  # Allow all outbound traffic
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-bastion-sg"
+  }
+}

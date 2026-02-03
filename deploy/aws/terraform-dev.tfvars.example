@@ -9,3 +9,7 @@ cost_centre = "CM60607"     # Change to your cost centre
 
 # Networking
 # vpc_id = ""                   # Leave empty to use default VPC
+subnet_cidr = "172.31.255.0/28"  # /28 = 16 IP addresses
+allowed_ssh_cidrs = [
+  "0.0.0.0/0"                    # CHANGE THIS: Restrict to your IP range
+]

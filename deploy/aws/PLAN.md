@@ -55,19 +55,29 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 1: Networking Foundation
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] **1.1** Configure VPC data source (using default VPC)
+- [x] **1.1** Configure VPC data source (using default VPC)
   - Query default VPC
   - Query default subnets
+  - Query availability zones
   
-- [ ] **1.2** Create security group for bastion host
-  - Allow SSH (port 22) from specific IP ranges
-  - Egress rules for outbound connectivity
+- [x] **1.2** Create dedicated subnet for seqr infrastructure
+  - CIDR: 172.31.255.0/28 (16 IP addresses)
+  - Placed in first available AZ
   
-- [ ] **1.3** Test: Verify VPC and security group creation
+- [x] **1.3** Create security group for bastion host
+  - Allow SSH (port 22) from configurable CIDR ranges
+  - Allow all outbound traffic
+  - Dynamic ingress rules based on allowed_ssh_cidrs variable
+  
+- [ ] **1.4** Test: Verify subnet and security group creation
 
 **Notes/Decisions**:
+- Created dedicated /28 subnet (16 IPs) for seqr infrastructure
+- Subnet CIDR is configurable via variable (default: 172.31.255.0/28)
+- Security group uses dynamic blocks to support multiple allowed SSH CIDR ranges
+- All egress traffic allowed from bastion for flexibility
 
 ---
 
@@ -267,8 +277,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 0 (Testing)
+- **Current Phase**: Phase 1 (Testing)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Complete Phase 0.4 testing, then begin Phase 1 - Networking Foundation
+- **Next Steps**: Test Phase 1 networking resources, then begin Phase 2 - Bastion Host
 

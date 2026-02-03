@@ -7,8 +7,23 @@ output "vpc_id" {
 }
 
 output "subnet_ids" {
-  description = "Subnet IDs in the VPC"
+  description = "Default subnet IDs in the VPC"
   value       = data.aws_subnets.default.ids
+}
+
+output "seqr_subnet_id" {
+  description = "Dedicated seqr subnet ID"
+  value       = aws_subnet.seqr.id
+}
+
+output "seqr_subnet_cidr" {
+  description = "CIDR block of seqr subnet"
+  value       = aws_subnet.seqr.cidr_block
+}
+
+output "bastion_security_group_id" {
+  description = "Security group ID for bastion host"
+  value       = aws_security_group.bastion.id
 }
 
 # Tagging

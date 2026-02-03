@@ -33,3 +33,15 @@ variable "vpc_id" {
   type        = string
   default     = ""
 }
+
+variable "subnet_cidr" {
+  description = "CIDR block for the seqr subnet"
+  type        = string
+  default     = "172.31.255.0/28"  # 16 IP addresses
+}
+
+variable "allowed_ssh_cidrs" {
+  description = "CIDR blocks allowed to SSH to bastion host"
+  type        = list(string)
+  default     = []
+}
