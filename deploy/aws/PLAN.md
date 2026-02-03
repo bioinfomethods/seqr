@@ -62,9 +62,10 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Query default subnets
   - Query availability zones
   
-- [x] **1.2** Create dedicated subnet for seqr infrastructure
-  - CIDR: 172.31.255.0/28 (16 IP addresses)
-  - Placed in first available AZ
+- [x] **1.2** Create dedicated subnets for seqr infrastructure
+  - CIDR AZ1: 172.31.255.0/28 (16 IP addresses)
+  - CIDR AZ2: 172.31.255.16/28 (16 IP addresses)
+  - Placed in first two available AZs (required for Aurora)
   
 - [x] **1.3** Create security group for bastion host
   - Allow SSH (port 22) from configurable CIDR ranges
@@ -74,8 +75,9 @@ The order follows logical dependencies: foundation → data layer → compute la
 - [x] **1.4** Test: Verify subnet and security group creation
 
 **Notes/Decisions**:
-- Created dedicated /28 subnet (16 IPs) for seqr infrastructure
-- Subnet CIDR is configurable via variable (default: 172.31.255.0/28)
+- Created two dedicated /28 subnets (16 IPs each) for seqr infrastructure
+- Two subnets required for Aurora (must span at least 2 AZs)
+- Subnet CIDRs are configurable via variables (defaults: 172.31.255.0/28 and 172.31.255.16/28)
 - Security group uses dynamic blocks to support multiple allowed SSH CIDR ranges
 - All egress traffic allowed from bastion for flexibility
 
@@ -116,7 +118,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Will add ECS security group access in Phase 6
   
 - [x] **3.2** Create Aurora PostgreSQL cluster
-  - Subnet group using default VPC subnets
+  - Subnet group using dedicated seqr subnets in 2 AZs
   - Master username: seqr (configurable)
   - Database name: seqrdb (configurable)
   - Engine: aurora-postgresql 15.4
@@ -137,6 +139,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - Security group currently allows access from bastion only
 - Will add ECS security group ingress rule in Phase 6
 - Backup window set to 03:00-04:00 UTC
+- Aurora subnet group uses dedicated seqr subnets spanning 2 AZs (required by Aurora)
 
 ---
 

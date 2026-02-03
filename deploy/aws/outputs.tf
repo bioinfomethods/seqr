@@ -11,14 +11,24 @@ output "subnet_ids" {
   value       = data.aws_subnets.default.ids
 }
 
-output "seqr_subnet_id" {
-  description = "Dedicated seqr subnet ID"
-  value       = aws_subnet.seqr.id
+output "seqr_subnet_az1_id" {
+  description = "Dedicated seqr subnet ID in AZ1"
+  value       = aws_subnet.seqr_az1.id
 }
 
-output "seqr_subnet_cidr" {
-  description = "CIDR block of seqr subnet"
-  value       = aws_subnet.seqr.cidr_block
+output "seqr_subnet_az2_id" {
+  description = "Dedicated seqr subnet ID in AZ2"
+  value       = aws_subnet.seqr_az2.id
+}
+
+output "seqr_subnet_az1_cidr" {
+  description = "CIDR block of seqr subnet in AZ1"
+  value       = aws_subnet.seqr_az1.cidr_block
+}
+
+output "seqr_subnet_az2_cidr" {
+  description = "CIDR block of seqr subnet in AZ2"
+  value       = aws_subnet.seqr_az2.cidr_block
 }
 
 output "bastion_security_group_id" {

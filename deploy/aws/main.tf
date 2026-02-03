@@ -61,14 +61,24 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# Create dedicated subnet for seqr infrastructure
-resource "aws_subnet" "seqr" {
+# Create dedicated subnets for seqr infrastructure (2 AZs required for Aurora)
+resource "aws_subnet" "seqr_az1" {
   vpc_id            = local.vpc_id
-  cidr_block        = var.subnet_cidr
+  cidr_block        = var.subnet_cidr_az1
   availability_zone = data.aws_availability_zones.available.names[0]
   
   tags = {
-    Name = "${local.name_prefix}-subnet"
+    Name = "${local.name_prefix}-subnet-az1"
+  }
+}
+
+resource "aws_subnet" "seqr_az2" {
+  vpc_id            = local.vpc_id
+  cidr_block        = var.subnet_cidr_az2
+  availability_zone = data.aws_availability_zones.available.names[1]
+  
+  tags = {
+    Name = "${local.name_prefix}-subnet-az2"
   }
 }
 
@@ -125,7 +135,7 @@ resource "aws_instance" "bastion" {
   ami                         = var.bastion_ami_id != "" ? var.bastion_ami_id : data.aws_ami.amazon_linux_2023.id
   instance_type               = var.bastion_instance_type
   key_name                    = var.bastion_key_name
-  subnet_id                   = aws_subnet.seqr.id
+  subnet_id                   = aws_subnet.seqr_az1.id
   vpc_security_group_ids      = [aws_security_group.bastion.id]
   associate_public_ip_address = true
 
@@ -175,10 +185,10 @@ resource "aws_security_group" "aurora" {
   }
 }
 
-# DB subnet group for Aurora
+# DB subnet group for Aurora (requires subnets in at least 2 AZs)
 resource "aws_db_subnet_group" "aurora" {
   name       = "${local.name_prefix}-aurora-subnet-group"
-  subnet_ids = data.aws_subnets.default.ids
+  subnet_ids = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
 
   tags = {
     Name = "${local.name_prefix}-aurora-subnet-group"

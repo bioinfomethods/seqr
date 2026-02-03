@@ -8,10 +8,11 @@ environment = "dev"
 cost_centre = "CM60607"     # Change to your cost centre
 
 # Networking
-# vpc_id = ""                   # Leave empty to use default VPC
-subnet_cidr = "172.31.255.0/28"  # /28 = 16 IP addresses
+# vpc_id = ""                      # Leave empty to use default VPC
+subnet_cidr_az1 = "172.31.255.0/28"   # /28 = 16 IP addresses in AZ1
+subnet_cidr_az2 = "172.31.255.16/28"  # /28 = 16 IP addresses in AZ2
 allowed_ssh_cidrs = [
-  "0.0.0.0/0"                    # CHANGE THIS: Restrict to your IP range
+  "0.0.0.0/0"                         # CHANGE THIS: Restrict to your IP range
 ]
 
 # Bastion Host
