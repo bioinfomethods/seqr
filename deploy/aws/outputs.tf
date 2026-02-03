@@ -131,6 +131,22 @@ output "clickhouse_http_endpoint" {
   value       = "http://${aws_instance.clickhouse.private_ip}:8123"
 }
 
+# VPC Endpoints
+output "vpc_endpoint_ecr_api_id" {
+  description = "VPC Endpoint ID for ECR API"
+  value       = aws_vpc_endpoint.ecr_api.id
+}
+
+output "vpc_endpoint_ecr_dkr_id" {
+  description = "VPC Endpoint ID for ECR Docker"
+  value       = aws_vpc_endpoint.ecr_dkr.id
+}
+
+output "vpc_endpoint_s3_id" {
+  description = "VPC Endpoint ID for S3"
+  value       = aws_vpc_endpoint.s3.id
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

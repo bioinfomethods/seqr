@@ -82,6 +82,75 @@ resource "aws_subnet" "seqr_az2" {
   }
 }
 
+# Security group for VPC endpoints
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${local.name_prefix}-vpc-endpoints-sg"
+  description = "Security group for VPC endpoints"
+  vpc_id      = local.vpc_id
+
+  # Allow HTTPS from Clickhouse security group
+  ingress {
+    description     = "HTTPS from Clickhouse"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.clickhouse.id]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-vpc-endpoints-sg"
+  }
+}
+
+# VPC Endpoint for ECR API
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = local.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name_prefix}-ecr-api-endpoint"
+  }
+}
+
+# VPC Endpoint for ECR Docker
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = local.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name_prefix}-ecr-dkr-endpoint"
+  }
+}
+
+# VPC Endpoint for S3 (Gateway type - no security group needed)
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = local.vpc_id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [data.aws_vpc.default.main_route_table_id]
+
+  tags = {
+    Name = "${local.name_prefix}-s3-endpoint"
+  }
+}
+
 # Security group for bastion host
 resource "aws_security_group" "bastion" {
   name        = "${local.name_prefix}-bastion-sg"
@@ -289,7 +358,7 @@ resource "aws_security_group" "clickhouse" {
     security_groups = [aws_security_group.bastion.id]
   }
 
-  # Allow all outbound traffic (includes PostgreSQL to Aurora and Docker pulls)
+  # Allow all outbound traffic (includes PostgreSQL to Aurora and VPC endpoints)
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -301,6 +370,9 @@ resource "aws_security_group" "clickhouse" {
   tags = {
     Name = "${local.name_prefix}-clickhouse-sg"
   }
+
+  # Ensure VPC endpoints security group exists first
+  depends_on = [aws_security_group.vpc_endpoints]
 }
 
 # Clickhouse EC2 instance
