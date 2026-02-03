@@ -5,7 +5,7 @@
 aws_region  = "ap-southeast-2"
 prefix      = "mcri"
 environment = "dev"
-cost_centre = "engineering"     # Change to your cost centre
+cost_centre = "CM60607"     # Change to your cost centre
 
 # Networking
 # vpc_id = ""                   # Leave empty to use default VPC
