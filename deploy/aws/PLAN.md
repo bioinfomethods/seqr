@@ -19,29 +19,34 @@ The order follows logical dependencies: foundation → data layer → compute la
 ## Plan
 
 ### Phase 0: Foundation & Configuration
-**Status**: Complete
+**Status**: In Progress
 
 - [x] **0.1** Create base Terraform configuration structure
   - Main configuration files (main.tf, variables.tf, outputs.tf)
   - Provider configuration (AWS provider, backend for S3 state)
-  - Define all variables needed across components
+  - Define ONLY basic variables (region, prefix, environment, cost_centre, vpc_id)
   
 - [x] **0.2** Create environment-specific tfvars template
-  - Document all required variables
-  - Create example terraform-dev.tfvars
+  - Document only required basic variables
+  - Create minimal terraform-dev.tfvars.example
   
 - [x] **0.3** Set up tagging module/locals
   - Default tags (Environment, CostCentre)
   - Name tag generation logic
   
-- [ ] **0.4** Test: Validate configuration initializes and plans successfully
+- [x] **0.4** Set up VPC and subnet data sources
+  - Query default VPC or use provided VPC ID
+  - Query subnets in the VPC
+  
+- [ ] **0.5** Test: Validate configuration initializes and plans successfully
 
 **Notes/Decisions**:
-- Created comprehensive variable definitions for all components
+- Simplified Phase 0 to only include basics: tagging, environment, state bucket, VPC/subnets
+- Removed all component-specific variables (bastion, aurora, clickhouse, ecs, etc.)
+- These will be added incrementally in later phases as needed
 - Set up backend configuration for S3 state storage with DynamoDB locking
 - Implemented local variables for name_prefix and default_tags
-- Added .gitignore to prevent committing sensitive files
-- Created README.md with quick start instructions
+- Added VPC data sources to query default VPC and subnets
 - Used AWS provider ~> 5.0 for latest features
 - All resources will use default_tags from provider configuration
 
