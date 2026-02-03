@@ -19,7 +19,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 ## Plan
 
 ### Phase 0: Foundation & Configuration
-**Status**: In Progress
+**Status**: Complete
 
 - [x] **0.1** Create base Terraform configuration structure
   - Main configuration files (main.tf, variables.tf, outputs.tf)
@@ -38,7 +38,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Query default VPC or use provided VPC ID
   - Query subnets in the VPC
   
-- [ ] **0.5** Test: Validate configuration initializes and plans successfully
+- [x] **0.5** Test: Validate configuration initializes and plans successfully
 
 **Notes/Decisions**:
 - Simplified Phase 0 to only include basics: tagging, environment, state bucket, VPC/subnets
@@ -71,7 +71,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Allow all outbound traffic
   - Dynamic ingress rules based on allowed_ssh_cidrs variable
   
-- [ ] **1.4** Test: Verify subnet and security group creation
+- [x] **1.4** Test: Verify subnet and security group creation
 
 **Notes/Decisions**:
 - Created dedicated /28 subnet (16 IPs) for seqr infrastructure
@@ -95,7 +95,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Associated with bastion instance
   - Output the public IP
   
-- [ ] **2.3** Test: SSH into bastion host successfully
+- [x] **2.3** Test: SSH into bastion host successfully
 
 **Notes/Decisions**:
 - Using Amazon Linux 2023 (latest stable version)
@@ -103,6 +103,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 - Instance gets public IP automatically and EIP for stable addressing
 - SSH key name configurable via variable (default: id_ed25519_mcri_aws)
 - Added output for convenient SSH command
+- SSH user: ec2-user
+- Successfully tested SSH connection to bastion host
 
 ---
 
@@ -283,8 +285,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 2 (Testing)
+- **Current Phase**: Phase 2 (Complete)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Test SSH access to bastion host, then begin Phase 3 - Aurora PostgreSQL
+- **Next Steps**: Begin Phase 3 - Aurora PostgreSQL
 
