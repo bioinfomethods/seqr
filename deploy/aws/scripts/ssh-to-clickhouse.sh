@@ -36,6 +36,19 @@ if [ -z "$BASTION_IP" ] || [ -z "$CLICKHOUSE_IP" ]; then
   exit 1
 fi
 
+# Copy custom terminfo directory if it exists
+if [ -d ~/.terminfo ]; then
+  echo "Copying custom terminfo directory..."
+  scp -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      -i ~/.ssh/${KEY_NAME} \
+      -o ProxyJump=ec2-user@${BASTION_IP} \
+      -r ~/.terminfo \
+      ec2-user@${CLICKHOUSE_IP}:~/
+  echo "✓ Terminfo directory copied"
+  echo ""
+fi
+
 echo "Connecting to Clickhouse instance..."
 echo "  Bastion: ${BASTION_IP}"
 echo "  Clickhouse: ${CLICKHOUSE_IP}"
