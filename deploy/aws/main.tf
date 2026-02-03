@@ -145,3 +145,76 @@ resource "aws_eip" "bastion" {
 
   depends_on = [aws_instance.bastion]
 }
+
+# Security group for Aurora PostgreSQL
+resource "aws_security_group" "aurora" {
+  name        = "${local.name_prefix}-aurora-sg"
+  description = "Security group for Aurora PostgreSQL"
+  vpc_id      = local.vpc_id
+
+  # Allow PostgreSQL from bastion host
+  ingress {
+    description     = "PostgreSQL from bastion"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-aurora-sg"
+  }
+}
+
+# DB subnet group for Aurora
+resource "aws_db_subnet_group" "aurora" {
+  name       = "${local.name_prefix}-aurora-subnet-group"
+  subnet_ids = data.aws_subnets.default.ids
+
+  tags = {
+    Name = "${local.name_prefix}-aurora-subnet-group"
+  }
+}
+
+# Aurora PostgreSQL cluster
+resource "aws_rds_cluster" "seqr" {
+  cluster_identifier      = "${local.name_prefix}-aurora-cluster"
+  engine                  = "aurora-postgresql"
+  engine_mode             = "provisioned"
+  engine_version          = "15.4"
+  database_name           = var.aurora_database_name
+  master_username         = var.aurora_master_username
+  master_password         = var.aurora_master_password
+  backup_retention_period = var.aurora_backup_retention_period
+  preferred_backup_window = "03:00-04:00"
+  db_subnet_group_name    = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+  skip_final_snapshot     = var.aurora_skip_final_snapshot
+  final_snapshot_identifier = var.aurora_skip_final_snapshot ? null : "${local.name_prefix}-aurora-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+
+  tags = {
+    Name = "${local.name_prefix}-aurora-cluster"
+  }
+}
+
+# Aurora PostgreSQL instance
+resource "aws_rds_cluster_instance" "seqr" {
+  identifier         = "${local.name_prefix}-aurora-instance-1"
+  cluster_identifier = aws_rds_cluster.seqr.id
+  instance_class     = var.aurora_instance_class
+  engine             = aws_rds_cluster.seqr.engine
+  engine_version     = aws_rds_cluster.seqr.engine_version
+
+  tags = {
+    Name = "${local.name_prefix}-aurora-instance-1"
+  }
+}

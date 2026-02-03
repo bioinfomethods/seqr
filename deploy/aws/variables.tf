@@ -63,3 +63,40 @@ variable "bastion_ami_id" {
   type        = string
   default     = ""
 }
+
+# Aurora PostgreSQL
+variable "aurora_instance_class" {
+  description = "Instance class for Aurora PostgreSQL"
+  type        = string
+  default     = "db.t3.medium"
+}
+
+variable "aurora_master_username" {
+  description = "Master username for Aurora PostgreSQL"
+  type        = string
+  default     = "seqr"
+}
+
+variable "aurora_master_password" {
+  description = "Master password for Aurora PostgreSQL"
+  type        = string
+  sensitive   = true
+}
+
+variable "aurora_database_name" {
+  description = "Database name for seqr application"
+  type        = string
+  default     = "seqrdb"
+}
+
+variable "aurora_backup_retention_period" {
+  description = "Backup retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "aurora_skip_final_snapshot" {
+  description = "Skip final snapshot when destroying (set to false for production)"
+  type        = bool
+  default     = true
+}

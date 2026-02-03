@@ -109,24 +109,34 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 3: Database Layer - Aurora PostgreSQL
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] **3.1** Create security group for Aurora
-  - Allow PostgreSQL (port 5432) from ECS security group (to be created)
-  - Allow PostgreSQL from bastion security group
+- [x] **3.1** Create security group for Aurora
+  - Allow PostgreSQL (port 5432) from bastion security group
+  - Will add ECS security group access in Phase 6
   
-- [ ] **3.2** Create Aurora PostgreSQL cluster
-  - Subnet group in default VPC
-  - Master username/password (from variables)
-  - Database name for seqr
-  - Instance class (db.t3.medium for dev)
+- [x] **3.2** Create Aurora PostgreSQL cluster
+  - Subnet group using default VPC subnets
+  - Master username: seqr (configurable)
+  - Database name: seqrdb (configurable)
+  - Engine: aurora-postgresql 15.4
+  - Backup retention: 7 days (configurable)
   
-- [ ] **3.3** Create Aurora instance(s)
-  - At least one writer instance
+- [x] **3.3** Create Aurora instance(s)
+  - One writer instance
+  - Instance class: db.t3.medium for dev (configurable)
   
 - [ ] **3.4** Test: Connect to Aurora from bastion host using psql
 
 **Notes/Decisions**:
+- Using Aurora PostgreSQL 15.4 (latest stable)
+- Master username set to "seqr" as requested
+- Database name set to "seqrdb" as requested
+- Instance class configurable via variable (default: db.t3.medium for dev)
+- Skip final snapshot enabled for dev (should be false for production)
+- Security group currently allows access from bastion only
+- Will add ECS security group ingress rule in Phase 6
+- Backup window set to 03:00-04:00 UTC
 
 ---
 
@@ -285,8 +295,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 2 (Complete)
+- **Current Phase**: Phase 3 (Testing)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Begin Phase 3 - Aurora PostgreSQL
+- **Next Steps**: Test PostgreSQL connection from bastion, then begin Phase 4 - ECR
 
