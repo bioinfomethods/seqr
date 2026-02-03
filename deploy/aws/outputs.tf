@@ -49,7 +49,7 @@ output "bastion_instance_id" {
 
 output "bastion_ssh_command" {
   description = "SSH command to connect to bastion host"
-  value       = "ssh -i ~/.ssh/${var.bastion_key_name} ec2-user@${aws_eip.bastion.public_ip}"
+  value       = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/${var.bastion_key_name} ec2-user@${aws_eip.bastion.public_ip}"
 }
 
 # Aurora PostgreSQL
