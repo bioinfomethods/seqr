@@ -19,9 +19,9 @@ if [ ! -f "terraform.tfvars" ]; then
 fi
 
 # Extract configuration from terraform.tfvars
-REGION=$(grep '^aws_region' terraform.tfvars | sed 's/.*=\s*"\(.*\)"/\1/' | tr -d ' ')
-PREFIX=$(grep '^prefix' terraform.tfvars | sed 's/.*=\s*"\(.*\)"/\1/' | tr -d ' ')
-ENVIRONMENT=$(grep '^environment' terraform.tfvars | sed 's/.*=\s*"\(.*\)"/\1/' | tr -d ' ')
+REGION=$(grep '^aws_region' terraform.tfvars | sed 's/^[^=]*=[[:space:]]*"\([^"]*\)".*/\1/')
+PREFIX=$(grep '^prefix' terraform.tfvars | sed 's/^[^=]*=[[:space:]]*"\([^"]*\)".*/\1/')
+ENVIRONMENT=$(grep '^environment' terraform.tfvars | sed 's/^[^=]*=[[:space:]]*"\([^"]*\)".*/\1/')
 
 # Allow region override from command line
 REGION=${1:-$REGION}
