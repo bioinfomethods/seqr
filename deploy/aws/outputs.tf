@@ -55,38 +55,38 @@ output "bastion_ssh_command" {
 # Aurora PostgreSQL
 output "aurora_cluster_endpoint" {
   description = "Aurora cluster writer endpoint"
-  value       = aws_rds_cluster.seqr.endpoint
+  value       = module.aurora.cluster_endpoint
 }
 
 output "aurora_cluster_reader_endpoint" {
   description = "Aurora cluster reader endpoint"
-  value       = aws_rds_cluster.seqr.reader_endpoint
+  value       = module.aurora.cluster_reader_endpoint
 }
 
 output "aurora_cluster_port" {
   description = "Aurora cluster port"
-  value       = aws_rds_cluster.seqr.port
+  value       = module.aurora.cluster_port
 }
 
 output "aurora_database_name" {
   description = "Aurora database name"
-  value       = aws_rds_cluster.seqr.database_name
+  value       = module.aurora.database_name
 }
 
 output "aurora_master_username" {
   description = "Aurora master username"
-  value       = aws_rds_cluster.seqr.master_username
+  value       = module.aurora.master_username
   sensitive   = true
 }
 
 output "aurora_security_group_id" {
   description = "Security group ID for Aurora"
-  value       = aws_security_group.aurora.id
+  value       = module.aurora.security_group_id
 }
 
 output "aurora_psql_command" {
   description = "Command to connect to Aurora from bastion (password required)"
-  value       = "psql -h ${aws_rds_cluster.seqr.endpoint} -U ${var.aurora_master_username} -d ${var.aurora_database_name}"
+  value       = "psql -h ${module.aurora.cluster_endpoint} -U ${var.aurora_master_username} -d ${var.aurora_database_name}"
 }
 
 # Tagging
