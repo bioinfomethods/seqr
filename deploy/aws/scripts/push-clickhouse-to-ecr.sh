@@ -47,10 +47,10 @@ echo "Authenticating with ECR..."
 aws ecr get-login-password --region ${REGION} | \
   docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com
 
-# Pull the Clickhouse image from Docker Hub
+# Pull the Clickhouse image from Docker Hub (explicitly amd64 for EC2 compatibility)
 echo ""
-echo "Pulling Clickhouse image from Docker Hub..."
-docker pull ${SOURCE_IMAGE}
+echo "Pulling Clickhouse image from Docker Hub (amd64 architecture)..."
+docker pull --platform linux/amd64 ${SOURCE_IMAGE}
 
 # Tag for ECR
 echo ""
