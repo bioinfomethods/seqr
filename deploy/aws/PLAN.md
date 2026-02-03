@@ -122,7 +122,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Subnet group using dedicated seqr subnets in 2 AZs
   - Master username: seqr (configurable)
   - Database name: seqrdb (configurable)
-  - Engine: aurora-postgresql 15.5
+  - Engine: aurora-postgresql 17.2
   - Backup retention: 7 days (configurable)
   
 - [x] **3.3** Create Aurora instance(s)
@@ -132,7 +132,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - [ ] **3.4** Test: Connect to Aurora from bastion host using psql
 
 **Notes/Decisions**:
-- Using Aurora PostgreSQL 15.5 (version 15.4 not available in ap-southeast-2)
+- Using Aurora PostgreSQL 17.2 (latest version)
 - Master username set to "seqr" as requested
 - Database name set to "seqrdb" as requested
 - Instance class configurable via variable (default: db.t3.medium for dev)
