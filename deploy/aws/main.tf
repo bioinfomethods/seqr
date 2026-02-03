@@ -192,6 +192,16 @@ resource "aws_ecr_repository" "seqr_web" {
   }
 }
 
+# ECR Repository for Clickhouse
+resource "aws_ecr_repository" "clickhouse" {
+  name                 = "${local.name_prefix}-clickhouse"
+  image_tag_mutability = "MUTABLE"
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse"
+  }
+}
+
 # Security group for Clickhouse
 resource "aws_security_group" "clickhouse" {
   name        = "${local.name_prefix}-clickhouse-sg"
@@ -253,30 +263,10 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              set -e
-              
-              # Install Docker
-              dnf install -y docker
-              systemctl enable docker
-              systemctl start docker
-              
-              # Create directory for Clickhouse data
-              mkdir -p /var/lib/clickhouse
-              
-              # Run Clickhouse container
-              docker run -d \
-                --name clickhouse-server \
-                --restart unless-stopped \
-                -p 8123:8123 \
-                -p 9000:9000 \
-                -v /var/lib/clickhouse:/var/lib/clickhouse \
-                clickhouse/clickhouse-server:latest
-              
-              # Wait for Clickhouse to be ready
-              sleep 10
-              EOF
+  user_data = templatefile("${path.module}/user-data/clickhouse.sh", {
+    ecr_repository_url = aws_ecr_repository.clickhouse.repository_url
+    aws_region         = var.aws_region
+  })
 
   user_data_replace_on_change = true
 

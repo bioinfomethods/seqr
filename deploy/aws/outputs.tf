@@ -100,6 +100,16 @@ output "ecr_repository_seqr_web_arn" {
   value       = aws_ecr_repository.seqr_web.arn
 }
 
+output "ecr_repository_clickhouse_url" {
+  description = "ECR repository URL for Clickhouse image"
+  value       = aws_ecr_repository.clickhouse.repository_url
+}
+
+output "ecr_repository_clickhouse_arn" {
+  description = "ECR repository ARN for Clickhouse image"
+  value       = aws_ecr_repository.clickhouse.arn
+}
+
 # Clickhouse
 output "clickhouse_private_ip" {
   description = "Private IP address of Clickhouse instance"
