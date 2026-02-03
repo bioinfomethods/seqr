@@ -106,3 +106,27 @@ variable "aurora_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+# Clickhouse EC2
+variable "clickhouse_instance_type" {
+  description = "EC2 instance type for Clickhouse"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "clickhouse_ami_id" {
+  description = "AMI ID for Clickhouse instance (leave empty to use latest Amazon Linux 2023)"
+  type        = string
+  default     = ""
+}
+
+variable "clickhouse_volume_size" {
+  description = "EBS volume size in GB for Clickhouse data"
+  type        = number
+  default     = 100
+}
+
+variable "clickhouse_key_name" {
+  description = "SSH key pair name for Clickhouse instance"
+  type        = string
+}

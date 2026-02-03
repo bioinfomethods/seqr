@@ -15,6 +15,18 @@ resource "aws_security_group" "aurora" {
     security_groups = [var.bastion_security_group_id]
   }
 
+  # Allow PostgreSQL from Clickhouse (if security group provided)
+  dynamic "ingress" {
+    for_each = var.clickhouse_security_group_id != "" ? [1] : []
+    content {
+      description     = "PostgreSQL from Clickhouse"
+      from_port       = 5432
+      to_port         = 5432
+      protocol        = "tcp"
+      security_groups = [var.clickhouse_security_group_id]
+    }
+  }
+
   # Allow all outbound traffic
   egress {
     description = "Allow all outbound traffic"

@@ -171,25 +171,41 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 5: Clickhouse Database (EC2)
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] **5.1** Create security group for Clickhouse
-  - Allow Clickhouse port (8123 HTTP, 9000 native) from ECS security group
-  - Allow Clickhouse ports from bastion security group
+- [x] **5.1** Create security group for Clickhouse
+  - Allow Clickhouse port 8123 (HTTP) from bastion security group
+  - Allow Clickhouse port 9000 (native) from bastion security group
   - Allow SSH from bastion security group
+  - Allow outbound to Aurora PostgreSQL (port 5432)
+  - Allow all outbound traffic for Docker pulls
   
-- [ ] **5.2** Create EC2 instance for Clickhouse
-  - Use pre-configured AMI (or create launch template)
-  - Instance type (m5.xlarge or appropriate for workload)
-  - Attach security group
-  - User data script to start Clickhouse container
+- [x] **5.2** Create EC2 instance for Clickhouse
+  - Using Amazon Linux 2023 AMI (same as bastion)
+  - Instance type: t3.medium for dev (configurable)
+  - Attached security group
+  - User data script installs Docker and runs Clickhouse container
   
-- [ ] **5.3** Configure EBS volume for Clickhouse data
-  - Attach and mount volume
+- [x] **5.3** Configure EBS volume for Clickhouse data
+  - Root volume: 100GB gp3 encrypted
+  - Mounted at /var/lib/clickhouse in container
   
-- [ ] **5.4** Test: Connect to Clickhouse from bastion, verify container running
+- [x] **5.4** Update Aurora security group
+  - Added ingress rule to allow PostgreSQL from Clickhouse
+  - Enables Clickhouse PostgreSQL engine to query Aurora
+  
+- [ ] **5.5** Test: Connect to Clickhouse from bastion, verify container running
 
 **Notes/Decisions**:
+- Using Amazon Linux 2023 with Docker installed via user data
+- Clickhouse runs in Docker container (clickhouse/clickhouse-server:latest)
+- Container configured with restart policy: unless-stopped
+- Data persisted in /var/lib/clickhouse volume mount
+- Instance type: t3.medium (can be adjusted for workload)
+- EBS volume: 100GB gp3 encrypted by default
+- Security group allows Clickhouse to connect to Aurora for PostgreSQL engine
+- Will add ECS security group access in Phase 6
+- SSH key: id_ed25519_mcri_aws (same as bastion)
 
 ---
 
@@ -310,8 +326,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 4 (Complete)
+- **Current Phase**: Phase 5 (Testing)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Begin Phase 5 - Clickhouse Database
+- **Next Steps**: Test Clickhouse connectivity from bastion, then begin Phase 6 - ECS Cluster
 

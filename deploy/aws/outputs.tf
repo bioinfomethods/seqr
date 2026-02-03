@@ -100,6 +100,27 @@ output "ecr_repository_seqr_web_arn" {
   value       = aws_ecr_repository.seqr_web.arn
 }
 
+# Clickhouse
+output "clickhouse_private_ip" {
+  description = "Private IP address of Clickhouse instance"
+  value       = aws_instance.clickhouse.private_ip
+}
+
+output "clickhouse_instance_id" {
+  description = "Instance ID of Clickhouse instance"
+  value       = aws_instance.clickhouse.id
+}
+
+output "clickhouse_security_group_id" {
+  description = "Security group ID for Clickhouse"
+  value       = aws_security_group.clickhouse.id
+}
+
+output "clickhouse_http_endpoint" {
+  description = "Clickhouse HTTP endpoint (accessible from bastion)"
+  value       = "http://${aws_instance.clickhouse.private_ip}:8123"
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

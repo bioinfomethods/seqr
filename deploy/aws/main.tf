@@ -168,17 +168,18 @@ resource "aws_eip" "bastion" {
 module "aurora" {
   source = "./modules/aurora"
 
-  name_prefix                = local.name_prefix
-  vpc_id                     = local.vpc_id
-  subnet_ids                 = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
-  bastion_security_group_id  = aws_security_group.bastion.id
-  instance_class             = var.aurora_instance_class
-  master_username            = var.aurora_master_username
-  master_password            = var.aurora_master_password
-  database_name              = var.aurora_database_name
-  engine_version             = "17.6"
-  backup_retention_period    = var.aurora_backup_retention_period
-  skip_final_snapshot        = var.aurora_skip_final_snapshot
+  name_prefix                   = local.name_prefix
+  vpc_id                        = local.vpc_id
+  subnet_ids                    = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  bastion_security_group_id     = aws_security_group.bastion.id
+  clickhouse_security_group_id  = aws_security_group.clickhouse.id
+  instance_class                = var.aurora_instance_class
+  master_username               = var.aurora_master_username
+  master_password               = var.aurora_master_password
+  database_name                 = var.aurora_database_name
+  engine_version                = "17.6"
+  backup_retention_period       = var.aurora_backup_retention_period
+  skip_final_snapshot           = var.aurora_skip_final_snapshot
 }
 
 # ECR Repository for seqr-web (Django)
@@ -188,5 +189,107 @@ resource "aws_ecr_repository" "seqr_web" {
 
   tags = {
     Name = "${local.name_prefix}-seqr-web"
+  }
+}
+
+# Security group for Clickhouse
+resource "aws_security_group" "clickhouse" {
+  name        = "${local.name_prefix}-clickhouse-sg"
+  description = "Security group for Clickhouse database"
+  vpc_id      = local.vpc_id
+
+  # Allow Clickhouse HTTP interface from bastion
+  ingress {
+    description     = "Clickhouse HTTP from bastion"
+    from_port       = 8123
+    to_port         = 8123
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  # Allow Clickhouse native protocol from bastion
+  ingress {
+    description     = "Clickhouse native from bastion"
+    from_port       = 9000
+    to_port         = 9000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  # Allow SSH from bastion
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  # Allow outbound to Aurora PostgreSQL
+  egress {
+    description     = "PostgreSQL to Aurora"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [module.aurora.security_group_id]
+  }
+
+  # Allow all outbound traffic (for Docker pulls, etc.)
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse-sg"
+  }
+}
+
+# Clickhouse EC2 instance
+resource "aws_instance" "clickhouse" {
+  ami                    = var.clickhouse_ami_id != "" ? var.clickhouse_ami_id : data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.clickhouse_instance_type
+  key_name               = var.clickhouse_key_name
+  subnet_id              = aws_subnet.seqr_az1.id
+  vpc_security_group_ids = [aws_security_group.clickhouse.id]
+
+  root_block_device {
+    volume_size = var.clickhouse_volume_size
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+              
+              # Install Docker
+              dnf install -y docker
+              systemctl enable docker
+              systemctl start docker
+              
+              # Create directory for Clickhouse data
+              mkdir -p /var/lib/clickhouse
+              
+              # Run Clickhouse container
+              docker run -d \
+                --name clickhouse-server \
+                --restart unless-stopped \
+                -p 8123:8123 \
+                -p 9000:9000 \
+                -v /var/lib/clickhouse:/var/lib/clickhouse \
+                clickhouse/clickhouse-server:latest
+              
+              # Wait for Clickhouse to be ready
+              sleep 10
+              EOF
+
+  user_data_replace_on_change = true
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse"
   }
 }

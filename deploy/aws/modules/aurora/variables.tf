@@ -58,3 +58,9 @@ variable "skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "clickhouse_security_group_id" {
+  description = "Security group ID of Clickhouse instance for PostgreSQL access"
+  type        = string
+  default     = ""
+}
