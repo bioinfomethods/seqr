@@ -225,16 +225,7 @@ resource "aws_security_group" "clickhouse" {
     security_groups = [aws_security_group.bastion.id]
   }
 
-  # Allow outbound to Aurora PostgreSQL
-  egress {
-    description     = "PostgreSQL to Aurora"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [module.aurora.security_group_id]
-  }
-
-  # Allow all outbound traffic (for Docker pulls, etc.)
+  # Allow all outbound traffic (includes PostgreSQL to Aurora and Docker pulls)
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
