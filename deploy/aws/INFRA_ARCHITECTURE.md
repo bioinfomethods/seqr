@@ -1,7 +1,8 @@
 # Seqr AWS Infrastructure
 
 This directory contains OpenTofu / Terraform infrastruture for deploying
-seqr in an AWS environment.
+seqr in an AWS environment. All infrastructure should be cross compatible
+with Terraform and OpenTofu.
 
 This architecture is designed to support a mid-scale deployment, where
 the back end is self contained on a single node.
@@ -22,13 +23,13 @@ applied to each component.
 
 ## Configuration
 
-All configuration is controlled by a YAML file in the `config` directory that is
-named according to the environment, eg:
-
+All configuration is controlled by a single `tfvars` file named according to the environment, eg:
 
 ```
-config/dev.yaml
+terraform-dev.tfvars
 ```
+
+The actual tfvars file that is exposed to OpenTofu is created by symlinking to this file.
 
 ## Tagging
 
@@ -42,7 +43,7 @@ appropriate / allowed.
 
 ## Terraform State
 
-State is stored in an S3 bucket that is pre-configured and named according to the scheme:
+State is stored in an S3 bucket that is already provisioned and pre-configured and named according to the scheme:
 
 ```
 <prefix>-seqr-<environment>-terraform-state
@@ -85,5 +86,4 @@ The architecture consists of the following components:
 - An ECS service that runs Django in a container image named seqr-web that is stored in ECR
 - The Django container connects to the Aurora database and is configured with connection details via environment variables
 - The Django container connects to the Clickhouse database and is configured with connection details via environment variables
-
 
