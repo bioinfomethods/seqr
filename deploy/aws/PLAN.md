@@ -112,7 +112,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 3: Database Layer - Aurora PostgreSQL
-**Status**: Complete
+**Status**: Complete ✓
 
 - [x] **3.1** Create security group for Aurora
   - Allow PostgreSQL (port 5432) from bastion security group
@@ -129,7 +129,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - One writer instance
   - Instance class: db.t3.medium for dev (configurable)
   
-- [ ] **3.4** Test: Connect to Aurora from bastion host using psql
+- [x] **3.4** Test: Connect to Aurora from bastion host using psql
 
 **Notes/Decisions**:
 - Using Aurora PostgreSQL 17.6 (latest version)
@@ -141,6 +141,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 - Will add ECS security group ingress rule in Phase 6
 - Backup window set to 03:00-04:00 UTC
 - Aurora subnet group uses dedicated seqr subnets spanning 2 AZs (required by Aurora)
+- PostgreSQL client (postgresql15) installed on bastion via user data
+- Successfully tested connection to Aurora PostgreSQL 17.6 from bastion host
 
 ---
 
@@ -299,8 +301,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 3 (Testing)
+- **Current Phase**: Phase 3 (Complete)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Test PostgreSQL connection from bastion, then begin Phase 4 - ECR
+- **Next Steps**: Begin Phase 4 - ECR (Container Registry)
 
