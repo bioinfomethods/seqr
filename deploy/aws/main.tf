@@ -200,7 +200,7 @@ resource "aws_rds_cluster" "seqr" {
   cluster_identifier      = "${local.name_prefix}-aurora-cluster"
   engine                  = "aurora-postgresql"
   engine_mode             = "provisioned"
-  engine_version          = "17.2"
+  engine_version          = "17.6"
   database_name           = var.aurora_database_name
   master_username         = var.aurora_master_username
   master_password         = var.aurora_master_password
