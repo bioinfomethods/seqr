@@ -63,8 +63,8 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Query availability zones
   
 - [x] **1.2** Create dedicated subnets for seqr infrastructure
-  - CIDR AZ1: 172.31.255.0/28 (16 IP addresses)
-  - CIDR AZ2: 172.31.255.16/28 (16 IP addresses)
+  - CIDR AZ1: 172.31.254.0/28 (16 IP addresses)
+  - CIDR AZ2: 172.31.254.16/28 (16 IP addresses)
   - Placed in first two available AZs (required for Aurora)
   
 - [x] **1.3** Create security group for bastion host
@@ -77,7 +77,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 **Notes/Decisions**:
 - Created two dedicated /28 subnets (16 IPs each) for seqr infrastructure
 - Two subnets required for Aurora (must span at least 2 AZs)
-- Subnet CIDRs are configurable via variables (defaults: 172.31.255.0/28 and 172.31.255.16/28)
+- Subnet CIDRs are configurable via variables (defaults: 172.31.254.0/28 and 172.31.254.16/28)
+- Changed from 172.31.255.x to 172.31.254.x due to conflict with existing subnet
 - Security group uses dynamic blocks to support multiple allowed SSH CIDR ranges
 - All egress traffic allowed from bastion for flexibility
 
