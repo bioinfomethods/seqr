@@ -10,6 +10,7 @@ Ensure to read this document and understand the architecture.
 
 - **AWS Region**: ap-southeast-2 (Sydney)
 - **Prefix**: mcri
+- **IaC Tool**: OpenTofu (all commands use `tofu` not `terraform`)
 
 ## Guidelines
 
