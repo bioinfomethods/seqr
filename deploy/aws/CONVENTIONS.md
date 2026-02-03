@@ -6,6 +6,10 @@ Details of the architecture are contained in `INFRA_ARCHITECTURE.md`.
 
 Ensure to read this document and understand the architecture.
 
+## Project Configuration
+
+- **AWS Region**: ap-southeast-2 (Sydney)
+
 ## Guidelines
 
 - Always create a plan for steps to complete
