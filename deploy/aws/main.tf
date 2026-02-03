@@ -202,6 +202,60 @@ resource "aws_ecr_repository" "clickhouse" {
   }
 }
 
+# IAM role for Clickhouse instance
+resource "aws_iam_role" "clickhouse" {
+  name = "${local.name_prefix}-clickhouse-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse-role"
+  }
+}
+
+# IAM policy for ECR access
+resource "aws_iam_role_policy" "clickhouse_ecr" {
+  name = "${local.name_prefix}-clickhouse-ecr-policy"
+  role = aws_iam_role.clickhouse.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# IAM instance profile
+resource "aws_iam_instance_profile" "clickhouse" {
+  name = "${local.name_prefix}-clickhouse-profile"
+  role = aws_iam_role.clickhouse.name
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse-profile"
+  }
+}
+
 # Security group for Clickhouse
 resource "aws_security_group" "clickhouse" {
   name        = "${local.name_prefix}-clickhouse-sg"
@@ -256,6 +310,7 @@ resource "aws_instance" "clickhouse" {
   key_name               = var.clickhouse_key_name
   subnet_id              = aws_subnet.seqr_az1.id
   vpc_security_group_ids = [aws_security_group.clickhouse.id]
+  iam_instance_profile   = aws_iam_instance_profile.clickhouse.name
 
   root_block_device {
     volume_size = var.clickhouse_volume_size
