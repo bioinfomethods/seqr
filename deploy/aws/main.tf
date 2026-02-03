@@ -370,9 +370,6 @@ resource "aws_security_group" "clickhouse" {
   tags = {
     Name = "${local.name_prefix}-clickhouse-sg"
   }
-
-  # Ensure VPC endpoints security group exists first
-  depends_on = [aws_security_group.vpc_endpoints]
 }
 
 # Clickhouse EC2 instance
