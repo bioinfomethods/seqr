@@ -45,3 +45,21 @@ variable "allowed_ssh_cidrs" {
   type        = list(string)
   default     = []
 }
+
+# Bastion Host
+variable "bastion_instance_type" {
+  description = "EC2 instance type for bastion host"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "bastion_key_name" {
+  description = "SSH key pair name for bastion host"
+  type        = string
+}
+
+variable "bastion_ami_id" {
+  description = "AMI ID for bastion instance (leave empty to use latest Amazon Linux 2023)"
+  type        = string
+  default     = ""
+}

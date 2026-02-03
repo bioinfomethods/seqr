@@ -103,3 +103,45 @@ resource "aws_security_group" "bastion" {
     Name = "${local.name_prefix}-bastion-sg"
   }
 }
+
+# Get latest Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# Bastion host EC2 instance
+resource "aws_instance" "bastion" {
+  ami                         = var.bastion_ami_id != "" ? var.bastion_ami_id : data.aws_ami.amazon_linux_2023.id
+  instance_type               = var.bastion_instance_type
+  key_name                    = var.bastion_key_name
+  subnet_id                   = aws_subnet.seqr.id
+  vpc_security_group_ids      = [aws_security_group.bastion.id]
+  associate_public_ip_address = true
+
+  tags = {
+    Name = "${local.name_prefix}-bastion"
+  }
+}
+
+# Elastic IP for bastion host
+resource "aws_eip" "bastion" {
+  instance = aws_instance.bastion.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${local.name_prefix}-bastion-eip"
+  }
+
+  depends_on = [aws_instance.bastion]
+}

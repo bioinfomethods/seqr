@@ -26,6 +26,22 @@ output "bastion_security_group_id" {
   value       = aws_security_group.bastion.id
 }
 
+# Bastion Host
+output "bastion_public_ip" {
+  description = "Public IP address of bastion host"
+  value       = aws_eip.bastion.public_ip
+}
+
+output "bastion_instance_id" {
+  description = "Instance ID of bastion host"
+  value       = aws_instance.bastion.id
+}
+
+output "bastion_ssh_command" {
+  description = "SSH command to connect to bastion host"
+  value       = "ssh -i ~/.ssh/${var.bastion_key_name} ec2-user@${aws_eip.bastion.public_ip}"
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

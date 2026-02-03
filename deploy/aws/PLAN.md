@@ -82,21 +82,27 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 2: Bastion Host (Access Layer)
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] **2.1** Create bastion host EC2 instance
-  - Select appropriate AMI (Amazon Linux 2 or Ubuntu)
-  - Instance type (t3.micro for dev)
-  - Attach security group from Phase 1
-  - Configure SSH key pair
+- [x] **2.1** Create bastion host EC2 instance
+  - Using Amazon Linux 2023 AMI (latest via data source)
+  - Instance type: t3.micro for dev
+  - Attached security group from Phase 1
+  - SSH key pair: id_ed25519_mcri_aws
+  - Placed in dedicated seqr subnet
   
-- [ ] **2.2** Create Elastic IP for bastion
-  - Associate with bastion instance
+- [x] **2.2** Create Elastic IP for bastion
+  - Associated with bastion instance
   - Output the public IP
   
 - [ ] **2.3** Test: SSH into bastion host successfully
 
 **Notes/Decisions**:
+- Using Amazon Linux 2023 (latest stable version)
+- AMI is auto-selected via data source, but can be overridden with bastion_ami_id variable
+- Instance gets public IP automatically and EIP for stable addressing
+- SSH key name configurable via variable (default: id_ed25519_mcri_aws)
+- Added output for convenient SSH command
 
 ---
 
@@ -277,8 +283,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 1 (Testing)
+- **Current Phase**: Phase 2 (Testing)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Test Phase 1 networking resources, then begin Phase 2 - Bastion Host
+- **Next Steps**: Test SSH access to bastion host, then begin Phase 3 - Aurora PostgreSQL
 
