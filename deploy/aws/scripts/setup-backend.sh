@@ -7,7 +7,7 @@ set -e
 # Check arguments
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <prefix> <environment> [region]"
-  echo "Example: $0 myorg dev ap-southeast-2"
+  echo "Example: $0 mcri dev ap-southeast-2"
   exit 1
 fi
 

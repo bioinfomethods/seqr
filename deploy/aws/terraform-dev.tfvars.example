@@ -3,7 +3,7 @@
 
 # Core Configuration
 aws_region  = "ap-southeast-2"
-prefix      = "myorg"           # Change to your organization prefix
+prefix      = "mcri"
 environment = "dev"
 cost_centre = "engineering"     # Change to your cost centre
 

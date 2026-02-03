@@ -9,6 +9,7 @@ Ensure to read this document and understand the architecture.
 ## Project Configuration
 
 - **AWS Region**: ap-southeast-2 (Sydney)
+- **Prefix**: mcri
 
 ## Guidelines
 
