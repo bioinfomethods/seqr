@@ -1,0 +1,11 @@
+# Seqr AWS Infrastructure - Development Environment Configuration
+# Copy this file to terraform-dev.tfvars and fill in the values
+
+# Core Configuration
+aws_region  = "us-east-1"
+prefix      = "myorg"           # Change to your organization prefix
+environment = "dev"
+cost_centre = "engineering"     # Change to your cost centre
+
+# Networking
+# vpc_id = ""                   # Leave empty to use default VPC
