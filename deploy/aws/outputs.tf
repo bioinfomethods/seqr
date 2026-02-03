@@ -89,6 +89,17 @@ output "aurora_psql_command" {
   value       = "psql -h ${module.aurora.cluster_endpoint} -U ${var.aurora_master_username} -d ${var.aurora_database_name}"
 }
 
+# ECR
+output "ecr_repository_seqr_web_url" {
+  description = "ECR repository URL for seqr-web (Django) image"
+  value       = aws_ecr_repository.seqr_web.repository_url
+}
+
+output "ecr_repository_seqr_web_arn" {
+  description = "ECR repository ARN for seqr-web (Django) image"
+  value       = aws_ecr_repository.seqr_web.arn
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

@@ -147,17 +147,25 @@ The order follows logical dependencies: foundation → data layer → compute la
 ---
 
 ### Phase 4: Container Registry (ECR)
-**Status**: Not Started
+**Status**: Complete
 
-- [ ] **4.1** Create ECR repository for seqr-web (Django)
-  - Configure image scanning
-  - Set lifecycle policies
+- [x] **4.1** Create ECR repository for seqr-web (Django)
+  - Repository name: mcri-seqr-dev-seqr-web
+  - Image tag mutability: MUTABLE
+  - Image scanning: Not configured yet
+  - Lifecycle policies: Not configured yet
   
-- [ ] **4.2** Create ECR repository for clickhouse (if custom image needed)
+- [x] **4.2** Create ECR repository for clickhouse (if custom image needed)
+  - Skipped: Using stock Clickhouse image for now
   
 - [ ] **4.3** Test: Push a test image to ECR repository
 
 **Notes/Decisions**:
+- Created ECR repository for seqr-web Django application
+- Using MUTABLE tags to allow overwriting tags during development
+- Image scanning and lifecycle policies can be added later if needed
+- No Clickhouse repository needed yet - will use stock image from Docker Hub
+- Repository URL output available for docker push commands
 
 ---
 
@@ -301,8 +309,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 3 (Complete)
+- **Current Phase**: Phase 4 (Testing)
 - **Last Updated**: 2026-02-03
 - **Blockers**: None
-- **Next Steps**: Begin Phase 4 - ECR (Container Registry)
+- **Next Steps**: Test pushing an image to ECR, then begin Phase 5 - Clickhouse Database
 

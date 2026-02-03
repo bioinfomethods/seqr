@@ -180,3 +180,13 @@ module "aurora" {
   backup_retention_period    = var.aurora_backup_retention_period
   skip_final_snapshot        = var.aurora_skip_final_snapshot
 }
+
+# ECR Repository for seqr-web (Django)
+resource "aws_ecr_repository" "seqr_web" {
+  name                 = "${local.name_prefix}-seqr-web"
+  image_tag_mutability = "MUTABLE"
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-web"
+  }
+}
