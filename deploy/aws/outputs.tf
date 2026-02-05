@@ -131,6 +131,16 @@ output "clickhouse_http_endpoint" {
   value       = "http://${aws_instance.clickhouse.private_ip}:8123"
 }
 
+output "clickhouse_ami_id" {
+  description = "AMI ID used for Clickhouse instance"
+  value       = aws_instance.clickhouse.ami
+}
+
+output "clickhouse_ami_name" {
+  description = "AMI name used for Clickhouse instance"
+  value       = try(data.aws_ami.clickhouse_custom.name, data.aws_ami.amazon_linux_2023.name)
+}
+
 # VPC Endpoints
 output "vpc_endpoint_ecr_api_id" {
   description = "VPC Endpoint ID for ECR API"

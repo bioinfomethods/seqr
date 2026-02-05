@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <!-- Placeholder named_collections.xml - replace with your actual configuration -->
+    <named_collections>
+        <!-- Add your named collections here -->
+    </named_collections>
+</clickhouse>

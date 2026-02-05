@@ -1,0 +1,11 @@
+# Packer build artifacts
+*.box
+packer_cache/
+crash.log
+
+# Packer manifest
+packer-manifest.json
+
+# Local test files
+*.local
+*.tmp

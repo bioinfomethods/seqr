@@ -83,6 +83,54 @@ As more components are added, additional outputs will include:
 - ALB DNS name
 - SSH tunnel command
 
+## Building Custom AMIs with Packer
+
+The Clickhouse instance uses a custom AMI built with Packer. This AMI has Docker, Clickhouse, and all configuration pre-installed for fast boot times.
+
+### Build Clickhouse AMI
+
+```bash
+# Using the helper script (recommended)
+cd scripts
+./build-clickhouse-ami.sh
+
+# Or manually with packer
+cd packer/clickhouse
+packer build clickhouse.pkr.hcl
+
+# With custom variables
+packer build \
+  -var "aws_region=ap-southeast-2" \
+  -var "prefix=mcri" \
+  -var "environment=dev" \
+  -var "clickhouse_version=25.12" \
+  clickhouse.pkr.hcl
+```
+
+### Configuration Files
+
+Before building the AMI, replace the placeholder config files in `packer/clickhouse/configs/` with your actual Clickhouse configuration:
+
+- `config.xml` - Main Clickhouse server configuration
+- `users.xml` - User definitions and permissions
+- `named_collections.xml` - Named collections for external data sources
+- `init-permissions.sql` - Initialization SQL script
+
+See `packer/clickhouse/configs/README.md` for details.
+
+### Deploying with Custom AMI
+
+After building the AMI, Terraform will automatically use the latest custom AMI:
+
+```bash
+tofu apply
+```
+
+The AMI selection priority is:
+1. Explicit AMI ID (if `clickhouse_ami_id` variable is set)
+2. Latest custom Packer-built AMI (auto-detected)
+3. Base Amazon Linux 2023 AMI (fallback)
+
 ## Accessing the Application
 
 Once the bastion host and ALB are deployed:

@@ -199,6 +199,22 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
+# Get latest custom Clickhouse AMI (built with Packer)
+data "aws_ami" "clickhouse_custom" {
+  most_recent = true
+  owners      = ["self"]  # Your AWS account
+
+  filter {
+    name   = "name"
+    values = ["${var.prefix}-seqr-${var.environment}-clickhouse-*"]
+  }
+
+  filter {
+    name   = "tag:Environment"
+    values = [var.environment]
+  }
+}
+
 # Bastion host EC2 instance
 resource "aws_instance" "bastion" {
   ami                         = var.bastion_ami_id != "" ? var.bastion_ami_id : data.aws_ami.amazon_linux_2023.id
@@ -374,7 +390,11 @@ resource "aws_security_group" "clickhouse" {
 
 # Clickhouse EC2 instance
 resource "aws_instance" "clickhouse" {
-  ami                    = var.clickhouse_ami_id != "" ? var.clickhouse_ami_id : data.aws_ami.amazon_linux_2023.id
+  # Use custom AMI if available, otherwise fall back to base Amazon Linux
+  # Priority: 1) Explicit AMI ID, 2) Custom Packer AMI, 3) Base Amazon Linux
+  ami = var.clickhouse_ami_id != "" ? var.clickhouse_ami_id : (
+    try(data.aws_ami.clickhouse_custom.id, data.aws_ami.amazon_linux_2023.id)
+  )
   instance_type          = var.clickhouse_instance_type
   key_name               = var.clickhouse_key_name
   subnet_id              = aws_subnet.seqr_az1.id
@@ -387,7 +407,9 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  user_data = templatefile("${path.module}/user-data/clickhouse.sh", {
+  # No user_data needed when using custom AMI - Clickhouse starts automatically via systemd
+  # If using base Amazon Linux AMI, user_data will install and configure Clickhouse
+  user_data = try(data.aws_ami.clickhouse_custom.id, null) != null ? null : templatefile("${path.module}/user-data/clickhouse.sh", {
     ecr_repository_url = aws_ecr_repository.clickhouse.repository_url
     aws_region         = var.aws_region
   })
