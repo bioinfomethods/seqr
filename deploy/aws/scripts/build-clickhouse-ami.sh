@@ -35,6 +35,10 @@ fi
 
 cd "$PACKER_DIR"
 
+echo "Initializing Packer plugins..."
+packer init clickhouse.pkr.hcl
+echo ""
+
 echo "Running packer build..."
 echo ""
 
