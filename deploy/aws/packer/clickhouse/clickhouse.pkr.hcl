@@ -121,20 +121,20 @@ build {
   # Create systemd service
   provisioner "file" {
     content = <<-EOF
-      [Unit]
-      Description=Clickhouse Server
-      After=docker.service
-      Requires=docker.service
+[Unit]
+Description=Clickhouse Server
+After=docker.service
+Requires=docker.service
 
-      [Service]
-      Type=simple
-      Restart=always
-      RestartSec=10
-      ExecStart=/opt/clickhouse/scripts/start-clickhouse.sh
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+ExecStart=/opt/clickhouse/scripts/start-clickhouse.sh
 
-      [Install]
-      WantedBy=multi-user.target
-    EOF
+[Install]
+WantedBy=multi-user.target
+EOF
     destination = "/tmp/clickhouse.service"
   }
 
