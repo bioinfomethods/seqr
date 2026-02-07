@@ -109,7 +109,9 @@ build {
       "mv /tmp/clickhouse-configs/users.xml /home/ec2-user/clickhouse/config/",
       "mv /tmp/clickhouse-configs/named_collections.xml /home/ec2-user/clickhouse/config/",
       "mv /tmp/clickhouse-configs/init-permissions.sql /home/ec2-user/clickhouse/config/",
-      "mv /tmp/clickhouse-configs/docker-compose.yml /home/ec2-user/clickhouse/"
+      "mv /tmp/clickhouse-configs/docker-compose.yml /home/ec2-user/clickhouse/",
+      "echo '' >> /home/ec2-user/.bashrc",
+      "cat /tmp/clickhouse-configs/bashrc >> /home/ec2-user/.bashrc"
     ]
   }
 
