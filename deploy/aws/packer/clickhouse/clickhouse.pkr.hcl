@@ -72,7 +72,7 @@ build {
   provisioner "shell" {
     inline = [
       "echo 'Installing Docker and AWS CLI...'",
-      "sudo dnf install -y docker docker-compose-plugin aws-cli",
+      "sudo dnf install -y docker aws-cli",
       "sudo systemctl enable docker",
       "sudo systemctl start docker",
       "sudo usermod -aG docker ec2-user"
