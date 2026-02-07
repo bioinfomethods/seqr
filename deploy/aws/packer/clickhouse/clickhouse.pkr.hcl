@@ -72,7 +72,7 @@ build {
   provisioner "shell" {
     inline = [
       "echo 'Installing Docker and AWS CLI...'",
-      "sudo dnf install -y docker aws-cli",
+      "sudo dnf install -y docker docker-compose-plugin aws-cli",
       "sudo systemctl enable docker",
       "sudo systemctl start docker",
       "sudo usermod -aG docker ec2-user"
@@ -83,8 +83,8 @@ build {
   provisioner "shell" {
     inline = [
       "echo 'Creating directory structure...'",
-      "sudo mkdir -p /opt/clickhouse/config",
-      "sudo mkdir -p /opt/clickhouse/scripts",
+      "mkdir -p /home/ec2-user/clickhouse/config",
+      "mkdir -p /home/ec2-user/clickhouse/scripts",
       "sudo mkdir -p /var/lib/clickhouse",
       "mkdir -p /tmp/clickhouse-configs"
     ]
@@ -100,8 +100,11 @@ build {
   provisioner "shell" {
     inline = [
       "echo 'Installing configuration files...'",
-      "sudo mv /tmp/clickhouse-configs/* /opt/clickhouse/config/",
-      "sudo chown -R root:root /opt/clickhouse/config"
+      "mv /tmp/clickhouse-configs/config.xml /home/ec2-user/clickhouse/config/",
+      "mv /tmp/clickhouse-configs/users.xml /home/ec2-user/clickhouse/config/",
+      "mv /tmp/clickhouse-configs/named_collections.xml /home/ec2-user/clickhouse/config/",
+      "mv /tmp/clickhouse-configs/init-permissions.sql /home/ec2-user/clickhouse/config/",
+      "mv /tmp/clickhouse-configs/docker-compose.yml /home/ec2-user/clickhouse/"
     ]
   }
 
@@ -113,8 +116,8 @@ build {
 
   provisioner "shell" {
     inline = [
-      "sudo mv /tmp/start-clickhouse.sh /opt/clickhouse/scripts/",
-      "sudo chmod +x /opt/clickhouse/scripts/start-clickhouse.sh"
+      "mv /tmp/start-clickhouse.sh /home/ec2-user/clickhouse/scripts/",
+      "chmod +x /home/ec2-user/clickhouse/scripts/start-clickhouse.sh"
     ]
   }
 
@@ -138,7 +141,9 @@ Requires=docker.service
 Type=simple
 Restart=always
 RestartSec=10
-ExecStart=/opt/clickhouse/scripts/start-clickhouse.sh
+User=ec2-user
+Group=ec2-user
+ExecStart=/home/ec2-user/clickhouse/scripts/start-clickhouse.sh
 
 [Install]
 WantedBy=multi-user.target

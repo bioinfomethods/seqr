@@ -1,0 +1,14 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.12
+    container_name: clickhouse-server
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - /var/lib/clickhouse:/var/lib/clickhouse
+      - ./config/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ./config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml
+      - ./config/init-permissions.sql:/docker-entrypoint-initdb.d/init-permissions.sql
