@@ -1,6 +1,9 @@
 networks:
   clickhouse-net:
     enable_ipv6: true
+    ipam:
+      config:
+        - subnet: "fd00:dead:beef::/48"
 
 services:
   clickhouse:
