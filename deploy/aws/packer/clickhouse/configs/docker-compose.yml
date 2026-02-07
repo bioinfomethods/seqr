@@ -1,8 +1,14 @@
+networks:
+  clickhouse-net:
+    enable_ipv6: true
+
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.12
     container_name: clickhouse-server
     restart: unless-stopped
+    networks:
+      - clickhouse-net
     ports:
       - "8123:8123"
       - "9000:9000"
