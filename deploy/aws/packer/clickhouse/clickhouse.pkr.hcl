@@ -85,7 +85,8 @@ build {
       "echo 'Creating directory structure...'",
       "sudo mkdir -p /opt/clickhouse/config",
       "sudo mkdir -p /opt/clickhouse/scripts",
-      "sudo mkdir -p /var/lib/clickhouse"
+      "sudo mkdir -p /var/lib/clickhouse",
+      "mkdir -p /tmp/clickhouse-configs"
     ]
   }
 
