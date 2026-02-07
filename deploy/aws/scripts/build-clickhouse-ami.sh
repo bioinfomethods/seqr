@@ -10,6 +10,24 @@ PREFIX="${PREFIX:-mcri}"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 CLICKHOUSE_VERSION="${CLICKHOUSE_VERSION:-25.12}"
 
+# Auto-detect subnet ID if not provided
+if [ -z "$SUBNET_ID" ]; then
+  echo "Auto-detecting subnet ID..."
+  SUBNET_ID=$(aws ec2 describe-subnets \
+    --region "$AWS_REGION" \
+    --filters "Name=tag:Name,Values=${PREFIX}-seqr-${ENVIRONMENT}-az1" \
+    --query "Subnets[0].SubnetId" \
+    --output text 2>/dev/null)
+
+  if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "None" ]; then
+    echo "ERROR: Could not auto-detect subnet ID."
+    echo "Either set SUBNET_ID environment variable or ensure the subnet"
+    echo "  '${PREFIX}-seqr-${ENVIRONMENT}-az1' exists in region $AWS_REGION"
+    exit 1
+  fi
+  echo "  Found subnet: $SUBNET_ID"
+fi
+
 echo "=========================================="
 echo "Building Clickhouse AMI"
 echo "=========================================="
@@ -17,6 +35,7 @@ echo "  Region: $AWS_REGION"
 echo "  Prefix: $PREFIX"
 echo "  Environment: $ENVIRONMENT"
 echo "  Clickhouse Version: $CLICKHOUSE_VERSION"
+echo "  Subnet: $SUBNET_ID"
 echo ""
 
 # Check if packer is installed
@@ -47,6 +66,7 @@ packer build \
   -var "prefix=$PREFIX" \
   -var "environment=$ENVIRONMENT" \
   -var "clickhouse_version=$CLICKHOUSE_VERSION" \
+  -var "subnet_id=$SUBNET_ID" \
   clickhouse.pkr.hcl
 
 echo ""
