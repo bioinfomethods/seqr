@@ -12,17 +12,15 @@ CLICKHOUSE_VERSION="${CLICKHOUSE_VERSION:-25.12}"
 
 # Auto-detect subnet ID if not provided
 if [ -z "$SUBNET_ID" ]; then
-  echo "Auto-detecting subnet ID..."
-  SUBNET_ID=$(aws ec2 describe-subnets \
-    --region "$AWS_REGION" \
-    --filters "Name=tag:Name,Values=${PREFIX}-seqr-${ENVIRONMENT}-az1" \
-    --query "Subnets[0].SubnetId" \
-    --output text 2>/dev/null)
+  echo "Auto-detecting subnet ID from tofu outputs..."
+  TOFU_DIR="$SCRIPT_DIR/.."
 
-  if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "None" ]; then
-    echo "ERROR: Could not auto-detect subnet ID."
-    echo "Either set SUBNET_ID environment variable or ensure the subnet"
-    echo "  '${PREFIX}-seqr-${ENVIRONMENT}-az1' exists in region $AWS_REGION"
+  SUBNET_ID=$(tofu -chdir="$TOFU_DIR" output -raw seqr_subnet_az1_id 2>/dev/null)
+
+  if [ -z "$SUBNET_ID" ]; then
+    echo "ERROR: Could not auto-detect subnet ID from tofu outputs."
+    echo "Either set SUBNET_ID environment variable or ensure 'tofu apply' has been run"
+    echo "  in $TOFU_DIR"
     exit 1
   fi
   echo "  Found subnet: $SUBNET_ID"
