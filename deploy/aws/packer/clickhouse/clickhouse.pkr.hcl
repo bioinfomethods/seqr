@@ -27,15 +27,22 @@ variable "clickhouse_version" {
   default = "25.12"
 }
 
+variable "subnet_id" {
+  type        = string
+  description = "Subnet ID to launch the Packer build instance in"
+}
+
 locals {
   timestamp = regex_replace(timestamp(), "[- TZ:]", "")
   ami_name  = "${var.prefix}-seqr-${var.environment}-clickhouse-${local.timestamp}"
 }
 
 source "amazon-ebs" "clickhouse" {
-  ami_name      = local.ami_name
-  instance_type = "t3.medium"
-  region        = var.aws_region
+  ami_name                    = local.ami_name
+  instance_type               = "t3.medium"
+  region                      = var.aws_region
+  subnet_id                   = var.subnet_id
+  associate_public_ip_address = true
   
   source_ami_filter {
     filters = {
