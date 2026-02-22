@@ -25,7 +25,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 ## Implementation Steps
 
 ### Step 1: ECS Cluster
-- [ ] Create `aws_ecs_cluster` resource
+- [x] Create `aws_ecs_cluster` resource — added in `fargate.tf`
 
 ### Step 2: IAM Roles
 - [ ] ECS Task Execution Role (pulls images from ECR, writes CloudWatch logs)
