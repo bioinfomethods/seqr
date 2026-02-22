@@ -109,9 +109,9 @@ variable "aurora_skip_final_snapshot" {
 
 # ECS Fargate / ALB
 variable "allowed_web_cidrs" {
-  description = "CIDR blocks allowed to access the seqr web application via ALB"
+  description = "CIDR blocks allowed to access the seqr web application via ALB (bastion EIP is always included)"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
 }
 
 # Clickhouse EC2

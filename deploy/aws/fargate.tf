@@ -91,13 +91,13 @@ resource "aws_security_group" "alb" {
   description = "Security group for seqr ALB"
   vpc_id      = local.vpc_id
 
-  # Allow HTTP from allowed CIDRs
+  # Allow HTTP from allowed CIDRs and bastion host
   ingress {
-    description = "HTTP from internet"
+    description = "HTTP from allowed CIDRs and bastion"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = var.allowed_web_cidrs
+    cidr_blocks = concat(var.allowed_web_cidrs, ["${aws_eip.bastion.public_ip}/32"])
   }
 
   # Allow outbound to ECS service
