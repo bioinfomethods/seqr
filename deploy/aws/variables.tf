@@ -37,13 +37,13 @@ variable "vpc_id" {
 variable "subnet_cidr_az1" {
   description = "CIDR block for the seqr subnet in AZ1"
   type        = string
-  default     = "172.31.254.0/28"  # 16 IP addresses
+  default     = "172.31.252.0/24"  # 256 IP addresses
 }
 
 variable "subnet_cidr_az2" {
   description = "CIDR block for the seqr subnet in AZ2"
   type        = string
-  default     = "172.31.254.16/28"  # 16 IP addresses
+  default     = "172.31.253.0/24"  # 256 IP addresses
 }
 
 variable "allowed_ssh_cidrs" {

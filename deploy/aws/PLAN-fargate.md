@@ -86,7 +86,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - Fargate tasks run in the seqr private subnets (az1, az2)
 - Fargate tasks need outbound access to ECR (via VPC endpoints already created) and to Aurora/Clickhouse (same VPC)
 - ALB sits in the same subnets but with public IP (subnets need internet gateway route)
-- **Important**: The seqr subnets are /28 (16 IPs each). Each Fargate task consumes an ENI (1 IP). This limits scaling but is fine for initial deployment.
+- **Important**: The seqr subnets were expanded from /28 to /24 (256 IPs each) because ALB requires at least 8 free IPs per subnet. Each Fargate task also consumes an ENI (1 IP). The /24 subnets provide ample room for ALB, Fargate tasks, and future growth.
 
 ## Dependencies on Existing Resources (from main.tf)
 
