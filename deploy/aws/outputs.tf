@@ -157,6 +157,22 @@ output "vpc_endpoint_s3_id" {
   value       = aws_vpc_endpoint.s3.id
 }
 
+# ECS Fargate / ALB
+output "alb_dns_name" {
+  description = "DNS name of the seqr ALB"
+  value       = aws_lb.seqr.dns_name
+}
+
+output "alb_url" {
+  description = "URL to access seqr web application"
+  value       = "http://${aws_lb.seqr.dns_name}"
+}
+
+output "alb_arn" {
+  description = "ARN of the seqr ALB"
+  value       = aws_lb.seqr.arn
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

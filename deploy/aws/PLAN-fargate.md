@@ -39,13 +39,14 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - [x] ECS service security group: allow inbound 8000 from ALB, outbound all (covers Aurora 5432, Clickhouse 8123/9000, VPC endpoints 443) — `aws_security_group.ecs_service`
 
 ### Step 5: Update Existing Security Groups
-- [ ] Aurora SG: add ingress rule allowing port 5432 from ECS service SG
-- [ ] Clickhouse SG: add ingress rules allowing ports 8123 and 9000 from ECS service SG
+- [x] Aurora SG: add ingress rule allowing port 5432 from ECS service SG — `aws_security_group_rule.aurora_from_ecs`
+- [x] Clickhouse SG: add ingress rules allowing ports 8123 and 9000 from ECS service SG — `aws_security_group_rule.clickhouse_http_from_ecs`, `aws_security_group_rule.clickhouse_native_from_ecs`
+- [x] VPC endpoints SG: add ingress rule allowing port 443 from ECS service SG — `aws_security_group_rule.vpc_endpoints_from_ecs`
 
 ### Step 6: Application Load Balancer
-- [ ] ALB resource (public subnets — use seqr_az1 and seqr_az2)
-- [ ] ALB target group (port 8000, health check on Django health endpoint)
-- [ ] ALB listener (port 80 → target group; HTTPS can be added later)
+- [x] ALB resource (public subnets — seqr_az1 and seqr_az2) — `aws_lb.seqr`
+- [x] ALB target group (port 8000, IP target type, health check on `/status`) — `aws_lb_target_group.seqr_web`
+- [x] ALB listener (port 80 → target group) — `aws_lb_listener.seqr_http`
 
 ### Step 7: ECS Task Definition
 - [ ] Task definition with Fargate compatibility

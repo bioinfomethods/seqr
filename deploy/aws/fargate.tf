@@ -142,3 +142,109 @@ resource "aws_security_group" "ecs_service" {
     Name = "${local.name_prefix}-ecs-service-sg"
   }
 }
+
+# =============================================================================
+# Step 5: Update Existing Security Groups for ECS Access
+# =============================================================================
+
+# Allow ECS service to access Aurora PostgreSQL (port 5432)
+resource "aws_security_group_rule" "aurora_from_ecs" {
+  type                     = "ingress"
+  description              = "PostgreSQL from ECS Fargate service"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_service.id
+  security_group_id        = module.aurora.security_group_id
+}
+
+# Allow ECS service to access Clickhouse HTTP interface (port 8123)
+resource "aws_security_group_rule" "clickhouse_http_from_ecs" {
+  type                     = "ingress"
+  description              = "Clickhouse HTTP from ECS Fargate service"
+  from_port                = 8123
+  to_port                  = 8123
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_service.id
+  security_group_id        = aws_security_group.clickhouse.id
+}
+
+# Allow ECS service to access Clickhouse native protocol (port 9000)
+resource "aws_security_group_rule" "clickhouse_native_from_ecs" {
+  type                     = "ingress"
+  description              = "Clickhouse native from ECS Fargate service"
+  from_port                = 9000
+  to_port                  = 9000
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_service.id
+  security_group_id        = aws_security_group.clickhouse.id
+}
+
+# Allow ECS service to access VPC endpoints (HTTPS port 443 for ECR image pull)
+resource "aws_security_group_rule" "vpc_endpoints_from_ecs" {
+  type                     = "ingress"
+  description              = "HTTPS from ECS Fargate service"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs_service.id
+  security_group_id        = aws_security_group.vpc_endpoints.id
+}
+
+# =============================================================================
+# Step 6: Application Load Balancer
+# =============================================================================
+
+# ALB
+resource "aws_lb" "seqr" {
+  name               = "${local.name_prefix}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+
+  tags = {
+    Name = "${local.name_prefix}-alb"
+  }
+}
+
+# Target Group for seqr-web containers
+resource "aws_lb_target_group" "seqr_web" {
+  name        = "${local.name_prefix}-seqr-web-tg"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = local.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    path                = "/status"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-web-tg"
+  }
+}
+
+# ALB Listener - HTTP on port 80
+resource "aws_lb_listener" "seqr_http" {
+  load_balancer_arn = aws_lb.seqr.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.seqr_web.arn
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-http-listener"
+  }
+}
