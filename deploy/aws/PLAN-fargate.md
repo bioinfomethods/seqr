@@ -28,15 +28,15 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - [x] Create `aws_ecs_cluster` resource — added in `fargate.tf`
 
 ### Step 2: IAM Roles
-- [ ] ECS Task Execution Role (pulls images from ECR, writes CloudWatch logs)
-- [ ] ECS Task Role (permissions the running container needs, if any)
+- [x] ECS Task Execution Role (pulls images from ECR, writes CloudWatch logs) — `aws_iam_role.ecs_task_execution` with managed policy
+- [x] ECS Task Role (permissions the running container needs, if any) — `aws_iam_role.ecs_task` (empty for now)
 
 ### Step 3: CloudWatch Log Group
-- [ ] Create log group for container stdout/stderr
+- [x] Create log group for container stdout/stderr — `/ecs/${name_prefix}-seqr-web`, 30 day retention
 
 ### Step 4: Security Groups
-- [ ] ALB security group: allow inbound 80/443 from internet, outbound to ECS
-- [ ] ECS service security group: allow inbound 8000 from ALB, outbound to Aurora (5432), Clickhouse (8123/9000), and VPC endpoints (443 for ECR image pull)
+- [x] ALB security group: allow inbound 80 from `var.allowed_web_cidrs`, outbound all — `aws_security_group.alb`
+- [x] ECS service security group: allow inbound 8000 from ALB, outbound all (covers Aurora 5432, Clickhouse 8123/9000, VPC endpoints 443) — `aws_security_group.ecs_service`
 
 ### Step 5: Update Existing Security Groups
 - [ ] Aurora SG: add ingress rule allowing port 5432 from ECS service SG

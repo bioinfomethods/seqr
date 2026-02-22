@@ -107,6 +107,13 @@ variable "aurora_skip_final_snapshot" {
   default     = true
 }
 
+# ECS Fargate / ALB
+variable "allowed_web_cidrs" {
+  description = "CIDR blocks allowed to access the seqr web application via ALB"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
 # Clickhouse EC2
 variable "clickhouse_instance_type" {
   description = "EC2 instance type for Clickhouse"
