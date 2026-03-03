@@ -221,9 +221,9 @@ resource "aws_lb_target_group" "seqr_web" {
     path                = "/status"
     port                = "traffic-port"
     protocol            = "HTTP"
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 10
     interval            = 30
     matcher             = "200"
   }
@@ -295,9 +295,10 @@ resource "aws_ecs_task_definition" "seqr_web" {
 
         # Django / deployment settings
         # NOTE: DEPLOYMENT_TYPE of "prod" or "dev" enables CSRF_COOKIE_SECURE and
-        # SESSION_COOKIE_SECURE which require HTTPS. Use "development" until HTTPS
-        # is configured on the ALB.
-        { name = "DEPLOYMENT_TYPE", value = "development" },
+        # SESSION_COOKIE_SECURE which require HTTPS. Using "dev" to avoid loading
+        # corsheaders/hijack packages that may not be in the production image.
+        # TODO: Add HTTPS via ACM certificate + Route53, then switch to "prod".
+        { name = "DEPLOYMENT_TYPE", value = "dev" },
         { name = "BASE_URL", value = "http://${aws_lb.seqr.dns_name}" },
       ]
 
@@ -330,6 +331,9 @@ resource "aws_ecs_service" "seqr_web" {
 
   # Force redeployment whenever the task definition changes
   force_new_deployment = true
+
+  # Allow time for migrations and startup before health checks begin
+  health_check_grace_period_seconds = 300
 
   network_configuration {
     subnets          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
