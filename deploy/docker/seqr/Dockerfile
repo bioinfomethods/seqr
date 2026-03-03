@@ -20,15 +20,11 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# install nodejs14 repo since debian is still on node 12.x
-RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash -
-# installs the nodejs and npm packages
-RUN apt-get install -y --no-install-recommends \
-    nodejs \
+# install nodejs18 LTS via NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-# upgrade npm to v7 to fix lockfile resolution
-RUN npm install -g npm@7.24.2
 
 WORKDIR /opt
 
