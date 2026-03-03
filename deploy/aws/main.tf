@@ -82,6 +82,17 @@ resource "aws_subnet" "seqr_az2" {
   }
 }
 
+# Route table associations for seqr subnets (ensures S3 gateway endpoint routes are available)
+resource "aws_route_table_association" "seqr_az1" {
+  subnet_id      = aws_subnet.seqr_az1.id
+  route_table_id = data.aws_vpc.default.main_route_table_id
+}
+
+resource "aws_route_table_association" "seqr_az2" {
+  subnet_id      = aws_subnet.seqr_az2.id
+  route_table_id = data.aws_vpc.default.main_route_table_id
+}
+
 # Security group for VPC endpoints
 resource "aws_security_group" "vpc_endpoints" {
   name        = "${local.name_prefix}-vpc-endpoints-sg"
@@ -136,6 +147,20 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 
   tags = {
     Name = "${local.name_prefix}-ecr-dkr-endpoint"
+  }
+}
+
+# VPC Endpoint for CloudWatch Logs (required for Fargate logging)
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = local.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name_prefix}-logs-endpoint"
   }
 }
 

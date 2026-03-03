@@ -152,6 +152,11 @@ output "vpc_endpoint_ecr_dkr_id" {
   value       = aws_vpc_endpoint.ecr_dkr.id
 }
 
+output "vpc_endpoint_logs_id" {
+  description = "VPC Endpoint ID for CloudWatch Logs"
+  value       = aws_vpc_endpoint.logs.id
+}
+
 output "vpc_endpoint_s3_id" {
   description = "VPC Endpoint ID for S3"
   value       = aws_vpc_endpoint.s3.id
