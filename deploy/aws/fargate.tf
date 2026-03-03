@@ -328,6 +328,9 @@ resource "aws_ecs_service" "seqr_web" {
   desired_count   = var.seqr_web_desired_count
   launch_type     = "FARGATE"
 
+  # Force redeployment whenever the task definition changes
+  force_new_deployment = true
+
   network_configuration {
     subnets          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
     security_groups  = [aws_security_group.ecs_service.id]
