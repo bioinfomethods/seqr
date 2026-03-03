@@ -282,6 +282,9 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "POSTGRES_USERNAME", value = var.aurora_master_username },
         { name = "POSTGRES_PASSWORD", value = var.aurora_master_password },
 
+        # Gunicorn settings
+        { name = "GUNICORN_WORKER_THREADS", value = "4" },
+
         # Clickhouse connection (matches settings.py CLICKHOUSE_SERVICE_HOSTNAME block)
         { name = "CLICKHOUSE_SERVICE_HOSTNAME", value = aws_instance.clickhouse.private_ip },
         { name = "CLICKHOUSE_SERVICE_PORT", value = "9000" },
