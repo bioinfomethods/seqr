@@ -31,8 +31,9 @@ WORKDIR /opt
 COPY ./requirements.txt .
 
 # install seqr python dependencies
+# NOTE: setuptools must be <71 to retain pkg_resources (needed by django-model-utils/django-notifications-hq)
 RUN pip install --no-cache-dir wheel && \
-    pip install --no-cache-dir -U setuptools && \
+    pip install --no-cache-dir "setuptools>=65,<71" && \
     pip install --no-cache-dir -r requirements.txt
 
 # install seqr nodejs dependencies
