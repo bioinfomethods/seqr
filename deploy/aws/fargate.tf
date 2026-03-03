@@ -291,7 +291,10 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "REDIS_SERVICE_PORT", value = tostring(var.redis_service_port) },
 
         # Django / deployment settings
-        { name = "DEPLOYMENT_TYPE", value = var.environment },
+        # NOTE: DEPLOYMENT_TYPE of "prod" or "dev" enables CSRF_COOKIE_SECURE and
+        # SESSION_COOKIE_SECURE which require HTTPS. Use "development" until HTTPS
+        # is configured on the ALB.
+        { name = "DEPLOYMENT_TYPE", value = "development" },
         { name = "BASE_URL", value = "http://${aws_lb.seqr.dns_name}" },
       ]
 
