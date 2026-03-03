@@ -248,3 +248,96 @@ resource "aws_lb_listener" "seqr_http" {
     Name = "${local.name_prefix}-seqr-http-listener"
   }
 }
+
+# =============================================================================
+# Step 7: ECS Task Definition
+# =============================================================================
+
+resource "aws_ecs_task_definition" "seqr_web" {
+  family                   = "${local.name_prefix}-seqr-web"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.seqr_web_cpu
+  memory                   = var.seqr_web_memory
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "seqr-web"
+      image     = "${aws_ecr_repository.seqr_web.repository_url}:${var.seqr_web_image_tag}"
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 8000
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        # PostgreSQL connection (matches settings.py POSTGRES_DB_CONFIG)
+        { name = "POSTGRES_SERVICE_HOSTNAME", value = module.aurora.cluster_endpoint },
+        { name = "POSTGRES_SERVICE_PORT", value = tostring(module.aurora.cluster_port) },
+        { name = "POSTGRES_USERNAME", value = var.aurora_master_username },
+        { name = "POSTGRES_PASSWORD", value = var.aurora_master_password },
+
+        # Clickhouse connection (matches settings.py CLICKHOUSE_SERVICE_HOSTNAME block)
+        { name = "CLICKHOUSE_SERVICE_HOSTNAME", value = aws_instance.clickhouse.private_ip },
+        { name = "CLICKHOUSE_SERVICE_PORT", value = "9000" },
+
+        # Redis connection
+        { name = "REDIS_SERVICE_HOSTNAME", value = var.redis_service_hostname },
+        { name = "REDIS_SERVICE_PORT", value = tostring(var.redis_service_port) },
+
+        # Django / deployment settings
+        { name = "DEPLOYMENT_TYPE", value = var.environment },
+        { name = "BASE_URL", value = "http://${aws_lb.seqr.dns_name}" },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.seqr_web.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "seqr-web"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-web-task"
+  }
+}
+
+# =============================================================================
+# Step 8: ECS Service
+# =============================================================================
+
+resource "aws_ecs_service" "seqr_web" {
+  name            = "${local.name_prefix}-seqr-web"
+  cluster         = aws_ecs_cluster.seqr.id
+  task_definition = aws_ecs_task_definition.seqr_web.arn
+  desired_count   = var.seqr_web_desired_count
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+    security_groups  = [aws_security_group.ecs_service.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.seqr_web.arn
+    container_name   = "seqr-web"
+    container_port   = 8000
+  }
+
+  # Ensure ALB listener is created before the service
+  depends_on = [aws_lb_listener.seqr_http]
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-web-service"
+  }
+}

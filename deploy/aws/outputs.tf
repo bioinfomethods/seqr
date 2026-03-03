@@ -173,6 +173,27 @@ output "alb_arn" {
   value       = aws_lb.seqr.arn
 }
 
+# ECS Fargate
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = aws_ecs_cluster.seqr.name
+}
+
+output "ecs_cluster_arn" {
+  description = "ECS cluster ARN"
+  value       = aws_ecs_cluster.seqr.arn
+}
+
+output "ecs_service_name" {
+  description = "ECS service name for seqr-web"
+  value       = aws_ecs_service.seqr_web.name
+}
+
+output "ecs_task_definition_arn" {
+  description = "ECS task definition ARN for seqr-web"
+  value       = aws_ecs_task_definition.seqr_web.arn
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"

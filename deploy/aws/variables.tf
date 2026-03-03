@@ -114,6 +114,43 @@ variable "allowed_web_cidrs" {
   default     = []
 }
 
+# ECS Fargate / seqr-web
+variable "seqr_web_desired_count" {
+  description = "Number of seqr-web Fargate tasks to run"
+  type        = number
+  default     = 1
+}
+
+variable "seqr_web_cpu" {
+  description = "CPU units for seqr-web Fargate task (256 = 0.25 vCPU, 512 = 0.5 vCPU, 1024 = 1 vCPU)"
+  type        = number
+  default     = 512
+}
+
+variable "seqr_web_memory" {
+  description = "Memory in MiB for seqr-web Fargate task"
+  type        = number
+  default     = 1024
+}
+
+variable "seqr_web_image_tag" {
+  description = "Docker image tag for seqr-web in ECR"
+  type        = string
+  default     = "latest"
+}
+
+variable "redis_service_hostname" {
+  description = "Hostname for Redis service (used by seqr for caching)"
+  type        = string
+  default     = "localhost"
+}
+
+variable "redis_service_port" {
+  description = "Port for Redis service"
+  type        = number
+  default     = 6379
+}
+
 # Clickhouse EC2
 variable "clickhouse_instance_type" {
   description = "EC2 instance type for Clickhouse"

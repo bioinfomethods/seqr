@@ -49,37 +49,42 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - [x] ALB listener (port 80 → target group) — `aws_lb_listener.seqr_http`
 
 ### Step 7: ECS Task Definition
-- [ ] Task definition with Fargate compatibility
-- [ ] Container definition: image from ECR repo, port 8000, environment variables for DB connections
-- [ ] Environment variables needed:
-  - `DATABASE_HOST` → Aurora cluster endpoint
-  - `DATABASE_PORT` → 5432
-  - `DATABASE_NAME` → Aurora database name
-  - `DATABASE_USER` → Aurora master username
-  - `DATABASE_PASSWORD` → Aurora master password (sensitive — use SSM/Secrets Manager or pass via variable)
-  - `CLICKHOUSE_HOST` → Clickhouse private IP
-  - `CLICKHOUSE_PORT` → 8123
+- [x] Task definition with Fargate compatibility — `aws_ecs_task_definition.seqr_web` (configurable CPU/memory)
+- [x] Container definition: image from ECR repo, port 8000, CloudWatch logging
+- [x] Environment variables (matched to `settings.py` variable names):
+  - `POSTGRES_SERVICE_HOSTNAME` → Aurora cluster endpoint
+  - `POSTGRES_SERVICE_PORT` → Aurora cluster port
+  - `POSTGRES_USERNAME` → Aurora master username
+  - `POSTGRES_PASSWORD` → Aurora master password (sensitive — consider SSM/Secrets Manager later)
+  - `CLICKHOUSE_SERVICE_HOSTNAME` → Clickhouse private IP
+  - `CLICKHOUSE_SERVICE_PORT` → 9000 (native protocol, as used by django-clickhouse-backend)
+  - `REDIS_SERVICE_HOSTNAME` → configurable via variable
+  - `REDIS_SERVICE_PORT` → configurable via variable
+  - `DEPLOYMENT_TYPE` → environment name
+  - `BASE_URL` → ALB DNS name
 
 ### Step 8: ECS Service
-- [ ] Fargate service referencing the task definition
-- [ ] Network configuration: seqr subnets, ECS security group, no public IP (traffic via ALB)
-- [ ] Load balancer configuration: attach to ALB target group
-- [ ] Desired count: 1 (can scale later)
+- [x] Fargate service referencing the task definition — `aws_ecs_service.seqr_web`
+- [x] Network configuration: seqr subnets (az1, az2), ECS security group, no public IP
+- [x] Load balancer configuration: attached to ALB target group on port 8000
+- [x] Desired count: 1 (configurable via `var.seqr_web_desired_count`)
 
 ### Step 9: Variables
-- [ ] Add new variables to `variables.tf`:
-  - `seqr_web_desired_count` (default: 1)
-  - `seqr_web_cpu` (default: 512 = 0.5 vCPU)
-  - `seqr_web_memory` (default: 1024 = 1 GB)
-  - `seqr_web_image_tag` (default: "latest")
-  - `allowed_web_cidrs` (default: ["0.0.0.0/0"] or restricted)
+- [x] `seqr_web_desired_count` (default: 1)
+- [x] `seqr_web_cpu` (default: 512 = 0.5 vCPU)
+- [x] `seqr_web_memory` (default: 1024 = 1 GB)
+- [x] `seqr_web_image_tag` (default: "latest")
+- [x] `allowed_web_cidrs` (default: []) — already existed from Step 6
+- [x] `redis_service_hostname` (default: "localhost")
+- [x] `redis_service_port` (default: 6379)
 
 ### Step 10: Outputs
-- [ ] Add outputs to `outputs.tf`:
-  - ALB DNS name
-  - ALB URL
-  - ECS cluster name
-  - ECS service name
+- [x] ALB DNS name — `alb_dns_name` (already existed from Step 6)
+- [x] ALB URL — `alb_url` (already existed from Step 6)
+- [x] ECS cluster name — `ecs_cluster_name`
+- [x] ECS cluster ARN — `ecs_cluster_arn`
+- [x] ECS service name — `ecs_service_name`
+- [x] ECS task definition ARN — `ecs_task_definition_arn`
 
 ## Networking Notes
 
@@ -101,7 +106,10 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 ## Open Questions / Future Work
 
 - HTTPS: Need ACM certificate + Route53 domain to add HTTPS listener
-- Secrets management: Aurora password currently passed as variable; consider AWS Secrets Manager
+- Secrets management: Aurora password and Clickhouse credentials currently passed as env vars; consider AWS Secrets Manager with `secrets` block in container definition
 - Auto-scaling: Can add later based on CPU/memory metrics
-- Health check path: Need to confirm Django health check endpoint (e.g., `/health/` or `/status/`)
-- Additional environment variables: seqr may need more config (Redis, etc.)
+- Health check path: Using `/status` (confirmed in ALB target group health check)
+- Redis: Currently configurable via variables but defaults to `localhost` — need to deploy ElastiCache or a Redis container for production use
+- Django secret key: `DJANGO_KEY` env var not yet set — needs to be provided for production (currently auto-generates a file-based key)
+- Clickhouse credentials: `CLICKHOUSE_WRITER_USER`, `CLICKHOUSE_WRITER_PASSWORD`, `CLICKHOUSE_READER_USER`, `CLICKHOUSE_READER_PASSWORD` not yet passed — add when Clickhouse auth is configured
+- Additional env vars to consider: `SLACK_TOKEN`, `AIRTABLE_API_KEY`, `GA_TOKEN_ID`, social auth OAuth keys
