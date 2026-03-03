@@ -20,7 +20,8 @@ set -euo pipefail
 # Defaults
 PREFIX="mcri"
 ENV="dev"
-FOLLOW=false
+FOLLOW=true
+NO_FOLLOW=false
 NUM_LINES=100
 SINCE=""
 REGION=""
@@ -35,26 +36,27 @@ Options:
   -p PREFIX      Resource prefix (default: mcri)
   -e ENV         Environment: dev, test, prod (default: dev)
   -r REGION      AWS region (default: from AWS config or ap-southeast-2)
-  -f             Follow/tail logs (streams new log events)
-  -n LINES       Number of recent log lines to show (default: 100)
-  -s TIMESTAMP   Show logs since timestamp (e.g. "2025-03-01T00:00:00")
+  -N             No-follow mode (print recent logs and exit, instead of tailing)
+  -n LINES       Number of recent log lines to show in no-follow mode (default: 100)
+  -s TIMESTAMP   Show logs since timestamp (e.g. "2025-03-01T00:00:00", "1h", "30m")
   -h             Show this help message
 
 Examples:
-  $(basename "$0")                        # dev logs, last 100 lines
-  $(basename "$0") -e prod -f             # tail prod logs
-  $(basename "$0") -n 500                 # last 500 lines
-  $(basename "$0") -s "1h"               # logs from last hour (awslogs shorthand)
+  $(basename "$0")                        # tail dev logs (default: follow mode)
+  $(basename "$0") -e prod                # tail prod logs
+  $(basename "$0") -N                     # last 100 lines, then exit
+  $(basename "$0") -N -n 500             # last 500 lines, then exit
+  $(basename "$0") -s "30m"              # tail logs from last 30 minutes
 EOF
     exit 0
 }
 
-while getopts "p:e:r:fn:s:h" opt; do
+while getopts "p:e:r:Nn:s:h" opt; do
     case "$opt" in
         p) PREFIX="$OPTARG" ;;
         e) ENV="$OPTARG" ;;
         r) REGION="$OPTARG" ;;
-        f) FOLLOW=true ;;
+        N) NO_FOLLOW=true; FOLLOW=false ;;
         n) NUM_LINES="$OPTARG" ;;
         s) SINCE="$OPTARG" ;;
         h) usage ;;
@@ -202,9 +204,15 @@ echo "  Log group found."
 # ---------------------------------------------------------------
 # Fetch logs
 # ---------------------------------------------------------------
-echo ""
-echo "--- Logs (last ${NUM_LINES} events) ---"
-echo ""
+if [[ "$FOLLOW" == true ]]; then
+    echo ""
+    echo "--- Tailing logs (Ctrl+C to stop) ---"
+    echo ""
+else
+    echo ""
+    echo "--- Logs (last ${NUM_LINES} events) ---"
+    echo ""
+fi
 
 LOG_ARGS=(
     logs tail "$LOG_GROUP"
@@ -219,12 +227,11 @@ fi
 if [[ -n "$SINCE" ]]; then
     LOG_ARGS+=(--since "$SINCE")
 else
-    # Default: use --since with a relative time to limit output
-    LOG_ARGS+=(--since "1h")
+    # Default: show recent history then continue tailing (or just recent for no-follow)
+    LOG_ARGS+=(--since "10m")
 fi
 
-# aws logs tail doesn't support a line limit directly, so we use it in follow
-# mode or pipe through tail for non-follow mode
+# In follow mode, stream directly; in no-follow mode, pipe through tail for line limit
 if [[ "$FOLLOW" == true ]]; then
     aws "${LOG_ARGS[@]}"
 else
