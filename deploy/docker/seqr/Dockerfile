@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bullseye as build
+FROM python:3.11-slim-bullseye AS build
 
 LABEL maintainer="Broad TGG"
 
@@ -50,14 +50,12 @@ COPY ./ui/ .
 
 RUN npm run build
 
-FROM python:3.11-slim-bullseye as runtime
+FROM python:3.11-slim-bullseye AS runtime
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     curl \
-    emacs \
-    gnupg \
     htop \
     less \
     libpq-dev \
@@ -66,14 +64,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     redis-tools \
     xterm \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# install gcloud tools
-RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-bullseye main" > /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    google-cloud-sdk \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
