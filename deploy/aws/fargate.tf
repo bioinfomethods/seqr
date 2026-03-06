@@ -68,6 +68,28 @@ resource "aws_iam_role" "ecs_task" {
   }
 }
 
+# ECS Exec requires SSM permissions on the task role
+resource "aws_iam_role_policy" "ecs_task_exec_command" {
+  name = "${local.name_prefix}-ecs-exec-command-policy"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # =============================================================================
 # Step 3: CloudWatch Log Group
 # =============================================================================
@@ -320,6 +342,9 @@ resource "aws_ecs_service" "seqr_web" {
 
   # Force redeployment whenever the task definition changes
   force_new_deployment = true
+
+  # Enable ECS Exec for interactive shell access (aws ecs execute-command)
+  enable_execute_command = true
 
   # Allow time for migrations and startup before health checks begin
   health_check_grace_period_seconds = 300
