@@ -343,7 +343,7 @@ resource "aws_ecs_service" "seqr_web" {
   network_configuration {
     subnets          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
     security_groups  = [aws_security_group.ecs_service.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   load_balancer {
