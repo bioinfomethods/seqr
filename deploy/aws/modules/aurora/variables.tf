@@ -64,3 +64,9 @@ variable "clickhouse_security_group_id" {
   type        = string
   default     = ""
 }
+
+variable "ecs_security_group_id" {
+  description = "Security group ID of ECS Fargate service for PostgreSQL access"
+  type        = string
+  default     = ""
+}

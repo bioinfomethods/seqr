@@ -147,17 +147,6 @@ resource "aws_security_group" "ecs_service" {
 # Step 5: Update Existing Security Groups for ECS Access
 # =============================================================================
 
-# Allow ECS service to access Aurora PostgreSQL (port 5432)
-resource "aws_security_group_rule" "aurora_from_ecs" {
-  type                     = "ingress"
-  description              = "PostgreSQL from ECS Fargate service"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ecs_service.id
-  security_group_id        = module.aurora.security_group_id
-}
-
 # Allow ECS service to access Clickhouse HTTP interface (port 8123)
 resource "aws_security_group_rule" "clickhouse_http_from_ecs" {
   type                     = "ingress"

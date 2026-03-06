@@ -283,6 +283,7 @@ module "aurora" {
   subnet_ids                    = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
   bastion_security_group_id     = aws_security_group.bastion.id
   clickhouse_security_group_id  = aws_security_group.clickhouse.id
+  ecs_security_group_id         = aws_security_group.ecs_service.id
   instance_class                = var.aurora_instance_class
   master_username               = var.aurora_master_username
   master_password               = var.aurora_master_password
