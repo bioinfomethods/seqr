@@ -5,12 +5,15 @@ from collections import defaultdict
 from django.db import migrations, models
 import django.db.models.deletion
 import json
+import logging
 import os
 from pyliftover.liftover import LiftOver
 from tqdm import tqdm
 
 from matchmaker.matchmaker_utils import _submission_gene_to_external_genomic_features
 from seqr.utils.xpos_utils import get_chrom_pos
+
+logger = logging.getLogger(__name__)
 
 MAX_GUID_SIZE = 30
 
@@ -19,7 +22,12 @@ LIFTOVER_CHAIN_FILE = os.environ.get(
     '/data/liftover/hg19ToHg38.over.chain.gz',
 )
 
-liftover_to_38 = LiftOver(LIFTOVER_CHAIN_FILE)
+if os.path.exists(LIFTOVER_CHAIN_FILE):
+    logger.info('Loading liftover chain from local file: %s', LIFTOVER_CHAIN_FILE)
+    liftover_to_38 = LiftOver(LIFTOVER_CHAIN_FILE)
+else:
+    logger.info('Local liftover chain file not found at %s, downloading from UCSC (hg19 -> hg38)', LIFTOVER_CHAIN_FILE)
+    liftover_to_38 = LiftOver('hg19', 'hg38')
 
 
 def _get_model_id(chrom, pos, end, ref, alt):

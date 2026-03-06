@@ -66,6 +66,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=build /opt/venv /opt/venv
 
+# Pre-download liftover chain file for offline environments (e.g., AWS Fargate)
+RUN mkdir -p /data/liftover && \
+    curl -fsSL -o /data/liftover/hg19ToHg38.over.chain.gz \
+    https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
 WORKDIR /seqr
 COPY admin/ ./admin
 COPY clickhouse_search/ ./clickhouse_search
