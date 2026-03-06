@@ -281,6 +281,7 @@ if CLICKHOUSE_SERVICE_HOSTNAME:
             'settings': {
                 'use_client_time_zone': False,
                 'flatten_nested': 0,
+                'join_use_nulls': 1,
             }
         },
     }
