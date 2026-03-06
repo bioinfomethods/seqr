@@ -262,7 +262,7 @@ POSTGRES_DB_CONFIG = {
 }
 DATABASES = {
     'default': dict(NAME='seqrdb', **POSTGRES_DB_CONFIG),
-    'reference_data': dict(NAME='reference_data_db', **POSTGRES_DB_CONFIG),
+    'reference_data': dict(NAME=os.environ.get('POSTGRES_REFERENCE_DB_NAME', 'reference_data_db'), **POSTGRES_DB_CONFIG),
 }
 DATABASE_ROUTERS = ['reference_data.models.ReferenceDataRouter', 'clickhouse_search.models.ClickHouseRouter']
 
