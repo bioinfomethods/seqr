@@ -109,7 +109,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - Secrets management: Aurora password and Clickhouse credentials currently passed as env vars; consider AWS Secrets Manager with `secrets` block in container definition
 - Auto-scaling: Can add later based on CPU/memory metrics
 - Health check path: Using `/status` (confirmed in ALB target group health check)
-- Redis: Currently configurable via variables but defaults to `localhost` — need to deploy ElastiCache or a Redis container for production use
+- Redis: Deployed as an ECS sidecar container (redis:7-alpine) within the same task definition. Accessible at localhost:6379 with zero network overhead. Uses LRU eviction with 256MB max memory. Appropriate for caching; consider ElastiCache if persistent Redis is needed.
 - Django secret key: `DJANGO_KEY` env var not yet set — needs to be provided for production (currently auto-generates a file-based key)
 - Clickhouse credentials: `CLICKHOUSE_WRITER_USER`, `CLICKHOUSE_WRITER_PASSWORD`, `CLICKHOUSE_READER_USER`, `CLICKHOUSE_READER_PASSWORD` not yet passed — add when Clickhouse auth is configured
 - Additional env vars to consider: `SLACK_TOKEN`, `AIRTABLE_API_KEY`, `GA_TOKEN_ID`, social auth OAuth keys

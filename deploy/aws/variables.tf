@@ -124,13 +124,13 @@ variable "seqr_web_desired_count" {
 variable "seqr_web_cpu" {
   description = "CPU units for seqr-web Fargate task (256 = 0.25 vCPU, 512 = 0.5 vCPU, 1024 = 1 vCPU)"
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "seqr_web_memory" {
-  description = "Memory in MiB for seqr-web Fargate task"
+  description = "Memory in MiB for seqr-web Fargate task (includes Redis sidecar)"
   type        = number
-  default     = 1024
+  default     = 2048
 }
 
 variable "seqr_web_image_tag" {
@@ -139,17 +139,6 @@ variable "seqr_web_image_tag" {
   default     = "latest"
 }
 
-variable "redis_service_hostname" {
-  description = "Hostname for Redis service (used by seqr for caching)"
-  type        = string
-  default     = "localhost"
-}
-
-variable "redis_service_port" {
-  description = "Port for Redis service"
-  type        = number
-  default     = 6379
-}
 
 # Clickhouse EC2
 variable "clickhouse_writer_user" {

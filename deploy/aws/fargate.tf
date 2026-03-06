@@ -280,6 +280,14 @@ resource "aws_ecs_task_definition" "seqr_web" {
         }
       ]
 
+      # Wait for Redis sidecar to be ready before starting Django
+      dependsOn = [
+        {
+          containerName = "redis"
+          condition     = "START"
+        }
+      ]
+
       environment = [
         # PostgreSQL connection (matches settings.py POSTGRES_DB_CONFIG)
         { name = "POSTGRES_SERVICE_HOSTNAME", value = module.aurora.cluster_endpoint },
@@ -300,9 +308,8 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "CLICKHOUSE_READER_USER", value = var.clickhouse_reader_user },
         { name = "CLICKHOUSE_READER_PASSWORD", value = var.clickhouse_reader_password },
 
-        # Redis connection
-        { name = "REDIS_SERVICE_HOSTNAME", value = var.redis_service_hostname },
-        { name = "REDIS_SERVICE_PORT", value = tostring(var.redis_service_port) },
+        # Redis: runs as a sidecar container in this task, accessible at localhost:6379
+        # No env vars needed — settings.py defaults to localhost:6379
 
         # Django / deployment settings
         # NOTE: DEPLOYMENT_TYPE of "prod" or "dev" enables CSRF_COOKIE_SECURE and
@@ -319,6 +326,37 @@ resource "aws_ecs_task_definition" "seqr_web" {
           "awslogs-group"         = aws_cloudwatch_log_group.seqr_web.name
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "seqr-web"
+        }
+      }
+    },
+    {
+      name      = "redis"
+      image     = "public.ecr.aws/docker/library/redis:7-alpine"
+      essential = false
+      
+      portMappings = [
+        {
+          containerPort = 6379
+          protocol      = "tcp"
+        }
+      ]
+
+      command = ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+
+      healthCheck = {
+        command     = ["CMD", "redis-cli", "ping"]
+        interval    = 10
+        timeout     = 5
+        retries     = 3
+        startPeriod = 5
+      }
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.seqr_web.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "redis"
         }
       }
     }
