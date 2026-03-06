@@ -282,6 +282,10 @@ resource "aws_ecs_task_definition" "seqr_web" {
         # Clickhouse connection (matches settings.py CLICKHOUSE_SERVICE_HOSTNAME block)
         { name = "CLICKHOUSE_SERVICE_HOSTNAME", value = aws_instance.clickhouse.private_ip },
         { name = "CLICKHOUSE_SERVICE_PORT", value = "9000" },
+        { name = "CLICKHOUSE_WRITER_USER", value = var.clickhouse_writer_user },
+        { name = "CLICKHOUSE_WRITER_PASSWORD", value = var.clickhouse_writer_password },
+        { name = "CLICKHOUSE_READER_USER", value = var.clickhouse_reader_user },
+        { name = "CLICKHOUSE_READER_PASSWORD", value = var.clickhouse_reader_password },
 
         # Redis connection
         { name = "REDIS_SERVICE_HOSTNAME", value = var.redis_service_hostname },

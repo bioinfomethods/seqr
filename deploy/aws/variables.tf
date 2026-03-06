@@ -152,6 +152,32 @@ variable "redis_service_port" {
 }
 
 # Clickhouse EC2
+variable "clickhouse_writer_user" {
+  description = "Clickhouse writer username for seqr"
+  type        = string
+  default     = "default"
+}
+
+variable "clickhouse_writer_password" {
+  description = "Clickhouse writer password for seqr"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "clickhouse_reader_user" {
+  description = "Clickhouse reader username for seqr"
+  type        = string
+  default     = "default"
+}
+
+variable "clickhouse_reader_password" {
+  description = "Clickhouse reader password for seqr"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "clickhouse_instance_type" {
   description = "EC2 instance type for Clickhouse"
   type        = string
