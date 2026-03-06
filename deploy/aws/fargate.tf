@@ -180,17 +180,6 @@ resource "aws_security_group_rule" "clickhouse_native_from_ecs" {
   security_group_id        = aws_security_group.clickhouse.id
 }
 
-# Allow ECS service to access VPC endpoints (HTTPS port 443 for ECR image pull)
-resource "aws_security_group_rule" "vpc_endpoints_from_ecs" {
-  type                     = "ingress"
-  description              = "HTTPS from ECS Fargate service"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ecs_service.id
-  security_group_id        = aws_security_group.vpc_endpoints.id
-}
-
 # =============================================================================
 # Step 6: Application Load Balancer
 # =============================================================================

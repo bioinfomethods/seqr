@@ -99,13 +99,13 @@ resource "aws_security_group" "vpc_endpoints" {
   description = "Security group for VPC endpoints"
   vpc_id      = local.vpc_id
 
-  # Allow HTTPS from Clickhouse security group
+  # Allow HTTPS from within the VPC (ECS Fargate, Clickhouse, etc.)
   ingress {
-    description     = "HTTPS from Clickhouse"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.clickhouse.id]
+    description = "HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
   }
 
   # Allow all outbound traffic
@@ -128,7 +128,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id, aws_security_group.ecs_service.id]
   private_dns_enabled = true
 
   tags = {
