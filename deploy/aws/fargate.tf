@@ -166,32 +166,6 @@ resource "aws_security_group" "ecs_service" {
 }
 
 # =============================================================================
-# Step 5: Update Existing Security Groups for ECS Access
-# =============================================================================
-
-# Allow ECS service to access Clickhouse HTTP interface (port 8123)
-resource "aws_security_group_rule" "clickhouse_http_from_ecs" {
-  type                     = "ingress"
-  description              = "Clickhouse HTTP from ECS Fargate service"
-  from_port                = 8123
-  to_port                  = 8123
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ecs_service.id
-  security_group_id        = aws_security_group.clickhouse.id
-}
-
-# Allow ECS service to access Clickhouse native protocol (port 9000)
-resource "aws_security_group_rule" "clickhouse_native_from_ecs" {
-  type                     = "ingress"
-  description              = "Clickhouse native from ECS Fargate service"
-  from_port                = 9000
-  to_port                  = 9000
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ecs_service.id
-  security_group_id        = aws_security_group.clickhouse.id
-}
-
-# =============================================================================
 # Step 6: Application Load Balancer
 # =============================================================================
 

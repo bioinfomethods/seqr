@@ -414,6 +414,24 @@ resource "aws_security_group" "clickhouse" {
     security_groups = [aws_security_group.bastion.id]
   }
 
+  # Allow Clickhouse HTTP from ECS Fargate service
+  ingress {
+    description     = "Clickhouse HTTP from ECS Fargate service"
+    from_port       = 8123
+    to_port         = 8123
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_service.id]
+  }
+
+  # Allow Clickhouse native protocol from ECS Fargate service
+  ingress {
+    description     = "Clickhouse native from ECS Fargate service"
+    from_port       = 9000
+    to_port         = 9000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_service.id]
+  }
+
   # Allow all outbound traffic (includes PostgreSQL to Aurora and VPC endpoints)
   egress {
     description = "Allow all outbound traffic"
