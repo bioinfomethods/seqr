@@ -5,6 +5,7 @@ from collections import defaultdict
 from django.db import migrations, models
 import django.db.models.deletion
 import json
+import os
 from pyliftover.liftover import LiftOver
 from tqdm import tqdm
 
@@ -13,7 +14,12 @@ from seqr.utils.xpos_utils import get_chrom_pos
 
 MAX_GUID_SIZE = 30
 
-liftover_to_38 = LiftOver('hg19', 'hg38')
+LIFTOVER_CHAIN_FILE = os.environ.get(
+    'LIFTOVER_HG19_TO_HG38_CHAIN',
+    '/data/liftover/hg19ToHg38.over.chain.gz',
+)
+
+liftover_to_38 = LiftOver(LIFTOVER_CHAIN_FILE)
 
 
 def _get_model_id(chrom, pos, end, ref, alt):
