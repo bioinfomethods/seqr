@@ -116,7 +116,7 @@ while [ "$ELAPSED" -lt "$DRAIN_TIMEOUT" ]; do
     --desired-status RUNNING \
     --region "$REGION" \
     --output text \
-    --query "taskArns | length(@)" 2>/dev/null || echo "0")
+    --query 'taskArns | length(@)' 2>/dev/null) || RUNNING="0"
 
   if [ "$RUNNING" -eq 0 ]; then
     echo "    ✓ All tasks drained"
