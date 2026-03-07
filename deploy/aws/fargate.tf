@@ -46,6 +46,27 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Additional permissions for ECR pull-through cache (auto-creates repos on first pull)
+resource "aws_iam_role_policy" "ecs_task_execution_ecr_cache" {
+  name = "${local.name_prefix}-ecs-ecr-cache-policy"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchImportUpstreamImage",
+          "ecr:CreateRepository",
+          "ecr:TagResource"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # ECS Task Role - permissions for the running container itself
 resource "aws_iam_role" "ecs_task" {
   name = "${local.name_prefix}-ecs-task-role"
