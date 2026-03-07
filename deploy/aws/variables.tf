@@ -145,6 +145,12 @@ variable "seqr_web_image_tag" {
   default     = "latest"
 }
 
+variable "csrf_extra_trusted_origins" {
+  description = "Comma-separated list of additional CSRF trusted origins (e.g., http://localhost:8167 for port-forwarded access)"
+  type        = string
+  default     = ""
+}
+
 
 # Clickhouse EC2
 variable "clickhouse_writer_user" {

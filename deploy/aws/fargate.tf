@@ -313,6 +313,7 @@ resource "aws_ecs_task_definition" "seqr_web" {
         # TODO: Add HTTPS via ACM certificate + Route53, then switch to "prod".
         { name = "DEPLOYMENT_TYPE", value = "dev" },
         { name = "BASE_URL", value = "http://${aws_lb.seqr.dns_name}" },
+        { name = "CSRF_EXTRA_TRUSTED_ORIGINS", value = var.csrf_extra_trusted_origins },
       ]
 
       logConfiguration = {

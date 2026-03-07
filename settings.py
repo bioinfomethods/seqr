@@ -315,6 +315,11 @@ if DEPLOYMENT_TYPE in {'prod', 'dev'}:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     CSRF_TRUSTED_ORIGINS = [BASE_URL.rstrip('/')]
+    # Allow additional trusted origins (e.g., for port-forwarded access during development)
+    # Comma-separated list: CSRF_EXTRA_TRUSTED_ORIGINS=http://localhost:8167,http://localhost:8000
+    extra_origins = os.environ.get('CSRF_EXTRA_TRUSTED_ORIGINS', '')
+    if extra_origins:
+        CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in extra_origins.split(',') if o.strip()])
     DEBUG = False
 else:
     DEBUG = True
