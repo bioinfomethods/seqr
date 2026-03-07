@@ -77,9 +77,14 @@ class JsonErrorMiddleware(MiddlewareMixin):
         status = _get_exception_status_code(exception)
         if exception.__class__ in ERROR_LOG_EXCEPTIONS:
             exception_json['log_error'] = True
+        traceback_message = traceback.format_exc()
         if DEBUG or status == 500:
-            traceback_message = traceback.format_exc()
             exception_json['traceback'] = traceback_message
+        logger.error(
+            '{}: {}'.format(type(exception).__name__, exception_json.get('error', str(exception))),
+            request.user,
+            traceback=traceback_message,
+        )
         detail = getattr(exception, 'info', None)
         if isinstance(detail, dict):
             exception_json['detail'] = detail
