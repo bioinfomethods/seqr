@@ -56,6 +56,9 @@ if [ ! -f "$DUMP_FILE" ]; then
   exit 1
 fi
 
+# Resolve to absolute path before changing directory
+DUMP_FILE="$(cd "$(dirname "$DUMP_FILE")" && pwd)/$(basename "$DUMP_FILE")"
+
 # ---- Change to deploy/aws directory for tofu outputs ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
