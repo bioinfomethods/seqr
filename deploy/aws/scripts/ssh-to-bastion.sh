@@ -39,10 +39,22 @@ ALB_DNS=$(tofu output -raw alb_dns_name 2>/dev/null || true)
 
 if [ -z "$ALB_DNS" ]; then
   echo "Warning: Could not retrieve ALB DNS name from Terraform outputs"
-  echo "         Port forwarding will not be configured"
+  echo "         ALB port forwarding will not be configured"
+fi
+
+# Get Aurora cluster endpoint from Terraform outputs for port forwarding
+echo "Retrieving Aurora cluster endpoint from Terraform outputs..."
+AURORA_ENDPOINT=$(tofu output -raw aurora_cluster_endpoint 2>/dev/null || true)
+AURORA_PORT=$(tofu output -raw aurora_cluster_port 2>/dev/null || true)
+AURORA_PORT="${AURORA_PORT:-5432}"
+
+if [ -z "$AURORA_ENDPOINT" ]; then
+  echo "Warning: Could not retrieve Aurora cluster endpoint from Terraform outputs"
+  echo "         Aurora port forwarding will not be configured"
 fi
 
 LOCAL_PORT="${LOCAL_PORT:-8167}"
+LOCAL_AURORA_PORT="${LOCAL_AURORA_PORT:-8168}"
 
 # Copy custom terminfo directory if it exists
 if [ -d ~/.terminfo ]; then
@@ -60,7 +72,10 @@ echo "Connecting to bastion host..."
 echo "  Bastion: ${BASTION_IP}"
 echo "  Key: ~/.ssh/${KEY_NAME}"
 if [ -n "$ALB_DNS" ]; then
-  echo "  Port forward: localhost:${LOCAL_PORT} -> ${ALB_DNS}:80"
+  echo "  Port forward: localhost:${LOCAL_PORT} -> ${ALB_DNS}:80 (ALB)"
+fi
+if [ -n "$AURORA_ENDPOINT" ]; then
+  echo "  Port forward: localhost:${LOCAL_AURORA_PORT} -> ${AURORA_ENDPOINT}:${AURORA_PORT} (Aurora)"
 fi
 echo ""
 
@@ -73,6 +88,10 @@ SSH_ARGS=(
 
 if [ -n "$ALB_DNS" ]; then
   SSH_ARGS+=(-L "${LOCAL_PORT}:${ALB_DNS}:80")
+fi
+
+if [ -n "$AURORA_ENDPOINT" ]; then
+  SSH_ARGS+=(-L "${LOCAL_AURORA_PORT}:${AURORA_ENDPOINT}:${AURORA_PORT}")
 fi
 
 # SSH to bastion host
