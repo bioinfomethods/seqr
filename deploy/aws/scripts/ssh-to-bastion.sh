@@ -54,6 +54,7 @@ echo ""
 ssh -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -i ~/.ssh/${KEY_NAME} \
+    -L 8167:mcri-seqr-dev-alb-484280428.ap-southeast-2.elb.amazonaws.com:80 \
     ec2-user@${BASTION_IP}
 
 echo "Done"
