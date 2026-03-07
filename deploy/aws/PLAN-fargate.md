@@ -121,7 +121,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - **ARM64 support**: Task definition uses `runtime_platform` with `ARM64` CPU architecture (Graviton). Matches ARM build environment and is ~20% cheaper than x86.
 - **Aurora connectivity**: Aurora module accepts `ecs_security_group_id` variable for inline ingress rules (avoids Terraform inline vs external rule conflicts).
 - **Clickhouse connectivity**: Inline ingress rules in Clickhouse security group for ports 8123 and 9000 from ECS.
-- **Reference database**: `POSTGRES_REFERENCE_DB_NAME` env var allows both Django database aliases to point to the same Aurora database, avoiding a second Aurora instance.
+- **Reference database**: `POSTGRES_REFERENCE_DB_NAME` env var points to a separate `reference_data_db` database on the same Aurora cluster. This keeps the main `seqrdb` and reference data databases independent, simplifying production data migration (separate pg_dump/pg_restore per database).
 - **Clickhouse credentials**: All four credential env vars (`CLICKHOUSE_WRITER_USER`, `CLICKHOUSE_WRITER_PASSWORD`, `CLICKHOUSE_READER_USER`, `CLICKHOUSE_READER_PASSWORD`) passed to ECS task.
 - **Redis**: Deployed as ECS sidecar container (redis:7-alpine via ECR pull-through cache). Accessible at localhost:6379 with zero network overhead. Uses LRU eviction with 256MB max memory. seqr-web depends on Redis HEALTHY condition before starting.
 - **ECR pull-through cache**: `aws_ecr_pull_through_cache_rule.ecr_public` caches public ECR images into private ECR. Task execution role has `ecr:BatchImportUpstreamImage`, `ecr:CreateRepository`, `ecr:TagResource` permissions.

@@ -17,11 +17,16 @@
 #   - Bastion SSH tunnel active on LOCAL_AURORA_PORT (default: 8168)
 #
 # Usage:
-#   ./recreate-database.sh <dump-file>
+#   ./recreate-database.sh <dump-file> [reference-dump-file]
 #
 # Examples:
+#   # Restore only the main seqrdb database:
 #   ./recreate-database.sh /path/to/seqrdb-clean.dump
-#   LOCAL_AURORA_PORT=5432 DB_USER=seqr ./recreate-database.sh seqrdb.dump
+#
+#   # Restore both seqrdb and reference_data_db:
+#   ./recreate-database.sh /path/to/seqrdb-clean.dump /path/to/reference_data_db.dump
+#
+#   LOCAL_AURORA_PORT=5432 DB_USER=seqr ./recreate-database.sh seqrdb.dump reference_data_db.dump
 
 set -euo pipefail
 
@@ -30,22 +35,26 @@ DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${LOCAL_AURORA_PORT:-8168}"
 DB_USER="${DB_USER:-seqr}"
 DB_NAME="${DB_NAME:-seqrdb}"
+REF_DB_NAME="${REF_DB_NAME:-reference_data_db}"
 REGION="${AWS_DEFAULT_REGION:-ap-southeast-2}"
 DRAIN_TIMEOUT="${DRAIN_TIMEOUT:-120}"  # seconds to wait for ECS tasks to drain
 
 # ---- Arguments ----
 DUMP_FILE="${1:-}"
+REF_DUMP_FILE="${2:-}"
 
 if [ -z "$DUMP_FILE" ]; then
-  echo "Usage: $0 <dump-file>"
+  echo "Usage: $0 <dump-file> [reference-dump-file]"
   echo ""
-  echo "  dump-file: Path to a pg_dump custom-format backup file"
+  echo "  dump-file:           Path to a pg_dump custom-format backup of seqrdb"
+  echo "  reference-dump-file: Path to a pg_dump custom-format backup of reference_data_db (optional)"
   echo ""
   echo "Environment variables:"
   echo "  DB_HOST              Database host (default: localhost)"
   echo "  LOCAL_AURORA_PORT    Database port (default: 8168)"
   echo "  DB_USER              Database user (default: seqr)"
-  echo "  DB_NAME              Database name (default: seqrdb)"
+  echo "  DB_NAME              Main database name (default: seqrdb)"
+  echo "  REF_DB_NAME          Reference database name (default: reference_data_db)"
   echo "  AWS_DEFAULT_REGION   AWS region (default: ap-southeast-2)"
   echo "  DRAIN_TIMEOUT        Seconds to wait for ECS drain (default: 120)"
   exit 1
@@ -58,6 +67,14 @@ fi
 
 # Resolve to absolute path before changing directory
 DUMP_FILE="$(cd "$(dirname "$DUMP_FILE")" && pwd)/$(basename "$DUMP_FILE")"
+
+if [ -n "$REF_DUMP_FILE" ]; then
+  if [ ! -f "$REF_DUMP_FILE" ]; then
+    echo "Error: Reference dump file not found: $REF_DUMP_FILE"
+    exit 1
+  fi
+  REF_DUMP_FILE="$(cd "$(dirname "$REF_DUMP_FILE")" && pwd)/$(basename "$REF_DUMP_FILE")"
+fi
 
 # ---- Change to deploy/aws directory for tofu outputs ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -115,7 +132,15 @@ psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
   "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" \
   > /dev/null 2>&1 || true
 
-# ---- Step 3: Drop and recreate database ----
+if [ -n "$REF_DUMP_FILE" ]; then
+  echo "==> Terminating remaining connections to ${REF_DB_NAME}..."
+  psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
+    --no-psqlrc -q -c \
+    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${REF_DB_NAME}' AND pid <> pg_backend_pid();" \
+    > /dev/null 2>&1 || true
+fi
+
+# ---- Step 3: Drop and recreate database(s) ----
 echo "==> Dropping database ${DB_NAME}..."
 psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
   --no-psqlrc -c "DROP DATABASE IF EXISTS ${DB_NAME};"
@@ -124,15 +149,36 @@ echo "==> Creating database ${DB_NAME}..."
 psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
   --no-psqlrc -c "CREATE DATABASE ${DB_NAME};"
 
+if [ -n "$REF_DUMP_FILE" ]; then
+  echo "==> Dropping database ${REF_DB_NAME}..."
+  psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
+    --no-psqlrc -c "DROP DATABASE IF EXISTS ${REF_DB_NAME};"
+
+  echo "==> Creating database ${REF_DB_NAME}..."
+  psql --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname postgres \
+    --no-psqlrc -c "CREATE DATABASE ${REF_DB_NAME};"
+fi
+
 # ---- Step 4: Restore from backup ----
 echo ""
-echo "==> Restoring from ${DUMP_FILE}..."
+echo "==> Restoring ${DB_NAME} from ${DUMP_FILE}..."
 echo "    This may take a while depending on database size..."
 pg_restore --no-owner --no-privileges \
   --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname "$DB_NAME" \
   "$DUMP_FILE"
 
-echo "    ✓ Restore complete"
+echo "    ✓ ${DB_NAME} restore complete"
+
+if [ -n "$REF_DUMP_FILE" ]; then
+  echo ""
+  echo "==> Restoring ${REF_DB_NAME} from ${REF_DUMP_FILE}..."
+  echo "    This may take a while depending on database size..."
+  pg_restore --no-owner --no-privileges \
+    --host "$DB_HOST" --port "$DB_PORT" --user "$DB_USER" --dbname "$REF_DB_NAME" \
+    "$REF_DUMP_FILE"
+
+  echo "    ✓ ${REF_DB_NAME} restore complete"
+fi
 
 # ---- Step 5: Scale ECS service back up ----
 echo ""
@@ -150,6 +196,8 @@ echo "    ✓ Service scaling up"
 # ---- Done ----
 echo ""
 echo "==> Database recreation complete!"
-echo "    Database: ${DB_NAME}"
-echo "    Restored from: ${DUMP_FILE}"
+echo "    Database: ${DB_NAME} (restored from: ${DUMP_FILE})"
+if [ -n "$REF_DUMP_FILE" ]; then
+  echo "    Database: ${REF_DB_NAME} (restored from: ${REF_DUMP_FILE})"
+fi
 echo "    ECS service is starting back up — check ALB health checks in a few minutes."

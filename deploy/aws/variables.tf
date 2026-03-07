@@ -95,6 +95,12 @@ variable "aurora_database_name" {
   default     = "seqrdb"
 }
 
+variable "aurora_reference_database_name" {
+  description = "Database name for reference data (separate from main seqr database)"
+  type        = string
+  default     = "reference_data_db"
+}
+
 variable "aurora_backup_retention_period" {
   description = "Backup retention period in days"
   type        = number

@@ -290,7 +290,7 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "POSTGRES_USERNAME", value = var.aurora_master_username },
         { name = "POSTGRES_PASSWORD", value = var.aurora_master_password },
 
-        { name = "POSTGRES_REFERENCE_DB_NAME", value = var.aurora_database_name },
+        { name = "POSTGRES_REFERENCE_DB_NAME", value = var.aurora_reference_database_name },
 
         # Gunicorn settings
         { name = "GUNICORN_WORKER_THREADS", value = "4" },
