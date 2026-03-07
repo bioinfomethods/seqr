@@ -275,11 +275,11 @@ resource "aws_ecs_task_definition" "seqr_web" {
         }
       ]
 
-      # Wait for Redis sidecar to be ready before starting Django
+      # Wait for Redis sidecar to be healthy before starting Django
       dependsOn = [
         {
           containerName = "redis"
-          condition     = "START"
+          condition     = "HEALTHY"
         }
       ]
 
