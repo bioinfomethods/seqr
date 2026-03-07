@@ -33,6 +33,17 @@ if [ -z "$BASTION_IP" ]; then
   exit 1
 fi
 
+# Get ALB DNS name from Terraform outputs for port forwarding
+echo "Retrieving ALB DNS name from Terraform outputs..."
+ALB_DNS=$(tofu output -raw alb_dns_name 2>/dev/null || true)
+
+if [ -z "$ALB_DNS" ]; then
+  echo "Warning: Could not retrieve ALB DNS name from Terraform outputs"
+  echo "         Port forwarding will not be configured"
+fi
+
+LOCAL_PORT="${LOCAL_PORT:-8167}"
+
 # Copy custom terminfo directory if it exists
 if [ -d ~/.terminfo ]; then
   echo "Copying custom terminfo directory..."
@@ -48,13 +59,23 @@ fi
 echo "Connecting to bastion host..."
 echo "  Bastion: ${BASTION_IP}"
 echo "  Key: ~/.ssh/${KEY_NAME}"
+if [ -n "$ALB_DNS" ]; then
+  echo "  Port forward: localhost:${LOCAL_PORT} -> ${ALB_DNS}:80"
+fi
 echo ""
 
+# Build SSH command with optional port forwarding
+SSH_ARGS=(
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null
+  -i ~/.ssh/${KEY_NAME}
+)
+
+if [ -n "$ALB_DNS" ]; then
+  SSH_ARGS+=(-L "${LOCAL_PORT}:${ALB_DNS}:80")
+fi
+
 # SSH to bastion host
-ssh -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    -i ~/.ssh/${KEY_NAME} \
-    -L 8167:mcri-seqr-dev-alb-484280428.ap-southeast-2.elb.amazonaws.com:80 \
-    ec2-user@${BASTION_IP}
+ssh "${SSH_ARGS[@]}" ec2-user@${BASTION_IP}
 
 echo "Done"
