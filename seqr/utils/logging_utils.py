@@ -29,6 +29,11 @@ class JsonLogFormatter(logging.Formatter):
 
         if getattr(record, 'traceback', None):
             log_json['traceback'] = record.traceback
+        elif record.exc_info:
+            import traceback
+            log_json['traceback'] = ''.join(traceback.format_exception(*record.exc_info))
+        elif record.exc_text:
+            log_json['traceback'] = record.exc_text
 
         if getattr(record, 'detail', None):
             log_json['detail'] = record.detail
