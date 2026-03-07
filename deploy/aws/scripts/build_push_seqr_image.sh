@@ -152,7 +152,70 @@ if [[ "$DEPLOY" == "true" ]]; then
     > /dev/null
 
   echo "    ✓ Redeployment triggered — new tasks will pull ${FULL_IMAGE}"
-  echo "    Monitor progress: aws ecs describe-services --cluster ${CLUSTER} --services ${SERVICE} --query 'services[0].deployments'"
+
+  # Wait for deployment to complete
+  DEPLOY_TIMEOUT="${DEPLOY_TIMEOUT:-600}"  # 10 minutes default
+  ELAPSED=0
+  POLL_INTERVAL=15
+  echo ""
+  echo "==> Waiting for deployment to complete (timeout: ${DEPLOY_TIMEOUT}s)..."
+
+  while [ "$ELAPSED" -lt "$DEPLOY_TIMEOUT" ]; do
+    # Get deployment info: count of deployments, primary rollout state, running/desired counts
+    DEPLOY_INFO=$(aws ecs describe-services \
+      --cluster "$CLUSTER" \
+      --services "$SERVICE" \
+      --region "$REGION" \
+      --output json \
+      --query 'services[0].deployments' 2>/dev/null) || DEPLOY_INFO="[]"
+
+    DEPLOY_COUNT=$(echo "$DEPLOY_INFO" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null) || DEPLOY_COUNT="0"
+
+    PRIMARY_STATE=$(echo "$DEPLOY_INFO" | python3 -c "
+import sys, json
+deps = json.load(sys.stdin)
+primary = next((d for d in deps if d.get('status') == 'PRIMARY'), None)
+if primary:
+    print(primary.get('rolloutState', 'UNKNOWN'))
+else:
+    print('UNKNOWN')
+" 2>/dev/null) || PRIMARY_STATE="UNKNOWN"
+
+    PRIMARY_RUNNING=$(echo "$DEPLOY_INFO" | python3 -c "
+import sys, json
+deps = json.load(sys.stdin)
+primary = next((d for d in deps if d.get('status') == 'PRIMARY'), None)
+print(primary.get('runningCount', 0) if primary else 0)
+" 2>/dev/null) || PRIMARY_RUNNING="0"
+
+    PRIMARY_DESIRED=$(echo "$DEPLOY_INFO" | python3 -c "
+import sys, json
+deps = json.load(sys.stdin)
+primary = next((d for d in deps if d.get('status') == 'PRIMARY'), None)
+print(primary.get('desiredCount', 0) if primary else 0)
+" 2>/dev/null) || PRIMARY_DESIRED="0"
+
+    if [[ "$PRIMARY_STATE" == "COMPLETED" && "$DEPLOY_COUNT" == "1" ]]; then
+      echo "    ✓ Deployment complete (running: ${PRIMARY_RUNNING}/${PRIMARY_DESIRED})"
+      break
+    fi
+
+    if [[ "$PRIMARY_STATE" == "FAILED" ]]; then
+      echo "    ✗ Deployment FAILED"
+      echo ""
+      echo "    Check events: aws ecs describe-services --cluster ${CLUSTER} --services ${SERVICE} --query 'services[0].events[:5]'"
+      exit 1
+    fi
+
+    echo "    Deploying... state=${PRIMARY_STATE} running=${PRIMARY_RUNNING}/${PRIMARY_DESIRED} deployments=${DEPLOY_COUNT} (${ELAPSED}s elapsed)"
+    sleep "$POLL_INTERVAL"
+    ELAPSED=$((ELAPSED + POLL_INTERVAL))
+  done
+
+  if [ "$ELAPSED" -ge "$DEPLOY_TIMEOUT" ]; then
+    echo "    ⚠ Deployment timeout reached (${DEPLOY_TIMEOUT}s) — deployment may still be in progress"
+    echo "    Monitor: aws ecs describe-services --cluster ${CLUSTER} --services ${SERVICE} --query 'services[0].deployments'"
+  fi
 fi
 
 echo ""
