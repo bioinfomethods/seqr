@@ -44,6 +44,9 @@ locals {
   vpc_id = var.vpc_id != "" ? var.vpc_id : data.aws_vpc.default.id
 }
 
+# Data sources
+data "aws_caller_identity" "current" {}
+
 # Data sources for VPC and subnets
 data "aws_vpc" "default" {
   default = true
@@ -305,6 +308,12 @@ module "aurora" {
   engine_version                = "17.6"
   backup_retention_period       = var.aurora_backup_retention_period
   skip_final_snapshot           = var.aurora_skip_final_snapshot
+}
+
+# ECR pull-through cache for public ECR images (e.g., Redis)
+resource "aws_ecr_pull_through_cache_rule" "ecr_public" {
+  ecr_repository_prefix = "ecr-public"
+  upstream_registry_url = "public.ecr.aws"
 }
 
 # ECR Repository for seqr-web (Django)

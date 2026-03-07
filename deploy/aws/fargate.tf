@@ -305,7 +305,7 @@ resource "aws_ecs_task_definition" "seqr_web" {
     },
     {
       name      = "redis"
-      image     = "public.ecr.aws/docker/library/redis:7-alpine"
+      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/ecr-public/docker/library/redis:7-alpine"
       essential = false
       
       portMappings = [
