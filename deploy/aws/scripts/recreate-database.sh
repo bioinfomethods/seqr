@@ -76,6 +76,14 @@ if [ -n "$REF_DUMP_FILE" ]; then
   REF_DUMP_FILE="$(cd "$(dirname "$REF_DUMP_FILE")" && pwd)/$(basename "$REF_DUMP_FILE")"
 fi
 
+# ---- Prompt for database password once ----
+if [ -z "${PGPASSWORD:-}" ]; then
+  echo -n "==> Enter password for PostgreSQL user '${DB_USER}': "
+  read -rs PGPASSWORD
+  echo ""
+  export PGPASSWORD
+fi
+
 # ---- Change to deploy/aws directory for tofu outputs ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
