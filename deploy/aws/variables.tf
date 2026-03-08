@@ -136,7 +136,7 @@ variable "seqr_web_cpu" {
 variable "seqr_web_memory" {
   description = "Memory in MiB for seqr-web Fargate task (includes Redis sidecar)"
   type        = number
-  default     = 2048
+  default     = 4096
 }
 
 variable "seqr_web_image_tag" {

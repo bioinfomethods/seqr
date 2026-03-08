@@ -83,7 +83,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 ### Step 9: Variables
 - [x] `seqr_web_desired_count` (default: 1)
 - [x] `seqr_web_cpu` (default: 1024 = 1 vCPU) — bumped for Redis sidecar
-- [x] `seqr_web_memory` (default: 2048 = 2 GB) — bumped for Redis sidecar
+- [x] `seqr_web_memory` (default: 4096 = 4 GB) — bumped for Redis sidecar and migrations
 - [x] `seqr_web_image_tag` (default: "latest")
 - [x] `allowed_web_cidrs` (default: []) — already existed from Step 6
 - [x] `clickhouse_writer_user` / `clickhouse_writer_password` — Clickhouse write credentials
