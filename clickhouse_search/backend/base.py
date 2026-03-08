@@ -9,6 +9,8 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
 
     def table_sql(self, model):
         sql, params = super().table_sql(model)
+        # Make table creation idempotent so migrations don't fail on re-run
+        sql = sql.replace('CREATE TABLE', 'CREATE TABLE IF NOT EXISTS', 1)
         projection = getattr(model._meta, 'projection', None)
         if projection:
             sql = sql.replace(

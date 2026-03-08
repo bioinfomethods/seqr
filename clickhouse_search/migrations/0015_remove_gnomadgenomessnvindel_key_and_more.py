@@ -23,7 +23,7 @@ CLICKHOUSE_WRITER_USER = os.environ.get('CLICKHOUSE_WRITER_USER', 'clickhouse')
 
 
 ENTRIES_TO_PROJECT_GT_STATS = Template("""
-CREATE MATERIALIZED VIEW `$reference_genome/$dataset_type/entries_to_project_gt_stats_mv`
+CREATE MATERIALIZED VIEW IF NOT EXISTS `$reference_genome/$dataset_type/entries_to_project_gt_stats_mv`
 TO `$reference_genome/$dataset_type/project_gt_stats`
 AS SELECT
     project_guid,
@@ -34,7 +34,7 @@ GROUP BY $groupby_columns
 """)
 
 PROJECT_GT_STATS_TO_GT_STATS = Template(Template("""
-CREATE MATERIALIZED VIEW `$reference_genome/$dataset_type/project_gt_stats_to_gt_stats_mv`
+CREATE MATERIALIZED VIEW IF NOT EXISTS `$reference_genome/$dataset_type/project_gt_stats_to_gt_stats_mv`
 REFRESH EVERY 10 YEAR
 TO `$reference_genome/$dataset_type/gt_stats`
 AS SELECT
@@ -48,7 +48,7 @@ GROUP BY key
 ))
 
 GT_STATS_DICT = Template(Template("""
-CREATE DICTIONARY `$reference_genome/$dataset_type/gt_stats_dict`
+CREATE DICTIONARY IF NOT EXISTS `$reference_genome/$dataset_type/gt_stats_dict`
 (
     key UInt32,
     $columns
@@ -65,7 +65,7 @@ LAYOUT(FLAT(MAX_ARRAY_SIZE $size))
 ))
 
 CLINVAR_ALL_VARIANTS_TO_CLINVAR_MV = Template("""
-CREATE MATERIALIZED VIEW `$reference_genome/$dataset_type/clinvar_all_variants_to_clinvar_mv`
+CREATE MATERIALIZED VIEW IF NOT EXISTS `$reference_genome/$dataset_type/clinvar_all_variants_to_clinvar_mv`
 REFRESH EVERY 10 YEAR
 TO `$reference_genome/$dataset_type/clinvar`
 AS 
