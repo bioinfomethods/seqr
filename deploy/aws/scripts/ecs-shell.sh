@@ -66,6 +66,21 @@ echo "    Task: ${TASK_ARN}"
 CONTAINER="seqr-web"
 echo "    Container: ${CONTAINER}"
 
+# Copy custom terminfo directory if it exists locally
+if [ -d ~/.terminfo ]; then
+  echo ""
+  echo "==> Copying custom terminfo directory to container..."
+  TERMINFO_B64=$(tar czf - -C ~ .terminfo | base64)
+  aws ecs execute-command \
+    --cluster "${CLUSTER}" \
+    --task "${TASK_ARN}" \
+    --container "${CONTAINER}" \
+    --interactive \
+    --region "${REGION}" \
+    --command "/bin/bash -c 'echo ${TERMINFO_B64} | base64 -d | tar xzf - -C ~'" 2>/dev/null || true
+  echo "    ✓ Terminfo directory copied"
+fi
+
 echo ""
 echo "==> Connecting to container (${SHELL_CMD})..."
 echo "    (If this hangs, ensure the Session Manager plugin is installed)"
