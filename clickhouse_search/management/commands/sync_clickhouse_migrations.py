@@ -36,26 +36,19 @@ class Command(BaseCommand):
 
         # Get clickhouse_search migrations recorded in PostgreSQL
         pg_cursor.execute("SELECT name, applied FROM django_migrations WHERE app = 'clickhouse_search' ORDER BY id")
-        rows_to_sync = []
+        synced = 0
         for pg_name, pg_applied in pg_cursor.fetchall():
             if pg_name not in ch_applied:
-                rows_to_sync.append((next_id, 'clickhouse_search', pg_name, pg_applied))
-                self.stdout.write(f'  Will sync: clickhouse_search.{pg_name} (id={next_id})')
-                next_id += 1
-
-        synced = 0
-        for row in rows_to_sync:
-            try:
+                # Convert timezone-aware datetime to naive datetime for ClickHouse DateTime column
+                if hasattr(pg_applied, 'replace'):
+                    pg_applied = pg_applied.replace(tzinfo=None)
                 ch_cursor.execute(
                     'INSERT INTO django_migrations (id, app, name, applied) VALUES',
-                    [row]
+                    [(next_id, 'clickhouse_search', pg_name, pg_applied)]
                 )
-                self.stdout.write(f'  Synced: {row[2]}')
+                self.stdout.write(f'  Synced: clickhouse_search.{pg_name}')
+                next_id += 1
                 synced += 1
-            except Exception as e:
-                self.stderr.write(self.style.ERROR(f'  Failed to sync {row[2]}: {e}'))
-                self.stderr.write(f'    Row data: id={row[0]} ({type(row[0])}), app={row[1]}, name={row[2]}, applied={row[3]} ({type(row[3])})'))
-                raise
 
         if synced:
             self.stdout.write(self.style.SUCCESS(f'Synced {synced} migration(s) to ClickHouse'))
