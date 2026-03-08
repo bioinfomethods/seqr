@@ -303,6 +303,10 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "CLICKHOUSE_READER_USER", value = var.clickhouse_reader_user },
         { name = "CLICKHOUSE_READER_PASSWORD", value = var.clickhouse_reader_password },
 
+        # ClickHouse EmbeddedRocksDB storage paths (must be inside /var/lib/clickhouse/user_files on the CH server)
+        { name = "CLICKHOUSE_IN_MEMORY_DIR", value = "/var/lib/clickhouse/user_files/seqr-data/in-memory" },
+        { name = "CLICKHOUSE_DATA_DIR", value = "/var/lib/clickhouse/user_files/seqr-data" },
+
         # Redis: runs as a sidecar container in this task, accessible at localhost:6379
         # No env vars needed — settings.py defaults to localhost:6379
 
