@@ -43,6 +43,10 @@ done
 python -u manage.py migrate
 python -u manage.py migrate --database=reference_data
 if [ "$CLICKHOUSE_SERVICE_HOSTNAME" ]; then
+    # The ClickHouse Django backend records migration state in PostgreSQL (default DB)
+    # but checks ClickHouse's django_migrations table when deciding what to run.
+    # Sync any missing records from PostgreSQL to ClickHouse before running migrations.
+    python -u manage.py sync_clickhouse_migrations
     python -u manage.py migrate --database=clickhouse_write
 fi
 
