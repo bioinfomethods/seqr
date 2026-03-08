@@ -27,16 +27,21 @@ class Command(BaseCommand):
         ch_cursor.execute("SELECT name FROM django_migrations WHERE app = 'clickhouse_search'")
         ch_applied = {row[0] for row in ch_cursor.fetchall()}
 
+        # Get next available ID in ClickHouse
+        ch_cursor.execute('SELECT max(id) FROM django_migrations')
+        next_id = (ch_cursor.fetchone()[0] or 0) + 1
+
         # Get clickhouse_search migrations recorded in PostgreSQL
-        pg_cursor.execute("SELECT id, name, applied FROM django_migrations WHERE app = 'clickhouse_search'")
+        pg_cursor.execute("SELECT name, applied FROM django_migrations WHERE app = 'clickhouse_search'")
         synced = 0
-        for pg_id, pg_name, pg_applied in pg_cursor.fetchall():
+        for pg_name, pg_applied in pg_cursor.fetchall():
             if pg_name not in ch_applied:
                 ch_cursor.execute(
                     'INSERT INTO django_migrations (id, app, name, applied) VALUES',
-                    [(pg_id, 'clickhouse_search', pg_name, pg_applied)]
+                    [(next_id, 'clickhouse_search', pg_name, pg_applied)]
                 )
                 self.stdout.write(f'  Synced: clickhouse_search.{pg_name}')
+                next_id += 1
                 synced += 1
 
         if synced:
