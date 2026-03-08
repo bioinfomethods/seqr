@@ -91,6 +91,7 @@ build {
       "mkdir -p /home/ec2-user/clickhouse/config",
       "mkdir -p /home/ec2-user/clickhouse/scripts",
       "sudo mkdir -p /var/lib/clickhouse",
+      "sudo mkdir -p /var/lib/clickhouse/user_files/seqr-data/in-memory",
       "mkdir -p /tmp/clickhouse-configs"
     ]
   }
