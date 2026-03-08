@@ -93,7 +93,9 @@ fi
 echo ""
 
 # Build SSH command with optional port forwarding
+# -A enables agent forwarding so local SSH keys can be used to hop to other instances (e.g., ClickHouse)
 SSH_ARGS=(
+  -A
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
   -i ~/.ssh/${KEY_NAME}
