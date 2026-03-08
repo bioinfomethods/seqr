@@ -2,11 +2,11 @@
 <clickhouse>
     <named_collections>
         <seqr_postgres_named_collection>
-            <host>postgres</host>
-            <port>5433</port>
-            <user>postgres</user>
-            <password>docker-compose-postgres-password</password>
-            <database>seqrdb</database>
+            <host>__POSTGRES_HOST__</host>
+            <port>__POSTGRES_PORT__</port>
+            <user>__POSTGRES_USER__</user>
+            <password>__POSTGRES_PASSWORD__</password>
+            <database>__POSTGRES_DATABASE__</database>
         </seqr_postgres_named_collection>
     </named_collections>
 </clickhouse>

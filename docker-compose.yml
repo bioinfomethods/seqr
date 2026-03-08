@@ -77,6 +77,11 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_SKIP_USER_SETUP=1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5433
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=docker-compose-postgres-password
+      - POSTGRES_DATABASE=seqrdb
     ulimits:
       nofile:
         soft: 262144

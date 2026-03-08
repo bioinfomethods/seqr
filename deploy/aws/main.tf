@@ -474,12 +474,19 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  # No user_data needed when using custom AMI - Clickhouse starts automatically via systemd
-  # If using base Amazon Linux AMI, user_data will install and configure Clickhouse
-  user_data = try(data.aws_ami.clickhouse_custom.id, null) != null ? null : templatefile("${path.module}/user-data/clickhouse.sh", {
-    ecr_repository_url = aws_ecr_repository.clickhouse.repository_url
-    aws_region         = var.aws_region
-  })
+  # Pass Aurora connection details to ClickHouse for the PostgreSQL named collection.
+  # The start-clickhouse.sh script reads these from /etc/environment to configure
+  # the named_collections.xml before starting ClickHouse.
+  user_data = <<-EOF
+#!/bin/bash
+cat >> /etc/environment <<'ENVEOF'
+POSTGRES_HOST=${module.aurora.cluster_endpoint}
+POSTGRES_PORT=${module.aurora.cluster_port}
+POSTGRES_USER=${var.aurora_master_username}
+POSTGRES_PASSWORD=${var.aurora_master_password}
+POSTGRES_DATABASE=${var.aurora_database_name}
+ENVEOF
+EOF
 
   user_data_replace_on_change = true
 
