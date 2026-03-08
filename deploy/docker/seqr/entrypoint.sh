@@ -40,15 +40,17 @@ do
 done
 
 # run any pending migrations
-python -u manage.py migrate
-python -u manage.py migrate --database=reference_data
+# Run ClickHouse migrations FIRST, before PostgreSQL migrations.
+# Django's router should prevent clickhouse_search migrations from running on PostgreSQL,
+# but if they do run (as no-ops), they get recorded in PostgreSQL's django_migrations table.
+# By running ClickHouse migrations first, the actual DDL executes against ClickHouse.
 if [ "$CLICKHOUSE_SERVICE_HOSTNAME" ]; then
-    # The ClickHouse Django backend records migration state in PostgreSQL (default DB)
-    # but checks ClickHouse's django_migrations table when deciding what to run.
-    # Sync any missing records from PostgreSQL to ClickHouse before running migrations.
+    # Sync any previously-recorded migration state from PostgreSQL to ClickHouse
     python -u manage.py sync_clickhouse_migrations
     python -u manage.py migrate --database=clickhouse_write
 fi
+python -u manage.py migrate
+python -u manage.py migrate --database=reference_data
 
 # load initial fixture data only if tables are empty (idempotent boot)
 variant_search_count=$(python -u manage.py shell -c "from seqr.models import VariantSearch; print(VariantSearch.objects.count())")

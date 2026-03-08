@@ -59,6 +59,8 @@ class ClickHouseRouter:
             return db == 'clickhouse_write'
         if db in {'clickhouse', 'clickhouse_write'}:
             return False
+        # Explicitly prevent non-clickhouse databases from running clickhouse migrations
+        # that might slip through via hints
         return None
 
 
