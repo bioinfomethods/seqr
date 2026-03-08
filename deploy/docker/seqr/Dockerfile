@@ -78,6 +78,7 @@ COPY matchmaker/ ./matchmaker
 COPY panelapp/ ./panelapp
 COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
+COPY scripts/ ./scripts
 COPY manage.py settings.py wsgi.py ./
 COPY --from=build /build/ui/dist /seqr/ui/dist
 
