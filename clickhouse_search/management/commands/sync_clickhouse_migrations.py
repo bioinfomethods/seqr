@@ -11,14 +11,41 @@ class Command(BaseCommand):
         pg_cursor = connections['default'].cursor()
         ch_cursor = connections['clickhouse_write'].cursor()
 
-        # Ensure django_migrations table exists in ClickHouse
+        # Ensure django_migrations table exists in ClickHouse with correct schema.
+        # Django's MigrationRecorder uses Int64 for the id column, so we must match.
         try:
             ch_cursor.execute('SELECT count() FROM django_migrations')
+            # Check if table has old UInt32 schema and recreate with Int64
+            ch_cursor.execute("SELECT type FROM system.columns WHERE database = 'seqr' AND table = 'django_migrations' AND name = 'id'")
+            id_type = ch_cursor.fetchone()
+            if id_type and id_type[0] == 'UInt32':
+                self.stdout.write('Recreating django_migrations table with Int64 id column...')
+                # Save existing data
+                ch_cursor.execute('SELECT id, app, name, applied FROM django_migrations')
+                existing_rows = ch_cursor.fetchall()
+                ch_cursor.execute('DROP TABLE django_migrations')
+                ch_cursor.execute('''
+                    CREATE TABLE django_migrations (
+                        id Int64,
+                        app String,
+                        name String,
+                        applied DateTime
+                    ) ENGINE = MergeTree() ORDER BY id
+                ''')
+                for row in existing_rows:
+                    applied = row[3]
+                    if hasattr(applied, 'replace'):
+                        applied = applied.replace(tzinfo=None)
+                    ch_cursor.execute(
+                        'INSERT INTO django_migrations (id, app, name, applied) VALUES',
+                        [(row[0], row[1], row[2], applied)]
+                    )
+                self.stdout.write(f'  Migrated {len(existing_rows)} existing records')
         except Exception:
             self.stdout.write('Creating django_migrations table in ClickHouse...')
             ch_cursor.execute('''
                 CREATE TABLE IF NOT EXISTS django_migrations (
-                    id UInt32,
+                    id Int64,
                     app String,
                     name String,
                     applied DateTime

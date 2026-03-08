@@ -57,7 +57,7 @@ class ClickHouseRouter:
     def allow_migrate(self, db, app_label, model_name=None, **hints):
         if app_label == 'clickhouse_search' or hints.get('clickhouse'):
             return db == 'clickhouse_write'
-        elif db in {'clickhouse', 'clickhouse_write'}:
+        if db in {'clickhouse', 'clickhouse_write'}:
             return False
         return None
 
