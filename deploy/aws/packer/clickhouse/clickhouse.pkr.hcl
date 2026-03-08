@@ -54,6 +54,13 @@ source "amazon-ebs" "clickhouse" {
   }
   
   ssh_username = "ec2-user"
+
+  launch_block_device_mappings {
+    device_name           = "/dev/xvda"
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
   
   tags = {
     Name              = local.ami_name
