@@ -53,8 +53,18 @@ if [ -z "$AURORA_ENDPOINT" ]; then
   echo "         Aurora port forwarding will not be configured"
 fi
 
+# Get ClickHouse private IP from Terraform outputs for port forwarding
+echo "Retrieving ClickHouse private IP from Terraform outputs..."
+CLICKHOUSE_IP=$(tofu output -raw clickhouse_private_ip 2>/dev/null || true)
+
+if [ -z "$CLICKHOUSE_IP" ]; then
+  echo "Warning: Could not retrieve ClickHouse private IP from Terraform outputs"
+  echo "         ClickHouse port forwarding will not be configured"
+fi
+
 LOCAL_PORT="${LOCAL_PORT:-8167}"
 LOCAL_AURORA_PORT="${LOCAL_AURORA_PORT:-8168}"
+LOCAL_CLICKHOUSE_PORT="${LOCAL_CLICKHOUSE_PORT:-8169}"
 
 # Copy custom terminfo directory if it exists
 if [ -d ~/.terminfo ]; then
@@ -77,6 +87,9 @@ fi
 if [ -n "$AURORA_ENDPOINT" ]; then
   echo "  Port forward: localhost:${LOCAL_AURORA_PORT} -> ${AURORA_ENDPOINT}:${AURORA_PORT} (Aurora)"
 fi
+if [ -n "$CLICKHOUSE_IP" ]; then
+  echo "  Port forward: localhost:${LOCAL_CLICKHOUSE_PORT} -> ${CLICKHOUSE_IP}:9000 (ClickHouse native)"
+fi
 echo ""
 
 # Build SSH command with optional port forwarding
@@ -92,6 +105,10 @@ fi
 
 if [ -n "$AURORA_ENDPOINT" ]; then
   SSH_ARGS+=(-L "${LOCAL_AURORA_PORT}:${AURORA_ENDPOINT}:${AURORA_PORT}")
+fi
+
+if [ -n "$CLICKHOUSE_IP" ]; then
+  SSH_ARGS+=(-L "${LOCAL_CLICKHOUSE_PORT}:${CLICKHOUSE_IP}:9000")
 fi
 
 # SSH to bastion host
