@@ -125,7 +125,7 @@ echo "    ✓ Push complete: ${FULL_IMAGE}"
 if [[ "$DEPLOY" == "true" ]]; then
   echo ""
   echo "==> Triggering ECS service redeployment (new tasks will pull ${FULL_IMAGE})..."
-  DEPLOY_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/deploy-seqr.sh"
+  DEPLOY_SCRIPT="${SCRIPT_DIR}/deploy-seqr.sh"
   DEPLOY_TIMEOUT="${DEPLOY_TIMEOUT:-600}" "${DEPLOY_SCRIPT}" --timeout "${DEPLOY_TIMEOUT:-600}"
 fi
 
