@@ -39,13 +39,28 @@ do
     fi
 done
 
-# run any pending migrations and load missing data
+# run any pending migrations
 python -u manage.py migrate
 python -u manage.py migrate --database=reference_data
-python -u manage.py loaddata variant_searches
-python -u manage.py loaddata variant_tag_types
 if [ "$CLICKHOUSE_SERVICE_HOSTNAME" ]; then
     python -u manage.py migrate --database=clickhouse_write
+fi
+
+# load initial fixture data only if tables are empty (idempotent boot)
+variant_search_count=$(python -u manage.py shell -c "from seqr.models import VariantSearch; print(VariantSearch.objects.count())")
+if [ "$variant_search_count" = "0" ]; then
+    echo "Loading variant_searches fixture (table is empty)..."
+    python -u manage.py loaddata variant_searches
+else
+    echo "Skipping variant_searches fixture ($variant_search_count records already exist)"
+fi
+
+variant_tag_type_count=$(python -u manage.py shell -c "from seqr.models import VariantTagType; print(VariantTagType.objects.count())")
+if [ "$variant_tag_type_count" = "0" ]; then
+    echo "Loading variant_tag_types fixture (table is empty)..."
+    python -u manage.py loaddata variant_tag_types
+else
+    echo "Skipping variant_tag_types fixture ($variant_tag_type_count records already exist)"
 fi
 
 python -u manage.py check
