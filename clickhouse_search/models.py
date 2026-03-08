@@ -56,11 +56,14 @@ class ClickHouseRouter:
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
         if app_label == 'clickhouse_search' or hints.get('clickhouse'):
-            return db == 'clickhouse_write'
+            # Only allow clickhouse_search migrations on clickhouse_write database.
+            # Explicitly return False for all other databases (including 'default')
+            # to prevent Django from recording these as applied in PostgreSQL.
+            if db == 'clickhouse_write':
+                return True
+            return False
         if db in {'clickhouse', 'clickhouse_write'}:
             return False
-        # Explicitly prevent non-clickhouse databases from running clickhouse migrations
-        # that might slip through via hints
         return None
 
 
