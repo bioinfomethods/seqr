@@ -7,8 +7,12 @@ exec 2>&1
 
 echo "Starting Clickhouse setup at $(date)"
 
+
 # Install Docker and AWS CLI
 echo "Installing Docker and AWS CLI..."
+
+set -x
+
 dnf install -y docker aws-cli
 
 # Start Docker
