@@ -474,9 +474,10 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  # Pass Aurora connection details to ClickHouse for the PostgreSQL named collection.
+  # Pass Aurora connection details and ECR info to ClickHouse instance.
   # The start-clickhouse.sh script reads these from /etc/environment to configure
   # the named_collections.xml before starting ClickHouse.
+  # ECR info is needed if the instance needs to pull images from ECR (non-Packer fallback).
   user_data = <<-EOF
 #!/bin/bash
 cat >> /etc/environment <<'ENVEOF'
@@ -485,6 +486,8 @@ POSTGRES_PORT=${module.aurora.cluster_port}
 POSTGRES_USER=${var.aurora_master_username}
 POSTGRES_PASSWORD=${var.aurora_master_password}
 POSTGRES_DATABASE=${var.aurora_database_name}
+ECR_REPOSITORY_URL=${aws_ecr_repository.clickhouse.repository_url}
+AWS_REGION=${var.aws_region}
 ENVEOF
 EOF
 
