@@ -366,6 +366,40 @@ module "aurora" {
   skip_final_snapshot           = var.aurora_skip_final_snapshot
 }
 
+# S3 bucket for seqr application data (ClinVar files, variant datasets, etc.)
+resource "aws_s3_bucket" "seqr_data" {
+  bucket = "${local.name_prefix}-seqr-data"
+
+  tags = {
+    Name = "${local.name_prefix}-seqr-data"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "seqr_data" {
+  bucket = aws_s3_bucket.seqr_data.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "seqr_data" {
+  bucket = aws_s3_bucket.seqr_data.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "seqr_data" {
+  bucket = aws_s3_bucket.seqr_data.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # ECR pull-through cache for public ECR images (e.g., Redis)
 resource "aws_ecr_pull_through_cache_rule" "ecr_public" {
   ecr_repository_prefix = "ecr-public"
