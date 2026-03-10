@@ -182,7 +182,7 @@ variable "clickhouse_reader_password" {
 variable "clickhouse_instance_type" {
   description = "EC2 instance type for Clickhouse"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.large"
 }
 
 variable "clickhouse_ami_id" {

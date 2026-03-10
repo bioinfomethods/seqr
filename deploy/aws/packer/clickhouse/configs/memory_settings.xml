@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <profiles>
+        <default>
+            <!-- Spill to disk for sorts/group-bys instead of OOM -->
+            <max_bytes_before_external_sort>1073741824</max_bytes_before_external_sort>
+            <max_bytes_before_external_group_by>1073741824</max_bytes_before_external_group_by>
+        </default>
+    </profiles>
+
+    <!-- Limit memory used by background merges (default is unlimited per-merge) -->
+    <merge_tree>
+        <max_bytes_to_merge_at_max_space_in_pool>1073741824</max_bytes_to_merge_at_max_space_in_pool>
+    </merge_tree>
+</clickhouse>

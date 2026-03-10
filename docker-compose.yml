@@ -69,6 +69,7 @@ services:
       - ./data/clickhouse_config/config.xml:/etc/clickhouse-server/config.d/config.xml
       - ./data/clickhouse_config/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./data/clickhouse_config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml
+      - ./data/clickhouse_config/memory_settings.xml:/etc/clickhouse-server/config.d/memory_settings.xml
       - ./data/clickhouse_config/init-permissions.sql:/docker-entrypoint-initdb.d/init-permissions.sql
     environment:
       - CLICKHOUSE_DB=seqr
