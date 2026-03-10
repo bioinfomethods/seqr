@@ -6,7 +6,7 @@ import defusedxml.ElementTree as ET
 from django.db import connections
 from django.core.management.base import BaseCommand, CommandError
 from collections import defaultdict
-from settings import SEQR_SLACK_DATA_ALERTS_NOTIFICATION_CHANNEL
+from settings import SEQR_DATA_S3_BUCKET, SEQR_SLACK_DATA_ALERTS_NOTIFICATION_CHANNEL
 import re
 import shutil
 from string import Template
@@ -244,6 +244,77 @@ def extract_variant_info(elem: xml.etree.ElementTree.Element, new_version: str) 
 class Command(BaseCommand):
     help = 'Reload all clinvar variants from weekly NCBI xml release'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--file',
+            type=str,
+            default=None,
+            help='Path to a local or S3 ClinVarVCVRelease .xml.gz file (skips download). '
+                 'Accepts local paths, s3://bucket/key URIs, or just an S3 key '
+                 '(e.g. "clinvar/ClinVarVCVRelease.xml.gz") which uses the '
+                 'SEQR_DATA_S3_BUCKET setting as the bucket.',
+        )
+
+    @staticmethod
+    def _resolve_file_source(file_arg):
+        """Resolve --file argument to a (source_type, ...) tuple.
+
+        Returns one of:
+            ('s3', bucket, key)
+            ('local', path)
+            ('download',)
+        """
+        if file_arg is None:
+            return ('download',)
+
+        if file_arg.startswith('s3://'):
+            path = file_arg[5:]
+            parts = path.split('/', 1)
+            if len(parts) == 2 and parts[0] and parts[1]:
+                return ('s3', parts[0], parts[1])
+            raise CommandError(f'Invalid S3 URI: {file_arg}. Expected format: s3://bucket/key')
+
+        # If it doesn't look like a local path and we have a default bucket,
+        # treat it as an S3 key in the default bucket.
+        if not file_arg.startswith(('/', '.')) and SEQR_DATA_S3_BUCKET:
+            return ('s3', SEQR_DATA_S3_BUCKET, file_arg)
+
+        return ('local', file_arg)
+
+    @staticmethod
+    def _open_s3_gzip(bucket, key):
+        """Stream a gzipped file from S3 and return a file-like object."""
+        import boto3
+        logger.info(f'Streaming s3://{bucket}/{key}')
+        s3 = boto3.client('s3')
+        response = s3.get_object(Bucket=bucket, Key=key)
+        return gzip.open(response['Body'], 'rb')
+
+    def _open_file(self, source):
+        """Open the gzipped XML file based on the resolved source.
+
+        Returns (gzipped_file, cleanup_func). Call cleanup_func() when done.
+        """
+        if source[0] == 's3':
+            _, bucket, key = source
+            return self._open_s3_gzip(bucket, key), lambda: None
+
+        if source[0] == 'local':
+            local_path = source[1]
+            logger.info(f'Using local file: {local_path}')
+            return gzip.open(local_path, 'rb'), lambda: None
+
+        # Download from NCBI
+        tmpdir = tempfile.mkdtemp()
+        logger.info(f'Downloading weekly XML release from {WEEKLY_XML_RELEASE}')
+        tmpfile_path = f'{tmpdir}/clinvar.xml.gz'
+        with requests.get(WEEKLY_XML_RELEASE, stream=True, timeout=10) as r:
+            r.raise_for_status()
+            with open(tmpfile_path, 'wb') as f:
+                shutil.copyfileobj(r.raw, f)
+        logger.info(f'Downloaded weekly XML release from {WEEKLY_XML_RELEASE}, copied to {tmpdir}')
+        return gzip.open(tmpfile_path, 'rb'), lambda: shutil.rmtree(tmpdir, ignore_errors=True)
+
     def handle(self, *args, **options):
         model_to_batch = {
             ClinvarAllVariantsGRCh37SnvIndel: [],
@@ -251,45 +322,45 @@ class Command(BaseCommand):
             ClinvarAllVariantsMito: [],
         }
         new_version = None
-        with tempfile.TemporaryDirectory() as tmpdir:
-            logger.info(f'Downloading weekly XML release from {WEEKLY_XML_RELEASE}')
-            with requests.get(WEEKLY_XML_RELEASE, stream=True, timeout=10) as r, \
-                 tempfile.NamedTemporaryFile(dir=tmpdir, delete=False) as tmpfile:
-                r.raise_for_status()
-                shutil.copyfileobj(r.raw, tmpfile)
-            logger.info(f'Downloaded weekly XML release from {WEEKLY_XML_RELEASE}, copied to {tmpdir}')
+        existing_version_obj = None
 
-            with gzip.open(tmpfile.name, 'rb') as gzipped_file:
-                for event, elem in ET.iterparse(gzipped_file, events=('start', 'end')):
-                    # Handle parsing the current date.
-                    if event == 'start' and elem.tag == 'ClinVarVariationRelease':
-                        new_version = elem.attrib['ReleaseDate']
-                        existing_version_obj = DataVersions.objects.filter(data_model_name='Clinvar').first()
-                        if existing_version_obj:
-                            if existing_version_obj.version == new_version:
-                                logger.info(f'Clinvar ClickHouse tables already successfully updated to {new_version}, gracefully exiting.')
-                                return
-                        logger.info(f'Updating Clinvar ClickHouse tables to {new_version} from {existing_version_obj and existing_version_obj.version}.')
-                        # Drop any currently existing variants in the table that may exist due to a
-                        # previously failed partial run.  Note that we validate that the Postgresql existing version
-                        # is present in ClickHouse to account for the situation where Postgresql has an incorrect
-                        # version.
-                        if existing_version_obj and ClinvarAllVariantsSnvIndel.objects.filter(version=existing_version_obj.version).exists():
-                            for model in model_to_batch.keys():
-                                with connections['clickhouse_write'].cursor() as cursor:
-                                    cursor.execute(
-                                        f"ALTER TABLE `{model._meta.db_table}` DROP PARTITION '{new_version}';"
-                                    )
-                    # Handle parsing variants
-                    if event == 'end' and elem.tag == 'VariationArchive' and new_version:
-                        for obj in extract_variant_info(elem, new_version):
-                            for model, batch in model_to_batch.items():
-                                if isinstance(obj, model):
-                                    batch.append(obj)
-                                    if len(batch) == BATCH_SIZE:
-                                        model.objects.using('clickhouse_write').bulk_create(batch)
-                                        batch.clear()
-                        elem.clear()
+        source = self._resolve_file_source(options.get('file'))
+        gzipped_file, cleanup = self._open_file(source)
+
+        try:
+            for event, elem in ET.iterparse(gzipped_file, events=('start', 'end')):
+                # Handle parsing the current date.
+                if event == 'start' and elem.tag == 'ClinVarVariationRelease':
+                    new_version = elem.attrib['ReleaseDate']
+                    existing_version_obj = DataVersions.objects.filter(data_model_name='Clinvar').first()
+                    if existing_version_obj:
+                        if existing_version_obj.version == new_version:
+                            logger.info(f'Clinvar ClickHouse tables already successfully updated to {new_version}, gracefully exiting.')
+                            return
+                    logger.info(f'Updating Clinvar ClickHouse tables to {new_version} from {existing_version_obj and existing_version_obj.version}.')
+                    # Drop any currently existing variants in the table that may exist due to a
+                    # previously failed partial run.  Note that we validate that the Postgresql existing version
+                    # is present in ClickHouse to account for the situation where Postgresql has an incorrect
+                    # version.
+                    if existing_version_obj and ClinvarAllVariantsSnvIndel.objects.filter(version=existing_version_obj.version).exists():
+                        for model in model_to_batch.keys():
+                            with connections['clickhouse_write'].cursor() as cursor:
+                                cursor.execute(
+                                    f"ALTER TABLE `{model._meta.db_table}` DROP PARTITION '{new_version}';"
+                                )
+                # Handle parsing variants
+                if event == 'end' and elem.tag == 'VariationArchive' and new_version:
+                    for obj in extract_variant_info(elem, new_version):
+                        for model, batch in model_to_batch.items():
+                            if isinstance(obj, model):
+                                batch.append(obj)
+                                if len(batch) == BATCH_SIZE:
+                                    model.objects.using('clickhouse_write').bulk_create(batch)
+                                    batch.clear()
+                    elem.clear()
+        finally:
+            gzipped_file.close()
+            cleanup()
 
         for model, batch in model_to_batch.items():
             if batch:

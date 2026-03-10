@@ -161,6 +161,8 @@ else:
     MEDIA_ROOT = os.path.join(GENERATED_FILES_DIR, 'media/')
     MEDIA_URL = '/media/'
 
+SEQR_DATA_S3_BUCKET = os.environ.get('SEQR_DATA_S3_BUCKET')
+
 LOADING_DATASETS_DIR = os.environ.get('LOADING_DATASETS_DIR')
 PIPELINE_DATA_DIR = os.environ.get('PIPELINE_DATA_DIR')
 

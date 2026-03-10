@@ -111,6 +111,29 @@ resource "aws_iam_role_policy" "ecs_task_exec_command" {
   })
 }
 
+# S3 read access for seqr data bucket (ClinVar files, variant datasets, etc.)
+resource "aws_iam_role_policy" "ecs_task_s3_read" {
+  name = "${local.name_prefix}-ecs-s3-read-policy"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.seqr_data.arn,
+          "${aws_s3_bucket.seqr_data.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # =============================================================================
 # Step 3: CloudWatch Log Group
 # =============================================================================
@@ -291,6 +314,9 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "POSTGRES_PASSWORD", value = var.aurora_master_password },
 
         { name = "POSTGRES_REFERENCE_DB_NAME", value = var.aurora_reference_database_name },
+
+        # S3 data bucket for ClinVar files, variant datasets, etc.
+        { name = "SEQR_DATA_S3_BUCKET", value = aws_s3_bucket.seqr_data.bucket },
 
         # Gunicorn settings
         { name = "GUNICORN_WORKER_THREADS", value = "4" },
