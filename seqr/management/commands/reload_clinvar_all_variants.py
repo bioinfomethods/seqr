@@ -252,10 +252,13 @@ class Command(BaseCommand):
         }
         new_version = None
         with tempfile.TemporaryDirectory() as tmpdir:
+            logger.info(f'Downloading weekly XML release from {WEEKLY_XML_RELEASE}')
             with requests.get(WEEKLY_XML_RELEASE, stream=True, timeout=10) as r, \
                  tempfile.NamedTemporaryFile(dir=tmpdir, delete=False) as tmpfile:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, tmpfile)
+            logger.info(f'Downloaded weekly XML release from {WEEKLY_XML_RELEASE}, copied to {tmpdir}')
+
             with gzip.open(tmpfile.name, 'rb') as gzipped_file:
                 for event, elem in ET.iterparse(gzipped_file, events=('start', 'end')):
                     # Handle parsing the current date.
