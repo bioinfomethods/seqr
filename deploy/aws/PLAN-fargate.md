@@ -131,6 +131,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 
 ## Open Questions / Future Work
 
+- S3 data bucket: `{prefix}-seqr-{env}-seqr-data` bucket created for staging ClinVar files and other data. Bastion has read/write access; ECS tasks have read access. Upload ClinVar XML from bastion, then run `manage.py reload_clinvar_all_variants --file clinvar/ClinVarVCVRelease_00-latest_weekly.xml.gz` from ECS.
 - HTTPS: Need ACM certificate + Route53 domain to add HTTPS listener
 - Secrets management: Aurora password and Clickhouse credentials currently passed as env vars; consider AWS Secrets Manager with `secrets` block in container definition
 - Auto-scaling: Can add later based on CPU/memory metrics

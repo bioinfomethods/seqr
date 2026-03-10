@@ -257,6 +257,61 @@ data "aws_ami" "clickhouse_custom" {
   }
 }
 
+# IAM role for bastion host (S3 access for uploading data files)
+resource "aws_iam_role" "bastion" {
+  name = "${local.name_prefix}-bastion-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-bastion-role"
+  }
+}
+
+resource "aws_iam_role_policy" "bastion_s3" {
+  name = "${local.name_prefix}-bastion-s3-policy"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.seqr_data.arn,
+          "${aws_s3_bucket.seqr_data.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_instance_profile" "bastion" {
+  name = "${local.name_prefix}-bastion-profile"
+  role = aws_iam_role.bastion.name
+
+  tags = {
+    Name = "${local.name_prefix}-bastion-profile"
+  }
+}
+
 # Bastion host EC2 instance
 resource "aws_instance" "bastion" {
   ami                         = var.bastion_ami_id != "" ? var.bastion_ami_id : data.aws_ami.amazon_linux_2023.id
@@ -265,6 +320,7 @@ resource "aws_instance" "bastion" {
   subnet_id                   = aws_subnet.seqr_az1.id
   vpc_security_group_ids      = [aws_security_group.bastion.id]
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.bastion.name
 
   user_data = <<-EOF
               #!/bin/bash

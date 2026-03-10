@@ -199,6 +199,17 @@ output "ecs_task_definition_arn" {
   value       = aws_ecs_task_definition.seqr_web.arn
 }
 
+# S3
+output "seqr_data_bucket_name" {
+  description = "S3 bucket name for seqr application data"
+  value       = aws_s3_bucket.seqr_data.bucket
+}
+
+output "seqr_data_bucket_arn" {
+  description = "S3 bucket ARN for seqr application data"
+  value       = aws_s3_bucket.seqr_data.arn
+}
+
 # Tagging
 output "name_prefix" {
   description = "Name prefix used for all resources"
