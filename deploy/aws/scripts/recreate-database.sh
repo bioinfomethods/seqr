@@ -76,18 +76,29 @@ if [ -n "$REF_DUMP_FILE" ]; then
   REF_DUMP_FILE="$(cd "$(dirname "$REF_DUMP_FILE")" && pwd)/$(basename "$REF_DUMP_FILE")"
 fi
 
-# ---- Prompt for database password once ----
-if [ -z "${PGPASSWORD:-}" ]; then
-  echo -n "==> Enter password for PostgreSQL user '${DB_USER}': "
-  read -rs PGPASSWORD
-  echo ""
-  export PGPASSWORD
-fi
-
 # ---- Change to deploy/aws directory for tofu outputs ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$DEPLOY_DIR"
+
+# ---- Resolve database password from terraform.tfvars or prompt ----
+if [ -z "${PGPASSWORD:-}" ]; then
+  TFVARS_FILE="${DEPLOY_DIR}/terraform.tfvars"
+  if [ -f "$TFVARS_FILE" ]; then
+    EXTRACTED_PW=$(grep -E '^\s*aurora_master_password\s*=' "$TFVARS_FILE" \
+      | sed 's/^[^=]*=\s*"\(.*\)"\s*$/\1/' 2>/dev/null) || true
+    if [ -n "${EXTRACTED_PW:-}" ]; then
+      echo "==> Using aurora_master_password from terraform.tfvars"
+      PGPASSWORD="$EXTRACTED_PW"
+    fi
+  fi
+  if [ -z "${PGPASSWORD:-}" ]; then
+    echo -n "==> Enter password for PostgreSQL user '${DB_USER}': "
+    read -rs PGPASSWORD
+    echo ""
+  fi
+  export PGPASSWORD
+fi
 
 # ---- Retrieve ECS cluster and service names ----
 echo "==> Retrieving ECS cluster and service from Terraform outputs..."
