@@ -473,6 +473,9 @@ class BaseClinvar(FixtureLoadableClickhouseModel):
         'risk_factor',
         'no_classification_for_the_single_variant',
         'no_classifications_from_unflagged_records',
+        'VUS-low',
+        'VUS-mid',
+        'VUS-high',
     ]
     CLINVAR_CONFLICTING_CLASSICATIONS_OF_PATHOGENICITY = 'Conflicting_classifications_of_pathogenicity'
     CLINVAR_DEFAULT_PATHOGENICITY = 'No_pathogenic_assertion'
