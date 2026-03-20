@@ -86,9 +86,9 @@ if [ -z "${PGPASSWORD:-}" ]; then
   TFVARS_FILE="${DEPLOY_DIR}/terraform.tfvars"
   if [ -f "$TFVARS_FILE" ]; then
     EXTRACTED_PW=$(grep -E '^\s*aurora_master_password\s*=' "$TFVARS_FILE" \
-      | sed 's/^[^=]*=\s*"\(.*\)"\s*$/\1/' 2>/dev/null) || true
+      | sed -E 's/^[^"]*"([^"]*)".*/\1/' 2>/dev/null) || true
     if [ -n "${EXTRACTED_PW:-}" ]; then
-      echo "==> Using aurora_master_password from terraform.tfvars $EXTRACTED_PW"
+      echo "==> Using aurora_master_password from terraform.tfvars"
       PGPASSWORD="$EXTRACTED_PW"
     fi
   fi
