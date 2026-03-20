@@ -57,6 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     less \
     libpq-dev \
     nano \
+    vim \
     postgresql-client \
     procps \
     redis-tools \
