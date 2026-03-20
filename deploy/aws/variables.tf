@@ -191,8 +191,14 @@ variable "clickhouse_ami_id" {
   default     = ""
 }
 
-variable "clickhouse_volume_size" {
-  description = "EBS volume size in GB for Clickhouse data"
+variable "clickhouse_root_volume_size" {
+  description = "EBS root volume size in GB for Clickhouse OS and binaries"
+  type        = number
+  default     = 20
+}
+
+variable "clickhouse_data_volume_size" {
+  description = "EBS data volume size in GB for Clickhouse data (/var/lib/clickhouse)"
   type        = number
   default     = 100
 }

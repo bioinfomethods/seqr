@@ -131,6 +131,7 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 
 ## Open Questions / Future Work
 
+- ClickHouse data volume: Dedicated EBS volume (`aws_ebs_volume.clickhouse_data`) mounted at `/var/lib/clickhouse` by `start-clickhouse.sh`. Separate from root volume for easy snapshots. Use `deploy/aws/scripts/clickhouse_snapshot.sh` to create EBS snapshots. Volume is formatted on first boot only (preserves data across reboots and snapshot restores).
 - S3 data bucket: `{prefix}-seqr-{env}-seqr-data` bucket created for staging ClinVar files and other data. Bastion has read/write access; ECS tasks have read access. Upload ClinVar XML from bastion, then run `manage.py reload_clinvar_all_variants --file clinvar/ClinVarVCVRelease_00-latest_weekly.xml.gz` from ECS.
 - HTTPS: Need ACM certificate + Route53 domain to add HTTPS listener
 - Secrets management: Aurora password and Clickhouse credentials currently passed as env vars; consider AWS Secrets Manager with `secrets` block in container definition

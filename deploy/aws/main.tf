@@ -559,15 +559,16 @@ resource "aws_instance" "clickhouse" {
   iam_instance_profile   = aws_iam_instance_profile.clickhouse.name
 
   root_block_device {
-    volume_size = var.clickhouse_volume_size
+    volume_size = var.clickhouse_root_volume_size
     volume_type = "gp3"
     encrypted   = true
   }
 
-  # Pass Aurora connection details and ECR info to ClickHouse instance.
-  # The start-clickhouse.sh script reads these from /etc/environment to configure
-  # the named_collections.xml before starting ClickHouse.
-  # ECR info is needed if the instance needs to pull images from ECR (non-Packer fallback).
+  # Pass Aurora connection details, ECR info, and data volume device to ClickHouse instance.
+  # The start-clickhouse.sh script reads these from /etc/environment to:
+  #   1. Mount the dedicated data volume at /var/lib/clickhouse
+  #   2. Configure named_collections.xml with PostgreSQL connection details
+  #   3. Start ClickHouse via docker compose
   user_data = <<-EOF
 #!/bin/bash
 cat >> /etc/environment <<'ENVEOF'
@@ -578,6 +579,7 @@ POSTGRES_PASSWORD=${var.aurora_master_password}
 POSTGRES_DATABASE=${var.aurora_database_name}
 ECR_REPOSITORY_URL=${aws_ecr_repository.clickhouse.repository_url}
 AWS_REGION=${var.aws_region}
+CLICKHOUSE_DATA_DEVICE=/dev/xvdf
 ENVEOF
 EOF
 
@@ -586,4 +588,25 @@ EOF
   tags = {
     Name = "${local.name_prefix}-clickhouse"
   }
+}
+
+# Dedicated EBS volume for ClickHouse data (separate from root for easy snapshots)
+resource "aws_ebs_volume" "clickhouse_data" {
+  availability_zone = data.aws_availability_zones.available.names[0]
+  size              = var.clickhouse_data_volume_size
+  type              = "gp3"
+  encrypted         = true
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse-data"
+  }
+}
+
+resource "aws_volume_attachment" "clickhouse_data" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.clickhouse_data.id
+  instance_id = aws_instance.clickhouse.id
+
+  # Prevent Terraform from force-detaching (which would destroy data)
+  force_detach = false
 }
