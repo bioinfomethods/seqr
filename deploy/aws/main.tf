@@ -581,6 +581,9 @@ ECR_REPOSITORY_URL=${aws_ecr_repository.clickhouse.repository_url}
 AWS_REGION=${var.aws_region}
 CLICKHOUSE_DATA_DEVICE=/dev/nvme1n1
 ENVEOF
+
+# Configure and start ClickHouse (mounts data volume, substitutes named_collections.xml, starts containers)
+/home/ec2-user/clickhouse/scripts/start-clickhouse.sh
 EOF
 
   user_data_replace_on_change = true
