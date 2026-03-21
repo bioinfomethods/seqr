@@ -158,36 +158,6 @@ build {
     ]
   }
 
-  # Create systemd service
-  provisioner "file" {
-    content = <<-EOF
-[Unit]
-Description=Clickhouse Server
-After=docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-Restart=always
-RestartSec=10
-User=ec2-user
-Group=ec2-user
-ExecStart=/home/ec2-user/clickhouse/scripts/start-clickhouse.sh
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    destination = "/tmp/clickhouse.service"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/clickhouse.service /etc/systemd/system/",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl enable clickhouse.service"
-    ]
-  }
-
   # Cleanup
   provisioner "shell" {
     inline = [
