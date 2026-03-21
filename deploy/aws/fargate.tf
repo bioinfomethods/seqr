@@ -16,24 +16,15 @@ resource "aws_ecs_cluster" "seqr" {
 
 # SSM Session Manager preferences - increase idle timeout for ECS Exec sessions
 # (default is 20 minutes, which is too short for long-running management commands)
-resource "aws_ssm_document" "session_manager_prefs" {
-  name            = "SSM-SessionManagerRunShell"
-  document_type   = "Session"
-  document_format = "JSON"
-
-  content = jsonencode({
-    schemaVersion = "1.0"
-    description   = "Session Manager Preferences"
-    sessionType   = "Standard_Stream"
-    inputs = {
-      idleSessionTimeout = "60"
-    }
-  })
-
-  tags = {
-    Name = "${local.name_prefix}-ssm-session-prefs"
-  }
-}
+# NOTE: SSM-SessionManagerRunShell is an account-wide singleton document.
+# Set it manually once per account with:
+#   aws ssm update-document --name "SSM-SessionManagerRunShell" --document-version '$LATEST' \
+#     --content '{"schemaVersion":"1.0","description":"Session Manager Preferences","sessionType":"Standard_Stream","inputs":{"idleSessionTimeout":"60"}}' \
+#     --document-format JSON
+# If it hasn't been created yet:
+#   aws ssm create-document --name "SSM-SessionManagerRunShell" --document-type "Session" \
+#     --content '{"schemaVersion":"1.0","description":"Session Manager Preferences","sessionType":"Standard_Stream","inputs":{"idleSessionTimeout":"60"}}' \
+#     --document-format JSON
 
 # =============================================================================
 # Step 2: IAM Roles
