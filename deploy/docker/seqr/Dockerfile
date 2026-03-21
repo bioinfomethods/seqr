@@ -61,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     procps \
     redis-tools \
+    screen \
     xterm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
