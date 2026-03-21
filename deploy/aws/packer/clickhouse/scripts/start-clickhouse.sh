@@ -16,6 +16,22 @@ DATA_DEVICE="${CLICKHOUSE_DATA_DEVICE:-}"
 if [ -n "$DATA_DEVICE" ]; then
     echo "Mounting ClickHouse data volume..."
 
+    # On NVMe-based instances (e.g., t3.*), /dev/xvdf appears as /dev/nvme*n1.
+    # Auto-detect: if the configured device doesn't exist, look for an unpartitioned
+    # NVMe device that isn't the root disk.
+    if [ ! -b "$DATA_DEVICE" ]; then
+        echo "  $DATA_DEVICE not found, scanning for NVMe data volume..."
+        ROOT_DEVICE=$(findmnt -n -o SOURCE / | sed 's/p[0-9]*$//')
+        for nvme_dev in /dev/nvme*n1; do
+            [ -b "$nvme_dev" ] || continue
+            # Skip the root device
+            [ "$nvme_dev" = "$ROOT_DEVICE" ] && continue
+            echo "  Found candidate NVMe device: $nvme_dev"
+            DATA_DEVICE="$nvme_dev"
+            break
+        done
+    fi
+
     # Wait for the EBS volume to be attached (up to 60 seconds)
     for i in $(seq 1 60); do
         [ -b "$DATA_DEVICE" ] && break

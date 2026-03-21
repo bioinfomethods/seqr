@@ -579,7 +579,7 @@ POSTGRES_PASSWORD=${var.aurora_master_password}
 POSTGRES_DATABASE=${var.aurora_database_name}
 ECR_REPOSITORY_URL=${aws_ecr_repository.clickhouse.repository_url}
 AWS_REGION=${var.aws_region}
-CLICKHOUSE_DATA_DEVICE=/dev/xvdf
+CLICKHOUSE_DATA_DEVICE=/dev/nvme1n1
 ENVEOF
 EOF
 
