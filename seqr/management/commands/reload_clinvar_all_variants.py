@@ -1,6 +1,7 @@
 import gzip
 import logging
 import requests
+import time
 import xml
 import defusedxml.ElementTree as ET
 from django.db import connections
@@ -327,6 +328,12 @@ class Command(BaseCommand):
         source = self._resolve_file_source(options.get('file'))
         gzipped_file, cleanup = self._open_file(source)
 
+        variants_processed = 0
+        variants_inserted = {model: 0 for model in model_to_batch}
+        start_time = time.time()
+        last_log_time = start_time
+        LOG_INTERVAL = 10000  # Log progress every N variants
+
         try:
             for event, elem in ET.iterparse(gzipped_file, events=('start', 'end')):
                 # Handle parsing the current date.
@@ -356,8 +363,20 @@ class Command(BaseCommand):
                                 batch.append(obj)
                                 if len(batch) == BATCH_SIZE:
                                     model.objects.using('clickhouse_write').bulk_create(batch)
+                                    variants_inserted[model] += BATCH_SIZE
                                     batch.clear()
                     elem.clear()
+                    variants_processed += 1
+                    if variants_processed % LOG_INTERVAL == 0:
+                        elapsed = time.time() - start_time
+                        rate = variants_processed / elapsed if elapsed > 0 else 0
+                        inserted_summary = ', '.join(
+                            f'{model.__name__}: {count}' for model, count in variants_inserted.items() if count > 0
+                        )
+                        logger.info(
+                            f'Progress: {variants_processed:,} variants processed in {elapsed:.0f}s '
+                            f'({rate:.0f}/s). Inserted: {inserted_summary or "0"}'
+                        )
         finally:
             gzipped_file.close()
             cleanup()
@@ -365,6 +384,16 @@ class Command(BaseCommand):
         for model, batch in model_to_batch.items():
             if batch:
                 model.objects.using('clickhouse_write').bulk_create(batch)
+                variants_inserted[model] += len(batch)
+
+        elapsed = time.time() - start_time
+        inserted_summary = ', '.join(
+            f'{model.__name__}: {count:,}' for model, count in variants_inserted.items()
+        )
+        logger.info(
+            f'Parsing complete: {variants_processed:,} variants processed in {elapsed:.0f}s. '
+            f'Inserted: {inserted_summary}'
+        )
 
         # Delete previous version & refresh the view.
         if existing_version_obj:
