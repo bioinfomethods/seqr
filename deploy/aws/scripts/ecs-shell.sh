@@ -15,9 +15,27 @@
 
 set -euo pipefail
 
-CLUSTER="${1:-}"
-SERVICE="${2:-}"
-SHELL_CMD="${3:-/bin/bash}"
+# Parse --command flag for running a specific command instead of interactive shell
+SHELL_CMD="/bin/bash"
+CLUSTER=""
+SERVICE=""
+POSITIONAL=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -c|--command)
+      SHELL_CMD="$2"
+      shift 2
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+
+CLUSTER="${POSITIONAL[0]:-}"
+SERVICE="${POSITIONAL[1]:-}"
 REGION="${AWS_DEFAULT_REGION:-ap-southeast-2}"
 
 echo "==> Discovering ECS resources in region ${REGION}..."
