@@ -22,6 +22,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_SKIP_USER_SETUP=1
+      - PGSSLMODE=require
     volumes:
       - /var/lib/clickhouse:/var/lib/clickhouse
       - /var/lib/clickhouse/user_files/seqr-data/in-memory:/var/lib/clickhouse/user_files/seqr-data/in-memory
