@@ -30,3 +30,7 @@ services:
       - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml
       - ./config/init-permissions.sql:/docker-entrypoint-initdb.d/init-permissions.sql
+      # libpq inside ClickHouse runs as root and tries to load /root/.postgresql/postgresql.crt
+      # for client certificate auth. Mount an empty directory to prevent "Permission denied" errors
+      # and let PGSSLMODE=require handle SSL without client certificates.
+      - ./config/empty-pgcerts:/root/.postgresql

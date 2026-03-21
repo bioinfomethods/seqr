@@ -85,6 +85,13 @@ if [ -f "$NAMED_COLLECTIONS" ]; then
     echo "  ✓ Named collection configured (host=${POSTGRES_HOST:-postgres}, port=${POSTGRES_PORT:-5432})"
 fi
 
+# --- Prepare empty PostgreSQL certificate directory ---
+# libpq inside ClickHouse runs as root and tries to load /root/.postgresql/postgresql.crt
+# for client certificate auth. Create an empty directory so the mount succeeds and
+# PGSSLMODE=require handles SSL without client certificates.
+mkdir -p "${CLICKHOUSE_DIR}/config/empty-pgcerts"
+chmod 755 "${CLICKHOUSE_DIR}/config/empty-pgcerts"
+
 # --- Start ClickHouse ---
 echo "Starting Clickhouse via docker compose..."
 cd "$CLICKHOUSE_DIR"
