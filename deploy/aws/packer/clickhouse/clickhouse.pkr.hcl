@@ -91,6 +91,20 @@ build {
     ]
   }
 
+  # Install clickhouse-backup utility
+  provisioner "shell" {
+    inline = [
+      "echo 'Installing clickhouse-backup...'",
+      "CLICKHOUSE_BACKUP_VERSION=$(curl -s https://api.github.com/repos/Altinity/clickhouse-backup/releases/latest | grep tag_name | cut -d '\"' -f 4 | sed 's/^v//')",
+      "curl -fsSL -o /tmp/clickhouse-backup.tar.gz https://github.com/Altinity/clickhouse-backup/releases/download/v$${CLICKHOUSE_BACKUP_VERSION}/clickhouse-backup-linux-amd64.tar.gz",
+      "tar xzf /tmp/clickhouse-backup.tar.gz -C /tmp",
+      "sudo mv /tmp/build/linux/amd64/clickhouse-backup /usr/local/bin/",
+      "sudo chmod +x /usr/local/bin/clickhouse-backup",
+      "clickhouse-backup --version",
+      "rm -rf /tmp/clickhouse-backup.tar.gz /tmp/build",
+    ]
+  }
+
   # Create directory structure
   provisioner "shell" {
     inline = [
