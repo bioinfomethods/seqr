@@ -78,7 +78,9 @@ Internet → ALB (port 80/443) → ECS Fargate Service (port 8000) → Aurora Po
 - [x] ECS Exec enabled for interactive shell access (`enable_execute_command = true`)
 - [x] SSM Messages VPC endpoint for ECS Exec in private subnets
 - [x] SSM permissions on task role (`ssmmessages:*`)
+- [x] SSM Session Manager idle timeout set to 60 minutes (default 20 is too short for debugging/management commands)
 - [x] Convenience script: `deploy/aws/scripts/ecs-shell.sh`
+- [x] Convenience script: `deploy/aws/scripts/ecs-run.sh` (runs commands detached via nohup for long-running tasks)
 
 ### Step 9: Variables
 - [x] `seqr_web_desired_count` (default: 1)

@@ -14,6 +14,27 @@ resource "aws_ecs_cluster" "seqr" {
   }
 }
 
+# SSM Session Manager preferences - increase idle timeout for ECS Exec sessions
+# (default is 20 minutes, which is too short for long-running management commands)
+resource "aws_ssm_document" "session_manager_prefs" {
+  name            = "SSM-SessionManagerRunShell"
+  document_type   = "Session"
+  document_format = "JSON"
+
+  content = jsonencode({
+    schemaVersion = "1.0"
+    description   = "Session Manager Preferences"
+    sessionType   = "Standard_Stream"
+    inputs = {
+      idleSessionTimeout = "60"
+    }
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-ssm-session-prefs"
+  }
+}
+
 # =============================================================================
 # Step 2: IAM Roles
 # =============================================================================
