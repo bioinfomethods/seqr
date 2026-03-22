@@ -49,4 +49,9 @@
     <max_partition_size_to_drop>0</max_partition_size_to_drop>
 
     <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
+
+    <!-- Use EC2 instance profile (IAM role) credentials for S3 access -->
+    <s3>
+        <use_environment_credentials>true</use_environment_credentials>
+    </s3>
 </clickhouse>
