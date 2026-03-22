@@ -5,17 +5,34 @@
 --        project_gt_stats → gt_stats → transcripts → key_lookup → annotations → other
 
 -- 1. Materialized views (depend on source/target tables)
+-- Clinvar all_variants_to_clinvar MVs (legacy name)
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/clinvar_all_variants_to_clinvar_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/clinvar_all_variants_to_clinvar_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/clinvar_all_variants_to_clinvar_mv` SYNC;
+-- Clinvar all_variants_to_seqr_variants MVs
+DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/reference_data/clinvar/all_variants_to_seqr_variants_mv` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/reference_data/clinvar/all_variants_to_seqr_variants_mv` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/MITO/reference_data/clinvar/all_variants_to_seqr_variants_mv` SYNC;
+-- Clinvar seqr_variants_to_search MVs
+DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/reference_data/clinvar/seqr_variants_to_search_mv` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/reference_data/clinvar/seqr_variants_to_search_mv` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/MITO/reference_data/clinvar/seqr_variants_to_search_mv` SYNC;
+-- Entries to project_gt_stats MVs
+DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/entries_to_project_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/entries_to_project_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/entries_to_project_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SV/entries_to_project_gt_stats_mv` SYNC;
+-- Project_gt_stats to gt_stats MVs
+DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/project_gt_stats_to_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/project_gt_stats_to_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/project_gt_stats_to_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SV/project_gt_stats_to_gt_stats_mv` SYNC;
 
 -- 2. Join tables (clinvar joins depend on entries)
+DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/reference_data/clinvar` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/reference_data/clinvar` SYNC;
+DROP TABLE IF EXISTS seqr.`GRCh38/MITO/reference_data/clinvar` SYNC;
+-- Legacy clinvar join table names (in case they exist)
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/clinvar` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/clinvar` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/clinvar` SYNC;
@@ -85,10 +102,13 @@ DROP TABLE IF EXISTS seqr.`GRCh38/GCNV/annotations_memory` SYNC;
 -- 11. Project partitions
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/project_partitions` SYNC;
 
--- 12. Django migrations (so migrate will re-create everything cleanly)
+-- 12. Gene IDs lookup table
+DROP TABLE IF EXISTS seqr.seqrdb_gene_ids SYNC;
+
+-- 13. Django migrations (so migrate will re-create everything cleanly)
 DROP TABLE IF EXISTS seqr.django_migrations SYNC;
 
--- 13. Any remaining tables with known names
+-- 14. Any remaining tables with known names
 DROP TABLE IF EXISTS seqr.seqrdb_affected_status_dict SYNC;
 
 SELECT 'All seqr tables dropped successfully.' AS status;
