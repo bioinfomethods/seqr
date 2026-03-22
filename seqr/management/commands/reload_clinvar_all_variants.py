@@ -14,12 +14,58 @@ from string import Template
 import tempfile
 from typing import Optional, Union
 
+class SkipVariantError(Exception):
+    """Raised when a variant should be skipped due to un-enumerated values."""
+    pass
+
 from clickhouse_backend import models
 from clickhouse_search.models import ClinvarAllVariantsGRCh37SnvIndel, ClinvarAllVariantsSnvIndel, ClinvarAllVariantsMito
 from reference_data.models import DataVersions
 from seqr.utils.communication_utils import safe_post_to_slack
 
 logger = logging.getLogger(__name__)
+
+class MissingEnumTracker:
+    """Tracks un-enumerated values encountered during parsing, so we can skip
+    variants and report all missing values at the end instead of failing on the first one."""
+
+    def __init__(self):
+        # {category: {value: count}}
+        self._missing = defaultdict(lambda: defaultdict(int))
+
+    def record(self, category: str, value: str):
+        self._missing[category][value] += 1
+
+    @property
+    def has_missing(self):
+        return bool(self._missing)
+
+    def summary_table(self) -> str:
+        lines = []
+        lines.append('')
+        lines.append('=' * 72)
+        lines.append('MISSING ENUM VALUES SUMMARY')
+        lines.append('=' * 72)
+        for category in sorted(self._missing):
+            lines.append(f'\n  Category: {category}')
+            lines.append(f'  {"Value":<55} {"Count":>8}')
+            lines.append(f'  {"-" * 55} {"-" * 8}')
+            for value, count in sorted(self._missing[category].items(), key=lambda x: -x[1]):
+                lines.append(f'  {value:<55} {count:>8}')
+        lines.append('')
+        lines.append('=' * 72)
+        total_skipped = sum(
+            sum(counts.values()) for counts in self._missing.values()
+        )
+        lines.append(f'Total variant-level skips caused by missing enums: see counts above')
+        lines.append('(A single variant may have multiple missing values but is only skipped once)')
+        lines.append('=' * 72)
+        return '\n'.join(lines)
+
+
+# Module-level tracker instance, reset at the start of each command run
+missing_enum_tracker = MissingEnumTracker()
+
 
 def replace_underscores_with_spaces(value: Union[str, list[str]]) -> Union[str, list[str]]:
     if isinstance(value, str):
@@ -147,7 +193,8 @@ def parse_pathogenicity_and_assertions(classified_record_node: xml.etree.Element
     enumerated_assertions = set(CLINVAR_ASSERTIONS)
     for assertion in assertions:
         if assertion not in enumerated_assertions:
-            raise CommandError(f'Found an un-enumerated clinvar assertion: {assertion}')
+            missing_enum_tracker.record('assertion', assertion)
+            raise SkipVariantError(f'Un-enumerated clinvar assertion: {assertion}')
 
     return pathogenicity, assertions
 
@@ -173,7 +220,8 @@ def parse_conflicting_pathogenicities(
     enumerated_pathogenicities = set(CLINVAR_PATHOGENICITIES)
     for (pathogenicity, _) in conflicting_pathogenicities:
         if pathogenicity not in enumerated_pathogenicities:
-            raise CommandError(f'Found an un-enumerated conflicting pathogenicity: {pathogenicity}')
+            missing_enum_tracker.record('conflicting_pathogenicity', pathogenicity)
+            raise SkipVariantError(f'Un-enumerated conflicting pathogenicity: {pathogenicity}')
     return conflicting_pathogenicities
 
 def parse_gold_stars(classified_record_node: xml) -> Optional[int]:
@@ -184,7 +232,8 @@ def parse_gold_stars(classified_record_node: xml) -> Optional[int]:
     if review_status_node is None:
         return None
     if review_status_node.text not in CLINVAR_GOLD_STARS_LOOKUP:
-        raise CommandError(f'Found unexpected review status {review_status_node.text}')
+        missing_enum_tracker.record('review_status', review_status_node.text)
+        raise SkipVariantError(f'Unexpected review status: {review_status_node.text}')
     return CLINVAR_GOLD_STARS_LOOKUP[review_status_node.text]
 
 def parse_submitters_and_conditions(classified_record_node: xml) -> [list[str], list[str]]:
@@ -201,22 +250,26 @@ def parse_submitters_and_conditions(classified_record_node: xml) -> [list[str], 
     })
     return submitters, conditions
 
-def extract_variant_info(elem: xml.etree.ElementTree.Element, new_version: str) -> tuple[models.ClickhouseModel, models.ClickhouseModel, models.ClickhouseModel]:
+def extract_variant_info(elem: xml.etree.ElementTree.Element, new_version: str):
     # Cannot use regular bool-falseyness here, as:
     # "An element with no child elements (even if it exists and has text) will be falsey."
     classified_record_node = elem.find('ClassifiedRecord')
     if classified_record_node is None:
-        return None, None, None
+        return
     allele_id = parse_allele_id(classified_record_node)
     if allele_id is None: # Don't skip allele id of 0!
-        return None, None, None
+        return
     positions = parse_positions(classified_record_node)
     if not positions:
-        return None, None, None
+        return
 
-    pathogenicity, assertions = parse_pathogenicity_and_assertions(classified_record_node)
-    conflicting_pathogenicities = parse_conflicting_pathogenicities(classified_record_node, pathogenicity)
-    gold_stars = parse_gold_stars(classified_record_node)
+    try:
+        pathogenicity, assertions = parse_pathogenicity_and_assertions(classified_record_node)
+        conflicting_pathogenicities = parse_conflicting_pathogenicities(classified_record_node, pathogenicity)
+        gold_stars = parse_gold_stars(classified_record_node)
+    except SkipVariantError:
+        return
+
     submitters, conditions = parse_submitters_and_conditions(classified_record_node)
     # Note: this manipulation to an enumerated pathogenicty happens after we parse conflicting pathogenicities.
     # We need the original string to conditionally parse from a different XML location.
@@ -325,6 +378,9 @@ class Command(BaseCommand):
         return gzip.open(tmpfile_path, 'rb'), lambda: shutil.rmtree(tmpdir, ignore_errors=True)
 
     def handle(self, *args, **options):
+        global missing_enum_tracker
+        missing_enum_tracker = MissingEnumTracker()
+
         model_to_batch = {
             ClinvarAllVariantsGRCh37SnvIndel: [],
             ClinvarAllVariantsSnvIndel: [],
@@ -428,3 +484,8 @@ class Command(BaseCommand):
             )
         slack_message = f'Successfully updated Clinvar ClickHouse tables to {new_version}.'
         safe_post_to_slack(SEQR_SLACK_DATA_ALERTS_NOTIFICATION_CHANNEL, slack_message)
+
+        if missing_enum_tracker.has_missing:
+            summary = missing_enum_tracker.summary_table()
+            logger.warning(summary)
+            self.stderr.write(self.style.WARNING(summary))
