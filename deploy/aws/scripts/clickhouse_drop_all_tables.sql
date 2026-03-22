@@ -38,7 +38,8 @@ DROP TABLE IF EXISTS seqr.`GRCh38/MITO/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SV/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/GCNV/entries` SYNC;
 
--- 5. Dictionaries (now safe to drop after entries that depend on them)
+-- 5. Dictionaries (must be dropped after entries but before gt_stats)
+DROP DICTIONARY IF EXISTS seqr.`GRCh37/SNV_INDEL/gt_stats_dict`;
 DROP DICTIONARY IF EXISTS seqr.`GRCh38/SNV_INDEL/gt_stats_dict`;
 DROP DICTIONARY IF EXISTS seqr.`GRCh38/MITO/gt_stats_dict`;
 DROP DICTIONARY IF EXISTS seqr.`GRCh38/SV/gt_stats_dict`;
