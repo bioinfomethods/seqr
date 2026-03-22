@@ -102,8 +102,8 @@ DROP TABLE IF EXISTS seqr.`GRCh38/GCNV/annotations_memory` SYNC;
 -- 11. Project partitions
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/project_partitions` SYNC;
 
--- 12. Gene IDs lookup table
-DROP TABLE IF EXISTS seqr.seqrdb_gene_ids SYNC;
+-- 12. Gene IDs dictionary
+DROP DICTIONARY IF EXISTS seqr.seqrdb_gene_ids;
 
 -- 13. Django migrations (so migrate will re-create everything cleanly)
 DROP TABLE IF EXISTS seqr.django_migrations SYNC;
