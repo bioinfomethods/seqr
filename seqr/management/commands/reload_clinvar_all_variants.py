@@ -136,6 +136,14 @@ def parse_pathogenicity_and_assertions(classified_record_node: xml.etree.Element
         pathogenicity = CLINVAR_DEFAULT_PATHOGENICITY
         assertions = [a.strip() for a in pathogenicity_string.split(';')]
 
+    # Normalize "Uncertain significance/VUS-*" to just "VUS-*"
+    # ClinVar sometimes qualifies VUS sub-classifications with the redundant
+    # "Uncertain significance/" prefix which isn't in our enum.
+    assertions = [
+        a.replace('Uncertain significance/', '') if a.startswith('Uncertain significance/VUS-') else a
+        for a in assertions
+    ]
+
     enumerated_assertions = set(CLINVAR_ASSERTIONS)
     for assertion in assertions:
         if assertion not in enumerated_assertions:
