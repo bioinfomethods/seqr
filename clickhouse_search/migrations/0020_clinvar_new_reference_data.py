@@ -161,6 +161,9 @@ class Migration(migrations.Migration):
                                 (9, "risk_factor"),
                                 (10, "no_classification_for_the_single_variant"),
                                 (11, "no_classifications_from_unflagged_records"),
+                                (12, "VUS-low"),
+                                (13, "VUS-mid"),
+                                (14, "VUS-high"),
                             ]
                         )
                     ),
@@ -302,6 +305,9 @@ class Migration(migrations.Migration):
                                 (9, "risk_factor"),
                                 (10, "no_classification_for_the_single_variant"),
                                 (11, "no_classifications_from_unflagged_records"),
+                                (12, "VUS-low"),
+                                (13, "VUS-mid"),
+                                (14, "VUS-high"),
                             ]
                         )
                     ),
@@ -443,6 +449,9 @@ class Migration(migrations.Migration):
                                 (9, "risk_factor"),
                                 (10, "no_classification_for_the_single_variant"),
                                 (11, "no_classifications_from_unflagged_records"),
+                                (12, "VUS-low"),
+                                (13, "VUS-mid"),
+                                (14, "VUS-high"),
                             ]
                         )
                     ),
