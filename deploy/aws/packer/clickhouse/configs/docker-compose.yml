@@ -25,7 +25,6 @@ services:
       - PGSSLMODE=require
     volumes:
       - /var/lib/clickhouse:/var/lib/clickhouse
-      - /var/lib/clickhouse/user_files/seqr-data/in-memory:/var/lib/clickhouse/user_files/seqr-data/in-memory
       - ./config/config.xml:/etc/clickhouse-server/config.d/config.xml
       - ./config/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml

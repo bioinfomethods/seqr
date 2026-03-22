@@ -92,6 +92,20 @@ fi
 mkdir -p "${CLICKHOUSE_DIR}/config/empty-pgcerts"
 chmod 755 "${CLICKHOUSE_DIR}/config/empty-pgcerts"
 
+# --- Create intermediate directories for RocksDB tables ---
+# RocksDB's "mkdir if missing" only creates the leaf directory,
+# so intermediate paths must exist beforehand.
+echo "Creating RocksDB parent directories..."
+SEQR_DATA_DIR="$MOUNT_POINT/user_files/seqr-data"
+for GENOME in GRCh37 GRCh38; do
+    for DATASET in SNV_INDEL MITO SV GCNV; do
+        mkdir -p "$SEQR_DATA_DIR/$GENOME/$DATASET"
+        mkdir -p "$SEQR_DATA_DIR/in-memory/$GENOME/$DATASET"
+    done
+done
+chown -R 101:101 "$SEQR_DATA_DIR"
+echo "  ✓ RocksDB parent directories created"
+
 # --- Start ClickHouse ---
 echo "Starting Clickhouse via docker compose..."
 cd "$CLICKHOUSE_DIR"
