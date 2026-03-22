@@ -23,6 +23,7 @@ services:
       - CLICKHOUSE_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_SKIP_USER_SETUP=1
       - PGSSLMODE=require
+      - PGSSLCERT=/tmp/postgresql.crt
     volumes:
       - /var/lib/clickhouse:/var/lib/clickhouse
       - ./config/config.xml:/etc/clickhouse-server/config.d/config.xml
