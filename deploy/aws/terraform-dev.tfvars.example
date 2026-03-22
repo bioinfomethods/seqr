@@ -9,8 +9,12 @@ cost_centre = "CM60607"     # Change to your cost centre
 
 # Networking
 # vpc_id = ""                      # Leave empty to use default VPC
-subnet_cidr_az1 = "172.31.254.0/28"   # /28 = 16 IP addresses in AZ1
-subnet_cidr_az2 = "172.31.254.16/28"  # /28 = 16 IP addresses in AZ2
+#subnet_cidr_az1 = "172.31.254.0/28"   # /28 = 16 IP addresses in AZ1
+#subnet_cidr_az2 = "172.31.254.16/28"  # /28 = 16 IP addresses in AZ2
+
+subnet_cidr_az1 = "172.31.252.0/24"
+subnet_cidr_az2 = "172.31.253.0/24"
+
 allowed_ssh_cidrs = [
   "0.0.0.0/0"                         # CHANGE THIS: Restrict to your IP range
 ]
@@ -29,7 +33,13 @@ aurora_backup_retention_period  = 7
 aurora_skip_final_snapshot      = true  # Set to false for production
 
 # Clickhouse EC2
-clickhouse_instance_type = "t3.medium"
+clickhouse_instance_type = "t3.large"
 # clickhouse_ami_id      = ""    # Leave empty to use latest Amazon Linux 2023
-clickhouse_volume_size   = 100
+#clickhouse_volume_size   = 100
 clickhouse_key_name      = "id_ed25519_mcri_aws"
+
+clickhouse_root_volume_size = 30                                                                                                                                                                                                                                                                                          
+clickhouse_data_volume_size = 100  
+
+# Add additional trusted origins eg: for development, port forwarding etc
+csrf_extra_trusted_origins = "http://localhost:8167"
