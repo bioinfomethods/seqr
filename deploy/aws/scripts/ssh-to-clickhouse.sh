@@ -49,6 +49,15 @@ if [ -d ~/.terminfo ]; then
   echo ""
 fi
 
+echo
+echo "Adding key to agent ...."
+echo
+ssh-add ~/.ssh/id_ed25519_mcri_aws
+
+echo
+echo "NOTE: make sure you have the SSH agent running ..."
+echo
+
 echo "Connecting to Clickhouse instance..."
 echo "  Bastion: ${BASTION_IP}"
 echo "  Clickhouse: ${CLICKHOUSE_IP}"
@@ -56,11 +65,11 @@ echo "  Key: ~/.ssh/${KEY_NAME}"
 echo ""
 
 # SSH to Clickhouse via bastion jump host
-ssh -o StrictHostKeyChecking=no \
+ssh -A -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -i ~/.ssh/${KEY_NAME} \
     -J ec2-user@${BASTION_IP} \
-    ec2-user@${CLICKHOUSE_IP}
+    ec2-user@${CLICKHOUSE_IP} || echo "Failed to SSH - make sure you started the SSH agent"
 
 echo "Done"
 
