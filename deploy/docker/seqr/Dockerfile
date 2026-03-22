@@ -53,6 +53,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     curl \
+    groff \
     htop \
     less \
     libpq-dev \
@@ -67,6 +68,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/venv /opt/venv
+
+# Install AWS CLI (useful for S3 access to data files from ECS tasks)
+RUN pip install --no-cache-dir awscli
 
 # Pre-download liftover chain file for offline environments (e.g., AWS Fargate)
 RUN mkdir -p /data/liftover && \
