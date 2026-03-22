@@ -448,6 +448,29 @@ resource "aws_iam_role" "clickhouse" {
   }
 }
 
+# IAM policy for S3 read access (Parquet import, reference data, etc.)
+resource "aws_iam_role_policy" "clickhouse_s3_read" {
+  name = "${local.name_prefix}-clickhouse-s3-read-policy"
+  role = aws_iam_role.clickhouse.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.seqr_data.arn,
+          "${aws_s3_bucket.seqr_data.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # IAM policy for ECR access
 resource "aws_iam_role_policy" "clickhouse_ecr" {
   name = "${local.name_prefix}-clickhouse-ecr-policy"
