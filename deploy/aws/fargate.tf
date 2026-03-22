@@ -123,9 +123,9 @@ resource "aws_iam_role_policy" "ecs_task_exec_command" {
   })
 }
 
-# S3 read access for seqr data bucket (ClinVar files, variant datasets, etc.)
-resource "aws_iam_role_policy" "ecs_task_s3_read" {
-  name = "${local.name_prefix}-ecs-s3-read-policy"
+# S3 read/write access for seqr data bucket (ClinVar files, variant datasets, exports, etc.)
+resource "aws_iam_role_policy" "ecs_task_s3" {
+  name = "${local.name_prefix}-ecs-s3-policy"
   role = aws_iam_role.ecs_task.id
 
   policy = jsonencode({
@@ -135,6 +135,8 @@ resource "aws_iam_role_policy" "ecs_task_s3_read" {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
           "s3:ListBucket"
         ]
         Resource = [
