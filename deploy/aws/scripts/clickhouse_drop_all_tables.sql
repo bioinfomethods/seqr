@@ -15,19 +15,12 @@ DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/project_gt_stats_to_gt_stats_mv` SYN
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/project_gt_stats_to_gt_stats_mv` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SV/project_gt_stats_to_gt_stats_mv` SYNC;
 
--- 2. Dictionaries
-DROP DICTIONARY IF EXISTS seqr.`GRCh38/SNV_INDEL/gt_stats_dict`;
-DROP DICTIONARY IF EXISTS seqr.`GRCh38/MITO/gt_stats_dict`;
-DROP DICTIONARY IF EXISTS seqr.`GRCh38/SV/gt_stats_dict`;
-DROP DICTIONARY IF EXISTS seqr.`GRCh38/SNV_INDEL/project_partitions_dict`;
-DROP DICTIONARY IF EXISTS seqr.seqrdb_affected_status_dict;
-
--- 3. Join tables (clinvar joins depend on entries)
+-- 2. Join tables (clinvar joins depend on entries)
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/clinvar` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/clinvar` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/clinvar` SYNC;
 
--- 4. Clinvar all_variants and seqr_variants
+-- 3. Clinvar all_variants and seqr_variants
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/clinvar_all_variants` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/clinvar_all_variants` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/clinvar_all_variants` SYNC;
@@ -38,12 +31,20 @@ DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/reference_data/clinvar/all_variants`
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/reference_data/clinvar/all_variants` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/reference_data/clinvar/all_variants` SYNC;
 
--- 5. Entries
+-- 4. Entries (must be dropped before dictionaries they reference)
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SNV_INDEL/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/MITO/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/SV/entries` SYNC;
 DROP TABLE IF EXISTS seqr.`GRCh38/GCNV/entries` SYNC;
+
+-- 5. Dictionaries (now safe to drop after entries that depend on them)
+DROP DICTIONARY IF EXISTS seqr.`GRCh38/SNV_INDEL/gt_stats_dict`;
+DROP DICTIONARY IF EXISTS seqr.`GRCh38/MITO/gt_stats_dict`;
+DROP DICTIONARY IF EXISTS seqr.`GRCh38/SV/gt_stats_dict`;
+DROP DICTIONARY IF EXISTS seqr.`GRCh38/SNV_INDEL/project_partitions_dict`;
+DROP DICTIONARY IF EXISTS seqr.seqrdb_affected_status_dict;
+DROP DICTIONARY IF EXISTS seqr.seqrdb_sex_dict;
 
 -- 6. Project GT stats
 DROP TABLE IF EXISTS seqr.`GRCh37/SNV_INDEL/project_gt_stats` SYNC;
