@@ -24,6 +24,11 @@ class Command(BaseCommand):
             '--mapping-file',
             help='Path to a file mapping sample IDs to individual IDs (two columns, tab-separated)'
         )
+        parser.add_argument(
+            '--skip-notifications',
+            action='store_true',
+            help='Skip sending email/Slack notifications after registration'
+        )
 
     def handle(self, *args, **options):
         project_guid = options['project_guid']
@@ -200,8 +205,11 @@ class Command(BaseCommand):
             )
 
         # Send notification
-        basic_notify_search_data_loaded(
-            project, dataset_type, sample_type, new_samples.values_list('sample_id', flat=True)
-        )
+        if options['skip_notifications']:
+            self.stdout.write('Skipping notifications (--skip-notifications)')
+        else:
+            basic_notify_search_data_loaded(
+                project, dataset_type, sample_type, new_samples.values_list('sample_id', flat=True)
+            )
 
         self.stdout.write(self.style.SUCCESS('\nDataset registration complete!'))
