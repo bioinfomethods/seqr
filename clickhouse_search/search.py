@@ -90,7 +90,13 @@ def get_clickhouse_variants(samples, search, user, previous_search_results, geno
     ):
         results += _get_multi_data_type_comp_het_results(genome_version, samples, sample_data_by_dataset_type, user, exclude_key_pairs, **search)
 
-    cache_results = get_clickhouse_cache_results(results, sort, family_guid)
+    try:
+        cache_results = get_clickhouse_cache_results(results, sort, family_guid)
+    except Exception as e:
+        import traceback
+        logger.error(f'get_clickhouse_variants: ERROR in cache_results/sorting: {type(e).__name__}: {e}', user)
+        logger.error(f'get_clickhouse_variants: traceback: {traceback.format_exc()}', user)
+        raise
     previous_search_results.update(cache_results)
 
     logger.info(f'Total results: {cache_results["total_results"]}', user)
@@ -125,9 +131,15 @@ def _get_search_results(*args, skip_entry_fields=False, order_by=None, **search_
         logger.info(f'_get_search_results: result_values SQL: {result_values.query}', None)
     except Exception as e:
         logger.info(f'_get_search_results: result_values SQL (error rendering): {e}', None)
-    evaluated = _evaluate_results(result_values)
-    logger.info(f'_get_search_results: returned {len(evaluated)} results', None)
-    return evaluated
+    try:
+        evaluated = _evaluate_results(result_values)
+        logger.info(f'_get_search_results: returned {len(evaluated)} results', None)
+        return evaluated
+    except Exception as e:
+        import traceback
+        logger.error(f'_get_search_results: ERROR during query evaluation: {type(e).__name__}: {e}', None)
+        logger.error(f'_get_search_results: traceback: {traceback.format_exc()}', None)
+        raise
 
 
 def _evaluate_results(result_q, is_comp_het=False):
