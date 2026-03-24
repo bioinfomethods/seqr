@@ -356,7 +356,7 @@ resource "aws_ecs_task_definition" "seqr_web" {
         # corsheaders/hijack packages that may not be in the production image.
         # TODO: Add HTTPS via ACM certificate + Route53, then switch to "prod".
         { name = "DEPLOYMENT_TYPE", value = "dev" },
-        { name = "BASE_URL", value = "http://${aws_lb.seqr.dns_name}" },
+        { name = "BASE_URL", value = var.base_url != "" ? var.base_url : "http://${aws_lb.seqr.dns_name}" },
         { name = "CSRF_EXTRA_TRUSTED_ORIGINS", value = var.csrf_extra_trusted_origins },
       ]
 

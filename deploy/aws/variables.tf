@@ -145,6 +145,12 @@ variable "seqr_web_image_tag" {
   default     = "latest"
 }
 
+variable "base_url" {
+  description = "Base URL for the seqr application (e.g., https://seqrtest.mcri.edu.au). If empty, defaults to the ALB DNS name."
+  type        = string
+  default     = ""
+}
+
 variable "csrf_extra_trusted_origins" {
   description = "Comma-separated list of additional CSRF trusted origins (e.g., http://localhost:8167 for port-forwarded access)"
   type        = string
