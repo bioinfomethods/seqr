@@ -30,6 +30,10 @@ SELECTED_TRANSCRIPT_FIELD = 'selectedTranscript'
 
 
 def get_clickhouse_variants(samples, search, user, previous_search_results, genome_version,page=1, num_results=100, sort=None, **kwargs):
+    logger.info(f'get_clickhouse_variants called: genome_version={genome_version}, page={page}, num_results={num_results}, sort={sort}', user)
+    logger.info(f'  samples queryset count: {samples.count()}', user)
+    logger.info(f'  sample details: {list(samples.values_list("id", "sample_id", "sample_type", "dataset_type", "is_active", "individual__family__guid"))}', user)
+    logger.info(f'  search params: {search}', user)
     inheritance_mode = search.get('inheritance_mode')
     has_comp_het = inheritance_mode in {RECESSIVE, COMPOUND_HET}
     has_x_chrom_comp_het = has_comp_het and _is_x_chrom_only(genome_version, **search)
@@ -39,6 +43,9 @@ def get_clickhouse_variants(samples, search, user, previous_search_results, geno
         skip_multi_project_individual_guid=True,
         annotate_affected_males=has_x_chrom_comp_het or has_x_linked,
     )
+    logger.info(f'  sample_data_by_dataset_type keys: {list(sample_data_by_dataset_type.keys())}', user)
+    for dt, sd in sample_data_by_dataset_type.items():
+        logger.info(f'    dataset_type={dt}: num_families={sd.get("num_families")}, sample_type_families={sd.get("sample_type_families")}', user)
     results = []
     family_guid = None
     exclude_keys = search.pop('exclude_keys', None) or {}
@@ -93,15 +100,34 @@ def get_clickhouse_variants(samples, search, user, previous_search_results, geno
 def get_search_queryset(genome_version, dataset_type, sample_data, **search_kwargs):
     entry_cls = ENTRY_CLASS_MAP[genome_version][dataset_type]
     annotations_cls = ANNOTATIONS_CLASS_MAP[genome_version][dataset_type]
+    logger.info(f'get_search_queryset: genome_version={genome_version}, dataset_type={dataset_type}', None)
+    logger.info(f'  entry_cls={entry_cls.__name__} (table={entry_cls._meta.db_table})', None)
+    logger.info(f'  annotations_cls={annotations_cls.__name__} (table={annotations_cls._meta.db_table})', None)
     entries = entry_cls.objects.search(sample_data, **search_kwargs)
-    return annotations_cls.objects.subquery_join(entries).search(**search_kwargs)
+    try:
+        logger.info(f'  entries SQL: {entries.query}', None)
+    except Exception as e:
+        logger.info(f'  entries SQL (error rendering): {e}', None)
+    result = annotations_cls.objects.subquery_join(entries).search(**search_kwargs)
+    try:
+        logger.info(f'  final SQL: {result.query}', None)
+    except Exception as e:
+        logger.info(f'  final SQL (error rendering): {e}', None)
+    return result
 
 
 def _get_search_results(*args, skip_entry_fields=False, order_by=None, **search_kwargs):
     results = get_search_queryset(*args, skip_entry_fields=skip_entry_fields, **search_kwargs)
     if order_by:
         results = results.order_by(order_by)
-    return _evaluate_results(results.result_values(skip_entry_fields=skip_entry_fields))
+    result_values = results.result_values(skip_entry_fields=skip_entry_fields)
+    try:
+        logger.info(f'_get_search_results: result_values SQL: {result_values.query}', None)
+    except Exception as e:
+        logger.info(f'_get_search_results: result_values SQL (error rendering): {e}', None)
+    evaluated = _evaluate_results(result_values)
+    logger.info(f'_get_search_results: returned {len(evaluated)} results', None)
+    return evaluated
 
 
 def _evaluate_results(result_q, is_comp_het=False):
