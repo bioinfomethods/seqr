@@ -151,10 +151,10 @@ variable "base_url" {
   default     = ""
 }
 
-variable "csrf_extra_trusted_origins" {
-  description = "Comma-separated list of additional CSRF trusted origins (e.g., http://localhost:8167 for port-forwarded access)"
-  type        = string
-  default     = ""
+variable "additional_trusted_origins" {
+  description = "List of additional CSRF trusted origins beyond the base_url (e.g., for port-forwarded access or alternative hostnames)"
+  type        = list(string)
+  default     = []
 }
 
 
