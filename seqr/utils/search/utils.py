@@ -76,7 +76,7 @@ def backend_specific_call(es_func, clickhouse_func):
 def ping_search_backend():
     # Clickhouse backend does not need special uptime testing, will be checked with the other database connection pings
     from settings import ELASTICSEARCH_SERVICE_HOSTNAME
-    logger.info(f'ping_search_backend: ELASTICSEARCH_SERVICE_HOSTNAME={ELASTICSEARCH_SERVICE_HOSTNAME}, es_backend_enabled={es_backend_enabled()}')
+    logger.info(f'ping_search_backend: ELASTICSEARCH_SERVICE_HOSTNAME={ELASTICSEARCH_SERVICE_HOSTNAME}, es_backend_enabled={es_backend_enabled()}', None)
     backend_specific_call(ping_elasticsearch, lambda: None)()
 
 
@@ -88,12 +88,12 @@ def _get_filtered_search_samples(search_filter, active_only=True):
     samples = Sample.objects.filter(**search_filter)
     if active_only:
         samples = samples.filter(is_active=True)
-    logger.info(f'_get_filtered_search_samples: filter={search_filter}, active_only={active_only}, count={samples.count()}')
+    logger.info(f'_get_filtered_search_samples: filter={search_filter}, active_only={active_only}, count={samples.count()}', None)
     if samples.count() == 0:
         all_samples = Sample.objects.filter(**{k: v for k, v in search_filter.items() if k != 'is_active'})
-        logger.info(f'  WARNING: 0 active samples found. Total samples (including inactive): {all_samples.count()}')
+        logger.info(f'  WARNING: 0 active samples found. Total samples (including inactive): {all_samples.count()}', None)
         for s in all_samples.values('id', 'sample_id', 'sample_type', 'dataset_type', 'is_active', 'loaded_date'):
-            logger.info(f'    {s}')
+            logger.info(f'    {s}', None)
     return samples
 
 
@@ -102,20 +102,20 @@ def get_search_samples(projects, active_only=True):
 
 
 def _get_families_search_data(families, dataset_type, sample_filter=None):
-    logger.info(f'_get_families_search_data: families={[f.family_id for f in families]}, dataset_type={dataset_type}')
+    logger.info(f'_get_families_search_data: families={[f.family_id for f in families]}, dataset_type={dataset_type}', None)
     samples = _get_filtered_search_samples(sample_filter or {'individual__family__in': families})
-    logger.info(f'  found {len(samples)} samples before dataset_type filter')
+    logger.info(f'  found {len(samples)} samples before dataset_type filter', None)
     if len(samples) < 1:
         raise InvalidSearchException('No search data found for families {}'.format(
             ', '.join([f.family_id for f in families])))
 
     if dataset_type:
         dataset_types = DATASET_TYPES_LOOKUP[dataset_type]
-        logger.info(f'  filtering to dataset_types: {dataset_types}')
+        logger.info(f'  filtering to dataset_types: {dataset_types}', None)
         samples = samples.filter(dataset_type__in=dataset_types)
-        logger.info(f'  after dataset_type filter: {len(samples)} samples')
+        logger.info(f'  after dataset_type filter: {len(samples)} samples', None)
         for s in samples.values('id', 'sample_id', 'sample_type', 'dataset_type', 'is_active'):
-            logger.info(f'    {s}')
+            logger.info(f'    {s}', None)
         if not samples:
             raise InvalidSearchException(f'Unable to search against dataset type "{dataset_type}"')
 
@@ -256,9 +256,9 @@ def _get_result_range(page, num_results, total_results, load_all):
 
 def query_variants(search_model, sort=XPOS_SORT_KEY, skip_genotype_filter=False, load_all=False, user=None, page=1, num_results=100):
     is_es = es_backend_enabled()
-    logger.info(f'query_variants: es_backend_enabled={is_es}, using {"ES" if is_es else "ClickHouse"} backend')
+    logger.info(f'query_variants: es_backend_enabled={is_es}, using {"ES" if is_es else "ClickHouse"} backend', None)
     genome_version = _get_search_genome_version(search_model.families.all())
-    logger.info(f'query_variants: genome_version={genome_version}, sort={sort}, page={page}, num_results={num_results}')
+    logger.info(f'query_variants: genome_version={genome_version}, sort={sort}, page={page}, num_results={num_results}', None)
     previous_search_results, cached_page, num_results = backend_specific_call(
         _get_elasticsearch_previous_search_results,
         _get_clickhouse_previous_search_results,
