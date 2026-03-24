@@ -65,6 +65,7 @@ fi
 LOCAL_PORT="${LOCAL_PORT:-8167}"
 LOCAL_AURORA_PORT="${LOCAL_AURORA_PORT:-8168}"
 LOCAL_CLICKHOUSE_PORT="${LOCAL_CLICKHOUSE_PORT:-8169}"
+LOCAL_CLICKHOUSE_HTTP_PORT="${LOCAL_CLICKHOUSE_HTTP_PORT:-8170}"
 
 # Copy custom terminfo directory if it exists
 if [ -d ~/.terminfo ]; then
@@ -89,6 +90,7 @@ if [ -n "$AURORA_ENDPOINT" ]; then
 fi
 if [ -n "$CLICKHOUSE_IP" ]; then
   echo "  Port forward: localhost:${LOCAL_CLICKHOUSE_PORT} -> ${CLICKHOUSE_IP}:9000 (ClickHouse native)"
+  echo "  Port forward: localhost:${LOCAL_CLICKHOUSE_HTTP_PORT} -> ${CLICKHOUSE_IP}:8123 (ClickHouse HTTP/JDBC)"
 fi
 echo ""
 
@@ -111,6 +113,7 @@ fi
 
 if [ -n "$CLICKHOUSE_IP" ]; then
   SSH_ARGS+=(-L "${LOCAL_CLICKHOUSE_PORT}:${CLICKHOUSE_IP}:9000")
+  SSH_ARGS+=(-L "${LOCAL_CLICKHOUSE_HTTP_PORT}:${CLICKHOUSE_IP}:8123")
 fi
 
 # SSH to bastion host
