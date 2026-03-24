@@ -316,7 +316,7 @@ BASE_URL = os.environ.get("BASE_URL", "/")
 if DEPLOYMENT_TYPE in {'prod', 'dev'}:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    CSRF_TRUSTED_ORIGINS = [BASE_URL.rstrip('/')]
+    CSRF_TRUSTED_ORIGINS = [BASE_URL.rstrip('/'), 'https://seqrtest.mcri.edu.au']
     # Allow additional trusted origins (e.g., for port-forwarded access during development)
     # Comma-separated list: CSRF_EXTRA_TRUSTED_ORIGINS=http://localhost:8167,http://localhost:8000
     extra_origins = os.environ.get('CSRF_EXTRA_TRUSTED_ORIGINS', '')
