@@ -58,7 +58,13 @@ def get_clickhouse_variants(samples, search, user, previous_search_results, geno
 
         dataset_results = []
         if inheritance_mode != COMPOUND_HET:
-            dataset_results += _get_search_results(genome_version, dataset_type, sample_data, exclude_keys=exclude_keys.get(dataset_type), **search)
+            try:
+                dataset_results += _get_search_results(genome_version, dataset_type, sample_data, exclude_keys=exclude_keys.get(dataset_type), **search)
+            except Exception as e:
+                import traceback
+                logger.error(f'get_clickhouse_variants: ERROR in _get_search_results for {dataset_type}: {type(e).__name__}: {e}', user)
+                logger.error(f'get_clickhouse_variants: traceback: {traceback.format_exc()}', user)
+                raise
 
         run_x_linked_male_search = has_x_linked and not (inheritance_mode == X_LINKED_RECESSIVE and sample_data.get('samples'))
         if run_x_linked_male_search:
@@ -123,14 +129,28 @@ def get_search_queryset(genome_version, dataset_type, sample_data, **search_kwar
 
 
 def _get_search_results(*args, skip_entry_fields=False, order_by=None, **search_kwargs):
-    results = get_search_queryset(*args, skip_entry_fields=skip_entry_fields, **search_kwargs)
+    logger.info(f'_get_search_results: building queryset with args dataset_type={args[1] if len(args) > 1 else "?"}, skip_entry_fields={skip_entry_fields}', None)
+    try:
+        results = get_search_queryset(*args, skip_entry_fields=skip_entry_fields, **search_kwargs)
+    except Exception as e:
+        import traceback
+        logger.error(f'_get_search_results: ERROR in get_search_queryset: {type(e).__name__}: {e}', None)
+        logger.error(f'_get_search_results: traceback: {traceback.format_exc()}', None)
+        raise
     if order_by:
         results = results.order_by(order_by)
-    result_values = results.result_values(skip_entry_fields=skip_entry_fields)
+    try:
+        result_values = results.result_values(skip_entry_fields=skip_entry_fields)
+    except Exception as e:
+        import traceback
+        logger.error(f'_get_search_results: ERROR in result_values(): {type(e).__name__}: {e}', None)
+        logger.error(f'_get_search_results: traceback: {traceback.format_exc()}', None)
+        raise
     try:
         logger.info(f'_get_search_results: result_values SQL: {result_values.query}', None)
     except Exception as e:
         logger.info(f'_get_search_results: result_values SQL (error rendering): {e}', None)
+    logger.info(f'_get_search_results: about to evaluate results...', None)
     try:
         evaluated = _evaluate_results(result_values)
         logger.info(f'_get_search_results: returned {len(evaluated)} results', None)
