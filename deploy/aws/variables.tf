@@ -180,9 +180,9 @@ variable "clickhouse_reader_password" {
 }
 
 variable "clickhouse_instance_type" {
-  description = "EC2 instance type for Clickhouse"
+  description = "EC2 instance type for Clickhouse (t3.xlarge = 4 vCPU, 16 GB RAM)"
   type        = string
-  default     = "t3.large"
+  default     = "t3.xlarge"
 }
 
 variable "clickhouse_ami_id" {

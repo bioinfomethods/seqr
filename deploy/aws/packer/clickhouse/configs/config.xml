@@ -12,7 +12,7 @@
     <max_concurrent_queries>100</max_concurrent_queries>
     <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
 
-    <mark_cache_size>5368709120</mark_cache_size>
+    <mark_cache_size>8589934592</mark_cache_size>
 
     <path>/var/lib/clickhouse/</path>
     <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
