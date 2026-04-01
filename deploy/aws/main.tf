@@ -322,6 +322,12 @@ resource "aws_instance" "bastion" {
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.bastion.name
 
+  root_block_device {
+    volume_size = 32
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
   user_data = <<-EOF
               #!/bin/bash
               # Install PostgreSQL client
