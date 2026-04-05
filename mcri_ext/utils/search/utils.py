@@ -89,7 +89,7 @@ def _annotate_or_filter(redis_client, user, variant, freq_filter=None):
     try:
         assay_types = ['WES', 'WGS']
         for assay_type in assay_types:
-            cache_key = f"chr{variant_id}-{assay_type}"
+            cache_key = f"{variant_id}-{assay_type}"
             cache_value = redis_client.get(cache_key)
             if cache_value:
                 logger.debug('Loaded {} from redis'.format(cache_key), user)
