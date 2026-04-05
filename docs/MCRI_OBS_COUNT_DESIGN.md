@@ -12,6 +12,47 @@ no MCRI population stats are injected into variant results.
 
 ---
 
+## Comparison with Standard Population Frequencies
+
+MCRI obs counts are implemented quite differently from the standard population frequency data
+(gnomAD, TOPMed, ExAC, seqr, etc.).
+
+### Standard populations (gnomAD, TOPMed, ExAC, seqr, etc.)
+
+- Stored and indexed natively in **Elasticsearch** alongside the variant documents.
+- Retrieved as part of the normal variant search query — the `populations` dict is populated by
+  the search backend before the API layer ever sees the variants.
+- Sorting by these populations (e.g. `gnomad`) is handled **natively by Elasticsearch**, so it
+  works correctly across all pages of results.
+- Frequency filtering is also applied **inside Elasticsearch** at query time.
+
+### MCRI obs counts (`pop_mcri_wes`, `pop_mcri_wgs`)
+
+- Stored separately in a **Redis** key-value cache, completely outside Elasticsearch.
+- Retrieved **after** the search backend returns results, by a post-processing step in
+  `_process_variants()` in the API layer.
+- Sorting is done in **Python** on the already-retrieved page of results, not by the search
+  backend — hence the warning shown to users when results span multiple pages.
+- Frequency filtering is also applied in **Python** inside `filter_mcri_pop_stats()`, not at
+  query time in Elasticsearch.
+
+### Key limitations of the MCRI approach
+
+Because MCRI counts are bolted on after the fact in Python, they have two significant limitations
+compared to standard populations:
+
+1. **Sort order is only correct within a single page** of results. When results span multiple
+   pages, variants on later pages may have lower MCRI frequencies than those on the first page,
+   meaning the analyst cannot rely on the sort order to surface the rarest variants.
+2. **Frequency filtering may be incomplete** across multiple pages, since the filter is applied
+   per-page in Python rather than at the source in Elasticsearch. Variants that would be excluded
+   by an MCRI frequency threshold may still appear on subsequent pages.
+
+These limitations are why the UI displays a prominent warning when MCRI sorting is active and
+results span more than one page (see [Search Results Sort Warning](#search-results-sort-warning-uisharedcomponentspanelsearchvariantsearchresultsjsx) below).
+
+---
+
 ## Back End: Storage
 
 ### Redis Cache (`mcri_deploy/docker/redis-cache-obs/`)
