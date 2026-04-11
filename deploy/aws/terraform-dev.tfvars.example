@@ -33,7 +33,7 @@ aurora_backup_retention_period  = 7
 aurora_skip_final_snapshot      = true  # Set to false for production
 
 # Clickhouse EC2
-clickhouse_instance_type = "t3.large"
+clickhouse_instance_type = "t3.xlarge"
 # clickhouse_ami_id      = ""    # Leave empty to use latest Amazon Linux 2023
 #clickhouse_volume_size   = 100
 clickhouse_key_name      = "id_ed25519_mcri_aws"
