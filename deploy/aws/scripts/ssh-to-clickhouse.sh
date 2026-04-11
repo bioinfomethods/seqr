@@ -41,7 +41,6 @@ if [ -d ~/.terminfo ]; then
   echo "Copying custom terminfo directory..."
   scp -o StrictHostKeyChecking=no \
       -o UserKnownHostsFile=/dev/null \
-      -i ~/.ssh/${KEY_NAME} \
       -o ProxyJump=ec2-user@${BASTION_IP} \
       -r ~/.terminfo \
       ec2-user@${CLICKHOUSE_IP}:~/
