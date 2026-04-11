@@ -36,3 +36,7 @@ aws_env() {
     echo "  AWS_SECRET_ACCESS_KEY=****"
     echo "  AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:0:8}..."
 }
+
+echo
+echo "Use 'aws_env' to refresh SSO based credentials for AWS"
+echo
