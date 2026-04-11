@@ -89,7 +89,10 @@ services:
 
 
   seqr:
-    image: gcr.io/seqr-project/seqr:gcloud-prod
+    build:
+      context: .
+      dockerfile: deploy/docker/seqr/Dockerfile
+    image: seqr-local
     volumes:
     - .:/seqr
     - ./data/readviz:/readviz
