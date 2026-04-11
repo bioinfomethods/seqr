@@ -42,4 +42,4 @@ clickhouse_root_volume_size = 30
 clickhouse_data_volume_size = 100  
 
 # Add additional trusted origins eg: for development, port forwarding etc
-csrf_extra_trusted_origins = "http://localhost:8167"
+additional_trusted_origins = ["http://localhost:8167", "http://localhost:8167,https://seqrtest.mcri.edu.au"]  
