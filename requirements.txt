@@ -19,6 +19,8 @@ openpyxl==2.6.4                  # library for reading/writing Excel files
 pillow==10.0.0                   # required dependency of Django ImageField-type database records
 psycopg2==2.9.9                  # postgres database access
 pyliftover==0.4                  # GRCh37/GRCh38 liftover
+feedparser==6.0.11               # RSS/Atom feed parser for feature updates
+markdownify==0.14.1              # HTML to Markdown converter for feature updates
 requests==2.22.0                 # simpler way to make http requests
 redis==3.3.11                    # client lib for the redis in-memory database - used for caching server-side objects
 requests-toolbelt==0.9.1         # for troubleshooting requests
