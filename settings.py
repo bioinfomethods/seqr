@@ -330,7 +330,6 @@ else:
     # Enable CORS and hijak for local development
     INSTALLED_APPS += ['corsheaders', 'hijack']
     MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
-    MIDDLEWARE.append('hijack.middleware.HijackMiddleware')
     CORS_ORIGIN_WHITELIST = (
         'http://localhost:3000',
         'http://localhost:8000',
