@@ -2,13 +2,6 @@ import { chromium, FullConfig } from '@playwright/test';
 
 async function globalSetup(config: FullConfig) {
   const testUserEmail = process.env.TEST_USER_EMAIL || 'test_user@seqr.org';
-  const enableTestLogin = process.env.ENABLE_TEST_LOGIN;
-
-  if (!enableTestLogin) {
-    console.log('ENABLE_TEST_LOGIN not set, skipping test login setup. Authenticated tests will fail.');
-    return;
-  }
-
   const baseURL = (config.projects[0]?.use?.baseURL as string) || 'http://localhost:8000';
 
   const browser = await chromium.launch();
