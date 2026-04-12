@@ -234,7 +234,6 @@ ANVIL_UI_URL = 'https://anvil.terra.bio/'
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
-    'social_core.backends.azuread_tenant.AzureADV2TenantOAuth2',
     'oauth2_provider.backends.OAuth2Backend',
     'mcri_ext.security.okta.McriOktaOpenIdConnect',
     'django.contrib.auth.backends.ModelBackend',
