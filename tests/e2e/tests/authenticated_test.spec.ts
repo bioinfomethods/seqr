@@ -5,6 +5,12 @@ test.describe('Authenticated user', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
+    // Dismiss the cookie consent modal if present
+    const cookieBanner = page.getByText('This website uses cookies');
+    if (await cookieBanner.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await page.getByRole('button', { name: 'Accept' }).click();
+    }
+
     // Verify the page shows the logged-in user indicator
     await expect(page.getByText('Logged in as')).toBeVisible({ timeout: 10000 });
   });
