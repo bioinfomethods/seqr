@@ -502,6 +502,7 @@ if SOCIAL_AUTH_GOOGLE_OAUTH2_KEY and not os.environ.get('SOCIAL_AUTH_PROVIDER'):
 # Build the login URL based on the provider (if any).
 LOGIN_URL = '/'.join(filter(None, ['/login', SOCIAL_AUTH_PROVIDER]))
 
+LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
