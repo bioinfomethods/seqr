@@ -17,7 +17,7 @@ test.describe('Authenticated user', () => {
     // Accept the Seqr Policies if the dialog appears
     const policiesHeading = page.getByText('Seqr Policies');
     if (await policiesHeading.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await page.getByText('I accept the').locator('..').getByRole('checkbox').check();
+      await page.getByText('I accept the').click();
       await page.getByRole('button', { name: 'Submit' }).click();
     }
   });
