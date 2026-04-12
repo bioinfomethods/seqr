@@ -6,11 +6,13 @@ Keycloak.
 Crucially, Keycloak integration was ALREADY implemented in a separate branch. Therefore
 the primary approach here should be to examine that branch and lift over the changes
 to the greatest extent possible. It is fully expected however that significant code
-drift has occurred. Therefore a straight merge is not possible and potentially even
-cherrypicking changes won't work.
+drift has occurred. Therefore a straight merge is not possible. Instead
+individual changes have been CHERRY PICKED from the branch. Merge conflicts have
+been resolved but the changes are not tested.
 
-The first step will be to examine those changes and make out a detailed plan for
-how to proceed based on how well they match the current branch.
+NEXT STEPS:
+- try to start django and enable the OIDC integration and work through
+  whatever issues appear
 
 Notes:
   - the OIDC integration supports not only login, but sychcronisation of the user groups
