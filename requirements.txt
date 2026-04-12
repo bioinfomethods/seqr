@@ -11,6 +11,7 @@ social-auth-core==3.3.3          # the Python social authentication package. Req
 
 elasticsearch==7.9.1             # elasticsearch client
 elasticsearch-dsl==7.2.1	     # elasticsearch query utilities
+google-auth==2.23.0              # Google authentication library (used by terra_api_utils for AnVIL/Terra)
 gunicorn==19.10.0                # web server
 # hail==0.2.63                   # provides convenient apis for working with files in google cloud storage (excluded from dev: pyspark build issues)
 jmespath==0.9.4

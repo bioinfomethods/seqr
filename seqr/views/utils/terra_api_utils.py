@@ -1,7 +1,6 @@
 """Provide python bindings for the AnVIL Terra API."""
 
 from datetime import datetime
-import google.auth.transport.requests
 import json
 import time
 import requests
@@ -120,6 +119,7 @@ def _get_social_access_token(user):
 
 
 def _get_service_account_access_token():
+    import google.auth.transport.requests
     if (not SERVICE_ACCOUNT_CREDENTIALS.token) or \
             (SERVICE_ACCOUNT_CREDENTIALS.expiry - datetime.now()).total_seconds() < 60:
         SERVICE_ACCOUNT_CREDENTIALS.refresh(google.auth.transport.requests.Request())
