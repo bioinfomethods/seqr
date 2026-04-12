@@ -15,5 +15,9 @@ test.describe('Login flow', () => {
 
     // Verify we've navigated to the Keycloak login page
     expect(page.url()).toContain('/login/keycloak');
+
+    // Verify the page doesn't contain a Django exception
+    const pageContent = await page.content();
+    expect(pageContent).not.toContain('Exception Location');
   });
 });
