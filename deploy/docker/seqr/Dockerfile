@@ -82,6 +82,7 @@ WORKDIR /seqr
 COPY admin/ ./admin
 COPY clickhouse_search/ ./clickhouse_search
 COPY matchmaker/ ./matchmaker
+COPY mcri_ext/ ./mcri_ext
 COPY panelapp/ ./panelapp
 COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
