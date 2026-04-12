@@ -14,9 +14,10 @@ We have so far worked to establish a local working instance of Seqr running
 using the Clickhouse back end using the local development docker-compose
 setup.
 
-We are now working on the next phase of the setup, which is to move this
-locally working setup to a AWS deployed infrastructure.
+We then worked to move this locally working setup to a AWS deployed
+infrastructure (configured in `deploy/aws`). That work has reached a milestone
+point where we now need to switch back to local development.
 
-This work is planned in `deploy/aws/PLAN-fargate.md`. Read this plan
-to understand and track the current objective.
-
+We are now working on a feature to support OIDC based login via Keycloak. This
+work is detailed in `plans/OIDC.md`. Read this file and ask to see it if you
+do not have access.
