@@ -98,7 +98,7 @@ services:
     - ./data/readviz:/readviz
     - ./data/seqr_static_files:/seqr_static_files
     ports:
-      - 80:8000
+      - 8000:8000
     environment:
       - SEQR_GIT_BRANCH=dev
       - PYTHONPATH=/seqr
