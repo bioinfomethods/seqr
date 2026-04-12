@@ -314,7 +314,7 @@ api_endpoints = {
     'matchmaker/update_project_contact/(?P<project_guid>[^/]+)': update_mme_project_contact,
 
     'login': login_view,
-    'test-login': test_login_view,
+    'test_login': test_login_view,
     'users/current': get_user,
     'users/forgot_password': forgot_password,
     'users/(?P<username>[^/]+)/set_password': set_password,
