@@ -29,7 +29,19 @@ def test_login_view(request):
     if not request_json.get('email'):
         return create_json_response({'error': 'Email is required'}, status=400, reason='Email is required')
 
-    users = User.objects.annotate(email_lower=Lower('email')).filter(email_lower=request_json['email'].lower())
+    email_lower = request_json['email'].lower()
+    users = User.objects.annotate(email_lower=Lower('email')).filter(email_lower=email_lower)
+    if users.count() == 0:
+        # Auto-create user for test purposes (only reachable when ENABLE_TEST_LOGIN is set)
+        user = User.objects.create_user(
+            username=email_lower,
+            email=email_lower,
+            is_staff=True,
+            is_superuser=True,
+        )
+        user.set_unusable_password()
+        user.save()
+        users = User.objects.filter(pk=user.pk)
     if users.count() != 1:
         return create_json_response({'error': 'Invalid credentials'}, status=401, reason='Invalid credentials')
 
