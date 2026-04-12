@@ -1,3 +1,5 @@
+import collections
+import collections.abc
 import json
 import os
 import random
@@ -5,6 +7,10 @@ import string
 import subprocess  # nosec
 
 from ssl import create_default_context
+
+# Python 3.10+ removed collections.Callable; older social-auth-core versions still reference it
+if not hasattr(collections, 'Callable'):
+    collections.Callable = collections.abc.Callable
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
