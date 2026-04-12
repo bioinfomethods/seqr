@@ -234,6 +234,7 @@ ANVIL_UI_URL = 'https://anvil.terra.bio/'
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.keycloak.KeycloakOAuth2',
     'oauth2_provider.backends.OAuth2Backend',
     'mcri_ext.security.okta.McriOktaOpenIdConnect',
     'django.contrib.auth.backends.ModelBackend',
@@ -462,7 +463,7 @@ SOCIAL_AUTH_PROVIDER = ''
 SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_KEY = os.environ.get('SOCIAL_AUTH_AZUREAD_V2_OAUTH2_CLIENT_ID')
 SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_SECRET = os.environ.get('SOCIAL_AUTH_AZUREAD_V2_OAUTH2_SECRET')
 SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_TENANT_ID = os.environ.get('SOCIAL_AUTH_AZUREAD_V2_OAUTH2_TENANT')
-if SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_KEY:
+if SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_KEY and not os.environ.get('SOCIAL_AUTH_PROVIDER'):
     SOCIAL_AUTH_PROVIDER = 'azuread-v2-tenant-oauth2'
 
 #########################################################
@@ -489,7 +490,7 @@ SOCIAL_AUTH_CLIENT_SECRET = os.environ.get('SOCIAL_AUTH_CLIENT_SECRET')
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
-if SOCIAL_AUTH_GOOGLE_OAUTH2_KEY:
+if SOCIAL_AUTH_GOOGLE_OAUTH2_KEY and not os.environ.get('SOCIAL_AUTH_PROVIDER'):
     SOCIAL_AUTH_PROVIDER = 'google-oauth2'
 
 # Build the login URL based on the provider (if any).
