@@ -4,6 +4,9 @@ test.describe('Login flow', () => {
   test('clicking Sign In navigates to the login page', async ({ page }) => {
     await page.goto('/');
 
+    // Dismiss the cookie consent modal
+    await page.getByRole('button', { name: 'Accept' }).click();
+
     // Click the Sign In button
     await page.getByRole('button', { name: 'Sign In' }).click();
 
