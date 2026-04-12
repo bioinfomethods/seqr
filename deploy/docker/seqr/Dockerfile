@@ -35,6 +35,7 @@ COPY ./requirements.txt .
 RUN pip install --no-cache-dir wheel && \
     pip install --no-cache-dir "setuptools>=65,<71" && \
     pip install --no-cache-dir -r requirements.txt
+# Django 3.2.25 LTS is required for clickhouse-backend compatibility
 
 # install seqr nodejs dependencies
 WORKDIR /build/ui
