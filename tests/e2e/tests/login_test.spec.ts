@@ -13,8 +13,10 @@ test.describe('Login flow', () => {
     // Wait for navigation to complete after clicking Sign In
     await page.waitForLoadState('networkidle');
 
-    // Verify we've navigated to the Keycloak login page
-    expect(page.url()).toContain('/login/keycloak');
+    // Verify we've navigated to the Keycloak/federated login page
+    const url = page.url();
+    const isKeycloakOrFederatedIdP = url.includes('keycloak.mcri.edu.au') || url.includes('login.microsoftonline.com');
+    expect(isKeycloakOrFederatedIdP).toBe(true);
 
     // Verify the page doesn't contain a Django exception
     const pageContent = await page.content();
