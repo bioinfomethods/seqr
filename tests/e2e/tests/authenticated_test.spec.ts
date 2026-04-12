@@ -13,5 +13,12 @@ test.describe('Authenticated user', () => {
 
     // Verify the page shows the logged-in user indicator
     await expect(page.getByText('Logged in as')).toBeVisible({ timeout: 10000 });
+
+    // Accept the Seqr Policies if the dialog appears
+    const policiesHeading = page.getByText('Seqr Policies');
+    if (await policiesHeading.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await page.getByText('I accept the').locator('..').getByRole('checkbox').check();
+      await page.getByRole('button', { name: 'Submit' }).click();
+    }
   });
 });
