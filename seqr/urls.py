@@ -12,7 +12,6 @@ from django.conf.urls import include
 from django.urls import re_path, path
 from django.contrib import admin
 from django.views.generic.base import RedirectView
-from mcri_ext.views.echo import echo
 from mcri_ext.views.apis.users_api import get_user
 
 import django.views.static
