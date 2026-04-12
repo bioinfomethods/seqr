@@ -6,9 +6,6 @@ import subprocess  # nosec
 
 from ssl import create_default_context
 
-import google.auth
-import google.auth.transport.requests
-
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -545,6 +542,8 @@ SERVICE_ACCOUNT_CREDENTIALS = None
 if TERRA_API_ROOT_URL:
     try:
        # Refresh pattern taken from: https://stackoverflow.com/a/74377391
+        import google.auth
+        import google.auth.transport.requests
         SERVICE_ACCOUNT_CREDENTIALS, project_id = google.auth.default(scopes=SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE)
         request = google.auth.transport.requests.Request()
         SERVICE_ACCOUNT_CREDENTIALS.refresh(request=request)
