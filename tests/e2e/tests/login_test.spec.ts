@@ -13,7 +13,7 @@ test.describe('Login flow', () => {
     // Wait for navigation to complete after clicking Sign In
     await page.waitForLoadState('networkidle');
 
-    // Verify we've been redirected away from the root page (to the OIDC provider)
-    expect(page.url()).not.toBe('/');
+    // Verify we've navigated to the Keycloak login page
+    expect(page.url()).toContain('/login/keycloak');
   });
 });
