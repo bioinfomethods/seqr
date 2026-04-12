@@ -22,6 +22,6 @@ test.describe('Authenticated user', () => {
     }
 
     // Verify the test project is displayed in the dashboard table
-    await expect(page.getByText('Test Project (GRCh38)')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('link', { name: 'Test Project (GRCh38)', exact: true })).toBeVisible({ timeout: 10000 });
   });
 });
