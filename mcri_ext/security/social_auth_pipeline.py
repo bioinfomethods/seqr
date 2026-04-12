@@ -1,7 +1,5 @@
-from seqr.utils.logging_utils import SeqrLogger
-
-logger = SeqrLogger(__name__)
-log = logger
+import logging
+import re
 
 from django.conf import settings
 from django.contrib.auth.models import User, Group
