@@ -19,3 +19,4 @@ seqr_settings
 
 django_key
 /.aider.chat.history.md
+tests/e2e/auth.json

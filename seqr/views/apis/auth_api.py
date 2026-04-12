@@ -1,6 +1,8 @@
 """
 Utility functions related to authentication.
 """
+import os
+
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -16,6 +18,32 @@ from seqr.views.utils.terra_api_utils import oauth_enabled, remove_token
 from settings import LOGIN_URL, POLICY_REQUIRED_URL
 
 logger = SeqrLogger(__name__)
+
+
+def test_login_view(request):
+    """Test-only login endpoint that bypasses OIDC. Only available when ENABLE_TEST_LOGIN=true."""
+    if not os.environ.get('ENABLE_TEST_LOGIN'):
+        raise PermissionDenied('Test login is not enabled')
+
+    request_json = json.loads(request.body)
+    if not request_json.get('email'):
+        return create_json_response({'error': 'Email is required'}, status=400, reason='Email is required')
+
+    users = User.objects.annotate(email_lower=Lower('email')).filter(email_lower=request_json['email'].lower())
+    if users.count() != 1:
+        return create_json_response({'error': 'Invalid credentials'}, status=401, reason='Invalid credentials')
+
+    user = users.first()
+    if request_json.get('password'):
+        u = authenticate(username=user.username, password=request_json['password'])
+        if not u:
+            return create_json_response({'error': 'Invalid credentials'}, status=401, reason='Invalid credentials')
+    else:
+        u = user
+
+    login(request, u, backend='django.contrib.auth.backends.ModelBackend')
+    logger.info('Test login: {}'.format(u.email), u)
+    return create_json_response({'success': True})
 
 
 def login_view(request):
