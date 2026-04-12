@@ -20,5 +20,8 @@ test.describe('Authenticated user', () => {
       await page.getByText('I accept the').click();
       await page.getByRole('button', { name: 'Submit' }).click();
     }
+
+    // Verify the test project is displayed in the dashboard table
+    await expect(page.getByText('Test Project (GRCh38)')).toBeVisible({ timeout: 10000 });
   });
 });
