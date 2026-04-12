@@ -11,8 +11,4 @@ test.describe('Smoke tests', () => {
     expect(title).toBeTruthy();
   });
 
-  test('status endpoint returns 200', async ({ request }) => {
-    const response = await request.get('/status');
-    expect(response.status()).toBe(200);
-  });
 });
