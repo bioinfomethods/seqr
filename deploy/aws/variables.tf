@@ -259,8 +259,3 @@ variable "keycloak_host" {
   default     = ""
 }
 
-variable "keycloak_host_ip" {
-  description = "IP address to map keycloak_host to via extraHosts (typically the bastion private IP for SSH tunnel)"
-  type        = string
-  default     = ""
-}

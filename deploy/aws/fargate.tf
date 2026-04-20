@@ -370,10 +370,10 @@ resource "aws_ecs_task_definition" "seqr_web" {
       ]
 
       # Map Keycloak hostname to bastion private IP for SSH tunnel connectivity
-      extraHosts = var.keycloak_host != "" && var.keycloak_host_ip != "" ? [
+      extraHosts = var.keycloak_host != "" ? [
         {
           hostname  = var.keycloak_host
-          ipAddress = var.keycloak_host_ip
+          ipAddress = aws_instance.bastion.private_ip
         }
       ] : []
 

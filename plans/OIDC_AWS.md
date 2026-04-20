@@ -90,7 +90,9 @@ the bastion `user_data` so SSH reverse tunnels listen on all interfaces.
 **File**: `deploy/aws/main.tf`
 
 **4b. ECS task definition `extraHosts`**: Map `keycloak.mcri.edu.au` to the
-bastion's private IP so Django's token exchange reaches the tunnel.
+bastion's private IP so Django's token exchange reaches the tunnel. The bastion
+private IP is referenced directly from `aws_instance.bastion.private_ip` in
+Terraform, so only `keycloak_host` needs to be set in tfvars.
 
 **File**: `deploy/aws/fargate.tf`
 
@@ -137,7 +139,7 @@ oidc_groups_claim               = "ad_groups"
 
 | File | Change |
 |---|---|
-| `deploy/aws/variables.tf` | Add 6 OIDC variables + `keycloak_host` |
+| `deploy/aws/variables.tf` | Add 6 OIDC variables + `keycloak_host` (bastion IP auto-resolved) |
 | `deploy/aws/fargate.tf` | Add 7 env vars + `extraHosts` to seqr-web container |
 | `settings.py` | Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` read from env |
 | `deploy/aws/main.tf` | Add bastion ingress rule for port 8888 from ECS |
