@@ -322,8 +322,9 @@ TEMPLATE_DIRS = [
 DEPLOYMENT_TYPE = os.environ.get('DEPLOYMENT_TYPE')
 BASE_URL = os.environ.get("BASE_URL", "/")
 if DEPLOYMENT_TYPE in {'prod', 'dev'}:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    _use_secure_cookies = BASE_URL.startswith('https')
+    SESSION_COOKIE_SECURE = _use_secure_cookies
+    CSRF_COOKIE_SECURE = _use_secure_cookies
     CSRF_TRUSTED_ORIGINS = [BASE_URL.rstrip('/')]
     # Allow additional trusted origins (e.g., for port-forwarded access during development)
     # Comma-separated list: CSRF_EXTRA_TRUSTED_ORIGINS=http://localhost:8167,http://localhost:8000
