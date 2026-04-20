@@ -517,21 +517,8 @@ SOCIAL_AUTH_KEYCLOAK_SECRET = SOCIAL_AUTH_CLIENT_SECRET
 SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY = os.environ.get('SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY')
 SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL = \
     f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/auth"
-
-# When a token exchange host is configured (e.g., bastion IP for SSH tunnel),
-# replace the hostname in the token URL so Django connects via the tunnel
-# instead of trying to resolve the Keycloak hostname directly.
-_KEYCLOAK_TOKEN_HOST = os.environ.get('SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST', '')
-if _KEYCLOAK_TOKEN_HOST:
-    from urllib.parse import urlparse, urlunparse
-    _parsed = urlparse(f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token")
-    _new_netloc = _KEYCLOAK_TOKEN_HOST if ':' not in _parsed.netloc else f"{_KEYCLOAK_TOKEN_HOST}:{_parsed.port}"
-    SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = urlunparse(_parsed._replace(netloc=_new_netloc))
-    # Disable SSL verification for the tunnel (cert is for the original hostname, not the IP)
-    SOCIAL_AUTH_KEYCLOAK_VERIFY_SSL = False
-else:
-    SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
-        f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token"
+SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
+    f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token"
 OIDC_GROUPS_CLAIM = os.environ.get('ARCHIE_OIDC_GROUPS_CLAIM', 'ad_groups')
 OIDC_SCOPE = ['openid', 'profile', 'email', 'ad_groups', 'groups', 'offline_access']
 SOCIAL_AUTH_KEYCLOAK_SCOPE = OIDC_SCOPE

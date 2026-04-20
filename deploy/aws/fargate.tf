@@ -367,7 +367,6 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY", value = var.social_auth_keycloak_public_key },
         { name = "ARCHIE_OIDC_GROUPS_CLAIM", value = var.oidc_groups_claim },
         { name = "SOCIAL_AUTH_REDIRECT_IS_HTTPS", value = var.base_url != "" && startswith(var.base_url, "https") ? "True" : "False" },
-        { name = "SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST", value = var.keycloak_host != "" ? aws_instance.bastion.private_ip : "" },
       ]
 
       logConfiguration = {

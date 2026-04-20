@@ -225,6 +225,34 @@ resource "aws_security_group" "bastion" {
   }
 }
 
+# Route53 private hosted zone for Keycloak hostname resolution within the VPC.
+# Maps the Keycloak hostname to the bastion's private IP so that ECS Fargate
+# containers (and anything else in the VPC) resolve it to the SSH tunnel endpoint.
+# Note: This overrides public DNS for this hostname within the entire VPC.
+resource "aws_route53_zone" "keycloak" {
+  count = var.keycloak_host != "" ? 1 : 0
+
+  name = var.keycloak_host
+
+  vpc {
+    vpc_id = local.vpc_id
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-keycloak-dns"
+  }
+}
+
+resource "aws_route53_record" "keycloak" {
+  count = var.keycloak_host != "" ? 1 : 0
+
+  zone_id = aws_route53_zone.keycloak[0].zone_id
+  name    = var.keycloak_host
+  type    = "A"
+  ttl     = 60
+  records = [aws_instance.bastion.private_ip]
+}
+
 # Separate security group rule to avoid cycle:
 # bastion SG -> ecs_service SG -> alb SG -> bastion EIP -> bastion instance -> bastion SG
 resource "aws_security_group_rule" "bastion_keycloak_from_ecs" {

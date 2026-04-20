@@ -89,19 +89,20 @@ the bastion `user_data` so SSH reverse tunnels listen on all interfaces.
 
 **File**: `deploy/aws/main.tf`
 
-**4b. Token exchange via bastion IP**: ECS Fargate with `awsvpc` network mode
-does not support `extraHosts`. Instead, the `SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST`
-environment variable is set to the bastion's private IP. In `settings.py`, when
-this variable is set, the Keycloak token exchange URL has its hostname replaced
-with the bastion IP, and SSL verification is disabled (since the TLS cert is
-for the original Keycloak hostname, not the bastion IP). The browser-facing
-authorization URL remains unchanged.
+**4b. Route53 private hosted zone**: ECS Fargate with `awsvpc` network mode
+does not support `extraHosts`. Instead, a Route53 private hosted zone is
+created for the Keycloak hostname (e.g., `keycloak.mcri.edu.au`) and associated
+with the VPC. An A record maps the hostname to the bastion's private IP. This
+allows all services in the VPC (including ECS Fargate) to resolve the Keycloak
+hostname to the bastion, where the SSH tunnel forwards traffic to the real
+Keycloak server. TLS works correctly because the hostname matches the
+certificate.
 
-**Files**: `deploy/aws/fargate.tf`, `settings.py`
+**File**: `deploy/aws/main.tf`
 
-Note: The bastion private IP is dynamic (changes on instance replacement). This
-is acceptable for now. A future improvement would be to assign a static private
-IP to the bastion or use a Route53 private hosted zone.
+Note: This overrides public DNS for the Keycloak hostname within the entire
+VPC. The bastion private IP is referenced directly from Terraform and the DNS
+record updates automatically when the bastion is replaced.
 
 **4c. SSH reverse tunnel**: From the Keycloak network, establish the tunnel:
 ```bash
@@ -143,9 +144,9 @@ oidc_groups_claim               = "ad_groups"
 | File | Change |
 |---|---|
 | `deploy/aws/variables.tf` | Add 6 OIDC variables + `keycloak_host` (bastion IP auto-resolved) |
-| `deploy/aws/fargate.tf` | Add 7 env vars + `extraHosts` to seqr-web container |
+| `deploy/aws/fargate.tf` | Add OIDC env vars to seqr-web container |
 | `settings.py` | Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` read from env |
-| `deploy/aws/main.tf` | Add bastion ingress rule for port 8888 from ECS |
+| `deploy/aws/main.tf` | Add bastion ingress rule for port 8888, Route53 private hosted zone |
 
 ## Progress Checklist
 
@@ -153,7 +154,7 @@ oidc_groups_claim               = "ad_groups"
 - [x] Step 2: Add OIDC environment variables + `extraHosts` to Fargate task definition in `deploy/aws/fargate.tf`
 - [x] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
 - [x] Step 4a: Add bastion security group ingress for port 8888 + GatewayPorts in bastion user_data
-- [x] Step 4b: Route token exchange via bastion IP (`SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST`)
+- [x] Step 4b: Route53 private hosted zone mapping Keycloak hostname to bastion IP
 - [ ] Step 4c: Establish SSH reverse tunnel from Keycloak network (manual/operational)
 - [ ] Step 5: Configure Keycloak client with production redirect URI and origins
 - [ ] Step 6: Set OIDC values in `terraform.tfvars`
