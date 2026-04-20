@@ -213,3 +213,54 @@ variable "clickhouse_key_name" {
   description = "SSH key pair name for Clickhouse instance"
   type        = string
 }
+
+# OIDC / Keycloak Authentication
+variable "social_auth_provider" {
+  description = "Social auth provider name (e.g., 'keycloak'). Leave empty to disable OIDC."
+  type        = string
+  default     = ""
+}
+
+variable "social_auth_api_url" {
+  description = "Keycloak realm URL (e.g., https://keycloak.mcri.edu.au:8888/realms/myrealm)"
+  type        = string
+  default     = ""
+}
+
+variable "social_auth_client_id" {
+  description = "OIDC client ID registered in Keycloak"
+  type        = string
+  default     = ""
+}
+
+variable "social_auth_client_secret" {
+  description = "OIDC client secret"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "social_auth_keycloak_public_key" {
+  description = "RSA public key from Keycloak realm for JWT verification"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "oidc_groups_claim" {
+  description = "Claim name for groups in the OIDC id_token"
+  type        = string
+  default     = "ad_groups"
+}
+
+variable "keycloak_host" {
+  description = "Keycloak hostname for extraHosts mapping (e.g., keycloak.mcri.edu.au). Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "keycloak_host_ip" {
+  description = "IP address to map keycloak_host to via extraHosts (typically the bastion private IP for SSH tunnel)"
+  type        = string
+  default     = ""
+}

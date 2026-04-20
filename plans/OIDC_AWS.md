@@ -153,9 +153,9 @@ oidc_groups_claim               = "ad_groups"
 
 ## Progress Checklist
 
-- [ ] Step 1: Add Terraform variables to `deploy/aws/variables.tf`
-- [ ] Step 2: Add OIDC environment variables to Fargate task definition in `deploy/aws/fargate.tf`
-- [ ] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
+- [x] Step 1: Add Terraform variables to `deploy/aws/variables.tf`
+- [x] Step 2: Add OIDC environment variables + `extraHosts` to Fargate task definition in `deploy/aws/fargate.tf`
+- [x] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
 - [ ] Step 4a: Add bastion security group ingress for port 8888 from ECS
 - [ ] Step 4b: Add `extraHosts` to ECS task definition mapping Keycloak hostname to bastion IP
 - [ ] Step 4c: Configure bastion sshd `GatewayPorts` (manual)

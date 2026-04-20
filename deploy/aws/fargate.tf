@@ -358,7 +358,24 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "DEPLOYMENT_TYPE", value = "dev" },
         { name = "BASE_URL", value = var.base_url != "" ? var.base_url : "http://${aws_lb.seqr.dns_name}" },
         { name = "CSRF_EXTRA_TRUSTED_ORIGINS", value = join(",", var.additional_trusted_origins) },
+
+        # OIDC / Keycloak authentication
+        { name = "SOCIAL_AUTH_PROVIDER", value = var.social_auth_provider },
+        { name = "SOCIAL_AUTH_API_URL", value = var.social_auth_api_url },
+        { name = "SOCIAL_AUTH_CLIENT_ID", value = var.social_auth_client_id },
+        { name = "SOCIAL_AUTH_CLIENT_SECRET", value = var.social_auth_client_secret },
+        { name = "SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY", value = var.social_auth_keycloak_public_key },
+        { name = "ARCHIE_OIDC_GROUPS_CLAIM", value = var.oidc_groups_claim },
+        { name = "SOCIAL_AUTH_REDIRECT_IS_HTTPS", value = var.base_url != "" && startswith(var.base_url, "https") ? "True" : "False" },
       ]
+
+      # Map Keycloak hostname to bastion private IP for SSH tunnel connectivity
+      extraHosts = var.keycloak_host != "" && var.keycloak_host_ip != "" ? [
+        {
+          hostname  = var.keycloak_host
+          ipAddress = var.keycloak_host_ip
+        }
+      ] : []
 
       logConfiguration = {
         logDriver = "awslogs"
