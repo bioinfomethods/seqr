@@ -82,9 +82,10 @@ Browser redirects go directly to keycloak.mcri.edu.au:8888 (user's network)
 
 #### Sub-steps
 
-**4a. Security group**: Allow ECS service → bastion on port 8888.
+**4a. Security group + bastion sshd**: Allow ECS service → bastion on port 8888.
 Add an ingress rule to the bastion security group allowing TCP 8888 from the
-ECS service security group.
+ECS service security group. Also configure `GatewayPorts clientspecified` in
+the bastion `user_data` so SSH reverse tunnels listen on all interfaces.
 
 **File**: `deploy/aws/main.tf`
 
@@ -97,17 +98,7 @@ Note: The bastion private IP is dynamic (changes on instance replacement). This
 is acceptable for now. A future improvement would be to assign a static private
 IP to the bastion or use a Route53 private hosted zone.
 
-**4c. Bastion sshd configuration**: Set `GatewayPorts clientspecified` (or `yes`)
-in `/etc/ssh/sshd_config` so the reverse tunnel listens on all interfaces, not
-just localhost. Restart sshd after the change.
-
-**Manual step** (on bastion):
-```bash
-echo "GatewayPorts clientspecified" | sudo tee -a /etc/ssh/sshd_config
-sudo systemctl restart sshd
-```
-
-**4d. SSH reverse tunnel**: From the Keycloak network, establish the tunnel:
+**4c. SSH reverse tunnel**: From the Keycloak network, establish the tunnel:
 ```bash
 ssh -R 0.0.0.0:8888:keycloak.mcri.edu.au:8888 ec2-user@<bastion-public-ip>
 ```
@@ -156,10 +147,9 @@ oidc_groups_claim               = "ad_groups"
 - [x] Step 1: Add Terraform variables to `deploy/aws/variables.tf`
 - [x] Step 2: Add OIDC environment variables + `extraHosts` to Fargate task definition in `deploy/aws/fargate.tf`
 - [x] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
-- [ ] Step 4a: Add bastion security group ingress for port 8888 from ECS
-- [ ] Step 4b: Add `extraHosts` to ECS task definition mapping Keycloak hostname to bastion IP
-- [ ] Step 4c: Configure bastion sshd `GatewayPorts` (manual)
-- [ ] Step 4d: Establish SSH reverse tunnel from Keycloak network (manual/operational)
+- [x] Step 4a: Add bastion security group ingress for port 8888 + GatewayPorts in bastion user_data
+- [x] Step 4b: Add `extraHosts` to ECS task definition mapping Keycloak hostname to bastion IP
+- [ ] Step 4c: Establish SSH reverse tunnel from Keycloak network (manual/operational)
 - [ ] Step 5: Configure Keycloak client with production redirect URI and origins
 - [ ] Step 6: Set OIDC values in `terraform.tfvars`
 

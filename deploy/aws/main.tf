@@ -211,6 +211,15 @@ resource "aws_security_group" "bastion" {
     }
   }
 
+  # Allow Keycloak tunnel traffic from ECS Fargate service (port 8888)
+  ingress {
+    description     = "Keycloak tunnel from ECS Fargate"
+    from_port       = 8888
+    to_port         = 8888
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_service.id]
+  }
+
   # Allow all outbound traffic
   egress {
     description = "Allow all outbound traffic"
@@ -332,6 +341,13 @@ resource "aws_instance" "bastion" {
               #!/bin/bash
               # Install PostgreSQL client
               dnf install -y postgresql15
+
+              # Enable GatewayPorts for SSH reverse tunnels (Keycloak OIDC)
+              # Allows remote SSH tunnels to listen on all interfaces, not just localhost
+              if ! grep -q '^GatewayPorts' /etc/ssh/sshd_config; then
+                echo 'GatewayPorts clientspecified' >> /etc/ssh/sshd_config
+                systemctl restart sshd
+              fi
               EOF
 
   user_data_replace_on_change = true
