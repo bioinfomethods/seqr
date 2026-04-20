@@ -211,15 +211,6 @@ resource "aws_security_group" "bastion" {
     }
   }
 
-  # Allow Keycloak tunnel traffic from ECS Fargate service (port 8888)
-  ingress {
-    description     = "Keycloak tunnel from ECS Fargate"
-    from_port       = 8888
-    to_port         = 8888
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_service.id]
-  }
-
   # Allow all outbound traffic
   egress {
     description = "Allow all outbound traffic"
@@ -232,6 +223,18 @@ resource "aws_security_group" "bastion" {
   tags = {
     Name = "${local.name_prefix}-bastion-sg"
   }
+}
+
+# Separate security group rule to avoid cycle:
+# bastion SG -> ecs_service SG -> alb SG -> bastion EIP -> bastion instance -> bastion SG
+resource "aws_security_group_rule" "bastion_keycloak_from_ecs" {
+  type                     = "ingress"
+  description              = "Keycloak tunnel from ECS Fargate"
+  from_port                = 8888
+  to_port                  = 8888
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.bastion.id
+  source_security_group_id = aws_security_group.ecs_service.id
 }
 
 # Get latest Amazon Linux 2023 AMI
