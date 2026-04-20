@@ -10,6 +10,7 @@ propagating that configuration to the AWS Fargate infrastructure.
 
 - Keycloak realm and client configured with production redirect URI
 - Keycloak server reachable from the AWS VPC (see Step 4)
+- SSH access from the Keycloak network to the AWS bastion host
 
 ---
 
@@ -57,20 +58,68 @@ Fargate deployment can set it to `True` (ALB terminates TLS). Without this, the
 OAuth callback redirect URI will use `http://` causing a redirect URI mismatch
 with Keycloak.
 
-### Step 4: Verify Network Connectivity (Fargate → Keycloak) ⬜
+### Step 4: Network Connectivity via Bastion SSH Tunnel ⬜
 
-Fargate tasks run in private subnets with `assign_public_ip = false`. The ECS
-security group allows all outbound traffic, but without a public IP the tasks
-cannot reach the internet via the IGW alone.
+Fargate tasks run in private subnets with `assign_public_ip = false` and no NAT
+Gateway, so they cannot reach the public internet. Keycloak runs on port 8888
+and is not directly reachable from the AWS VPC.
 
-**Decision required**: Is Keycloak on the public internet or reachable within the VPC?
+**Solution**: Use the bastion host as an SSH tunnel relay. This matches the
+existing GCP approach where an SSH reverse tunnel forwards traffic to Keycloak.
 
-- **Public internet**: Need a NAT Gateway (add to `deploy/aws/main.tf`), or set
-  `assign_public_ip = true` on the ECS service
-- **Internal/VPC-reachable**: Verify routing exists from the seqr subnets
+#### Architecture
 
-This is the most likely blocker — ECR pulls currently work only because of VPC
-endpoints, not because the tasks have general internet access.
+```
+Keycloak network                      AWS VPC (private subnets)
+┌──────────────────┐  SSH reverse  ┌──────────────┐     ┌─────────────┐
+│ keycloak.mcri.   │◄─────────────│   Bastion    │◄────│ ECS Fargate │
+│ edu.au:8888      │   tunnel      │   :8888      │     │ (seqr-web)  │
+└──────────────────┘               └──────────────┘     └─────────────┘
+
+ECS resolves keycloak.mcri.edu.au → bastion private IP (via extraHosts)
+Browser redirects go directly to keycloak.mcri.edu.au:8888 (user's network)
+```
+
+#### Sub-steps
+
+**4a. Security group**: Allow ECS service → bastion on port 8888.
+Add an ingress rule to the bastion security group allowing TCP 8888 from the
+ECS service security group.
+
+**File**: `deploy/aws/main.tf`
+
+**4b. ECS task definition `extraHosts`**: Map `keycloak.mcri.edu.au` to the
+bastion's private IP so Django's token exchange reaches the tunnel.
+
+**File**: `deploy/aws/fargate.tf`
+
+Note: The bastion private IP is dynamic (changes on instance replacement). This
+is acceptable for now. A future improvement would be to assign a static private
+IP to the bastion or use a Route53 private hosted zone.
+
+**4c. Bastion sshd configuration**: Set `GatewayPorts clientspecified` (or `yes`)
+in `/etc/ssh/sshd_config` so the reverse tunnel listens on all interfaces, not
+just localhost. Restart sshd after the change.
+
+**Manual step** (on bastion):
+```bash
+echo "GatewayPorts clientspecified" | sudo tee -a /etc/ssh/sshd_config
+sudo systemctl restart sshd
+```
+
+**4d. SSH reverse tunnel**: From the Keycloak network, establish the tunnel:
+```bash
+ssh -R 0.0.0.0:8888:keycloak.mcri.edu.au:8888 ec2-user@<bastion-public-ip>
+```
+
+This is a **manual/operational step** that must be running for OIDC to work.
+Consider using `autossh` or a systemd service for persistence.
+
+**TLS note**: The tunnel carries raw TCP. The TLS handshake occurs end-to-end
+between Django and Keycloak. Since Django resolves `keycloak.mcri.edu.au` to
+the bastion IP (via `extraHosts`) and the tunnel transparently forwards to the
+real Keycloak server, the TLS certificate validates correctly — the hostname
+matches and the certificate chain is intact.
 
 ### Step 5: Configure Keycloak Client ⬜
 
@@ -97,17 +146,20 @@ oidc_groups_claim               = "ad_groups"
 
 | File | Change |
 |---|---|
-| `deploy/aws/variables.tf` | Add 6 OIDC variables |
-| `deploy/aws/fargate.tf` | Add 7 env vars to seqr-web container |
+| `deploy/aws/variables.tf` | Add 6 OIDC variables + `keycloak_host` |
+| `deploy/aws/fargate.tf` | Add 7 env vars + `extraHosts` to seqr-web container |
 | `settings.py` | Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` read from env |
-| `deploy/aws/main.tf` | Potentially add NAT Gateway (if Keycloak is external) |
+| `deploy/aws/main.tf` | Add bastion ingress rule for port 8888 from ECS |
 
 ## Progress Checklist
 
 - [ ] Step 1: Add Terraform variables to `deploy/aws/variables.tf`
 - [ ] Step 2: Add OIDC environment variables to Fargate task definition in `deploy/aws/fargate.tf`
 - [ ] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
-- [ ] Step 4: Verify/establish network connectivity from Fargate to Keycloak
+- [ ] Step 4a: Add bastion security group ingress for port 8888 from ECS
+- [ ] Step 4b: Add `extraHosts` to ECS task definition mapping Keycloak hostname to bastion IP
+- [ ] Step 4c: Configure bastion sshd `GatewayPorts` (manual)
+- [ ] Step 4d: Establish SSH reverse tunnel from Keycloak network (manual/operational)
 - [ ] Step 5: Configure Keycloak client with production redirect URI and origins
 - [ ] Step 6: Set OIDC values in `terraform.tfvars`
 
