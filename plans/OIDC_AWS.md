@@ -91,23 +91,6 @@ social_auth_keycloak_public_key = "<public-key-from-keycloak-realm>"
 oidc_groups_claim               = "ad_groups"
 ```
 
-### Step 7: Security Verification ⬜
-
-- Confirm `ENABLE_TEST_LOGIN` is **NOT** set in the Fargate task environment
-- Review whether `create_user` should remain in `SOCIAL_AUTH_PIPELINE` for
-  production (currently any Keycloak-authenticated user gets a Django account
-  auto-created)
-- Note: logout only destroys the Django session, not the Keycloak session (no
-  back-channel/front-channel logout implemented)
-
-### Step 8: Deploy and Test ⬜
-
-1. `terraform plan` — verify only expected changes
-2. `terraform apply`
-3. Test full login flow: browser → Keycloak → callback → dashboard
-4. Test logout flow
-5. Verify group synchronisation works with production Keycloak groups
-
 ---
 
 ## Files Changed
@@ -118,6 +101,15 @@ oidc_groups_claim               = "ad_groups"
 | `deploy/aws/fargate.tf` | Add 7 env vars to seqr-web container |
 | `settings.py` | Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` read from env |
 | `deploy/aws/main.tf` | Potentially add NAT Gateway (if Keycloak is external) |
+
+## Progress Checklist
+
+- [ ] Step 1: Add Terraform variables to `deploy/aws/variables.tf`
+- [ ] Step 2: Add OIDC environment variables to Fargate task definition in `deploy/aws/fargate.tf`
+- [ ] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
+- [ ] Step 4: Verify/establish network connectivity from Fargate to Keycloak
+- [ ] Step 5: Configure Keycloak client with production redirect URI and origins
+- [ ] Step 6: Set OIDC values in `terraform.tfvars`
 
 ## Reference
 
