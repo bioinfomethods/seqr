@@ -89,12 +89,15 @@ the bastion `user_data` so SSH reverse tunnels listen on all interfaces.
 
 **File**: `deploy/aws/main.tf`
 
-**4b. ECS task definition `extraHosts`**: Map `keycloak.mcri.edu.au` to the
-bastion's private IP so Django's token exchange reaches the tunnel. The bastion
-private IP is referenced directly from `aws_instance.bastion.private_ip` in
-Terraform, so only `keycloak_host` needs to be set in tfvars.
+**4b. Token exchange via bastion IP**: ECS Fargate with `awsvpc` network mode
+does not support `extraHosts`. Instead, the `SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST`
+environment variable is set to the bastion's private IP. In `settings.py`, when
+this variable is set, the Keycloak token exchange URL has its hostname replaced
+with the bastion IP, and SSL verification is disabled (since the TLS cert is
+for the original Keycloak hostname, not the bastion IP). The browser-facing
+authorization URL remains unchanged.
 
-**File**: `deploy/aws/fargate.tf`
+**Files**: `deploy/aws/fargate.tf`, `settings.py`
 
 Note: The bastion private IP is dynamic (changes on instance replacement). This
 is acceptable for now. A future improvement would be to assign a static private
@@ -150,7 +153,7 @@ oidc_groups_claim               = "ad_groups"
 - [x] Step 2: Add OIDC environment variables + `extraHosts` to Fargate task definition in `deploy/aws/fargate.tf`
 - [x] Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` configurable in `settings.py`
 - [x] Step 4a: Add bastion security group ingress for port 8888 + GatewayPorts in bastion user_data
-- [x] Step 4b: Add `extraHosts` to ECS task definition mapping Keycloak hostname to bastion IP
+- [x] Step 4b: Route token exchange via bastion IP (`SOCIAL_AUTH_KEYCLOAK_TOKEN_HOST`)
 - [ ] Step 4c: Establish SSH reverse tunnel from Keycloak network (manual/operational)
 - [ ] Step 5: Configure Keycloak client with production redirect URI and origins
 - [ ] Step 6: Set OIDC values in `terraform.tfvars`
