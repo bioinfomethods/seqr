@@ -45,9 +45,12 @@ Add to the seqr-web container `environment` block:
 - `ARCHIE_OIDC_GROUPS_CLAIM`
 - `SOCIAL_AUTH_REDIRECT_IS_HTTPS` (set to `"True"`)
 
-Note: Secrets are passed as plain-text env vars, consistent with how
-`aurora_master_password` and `clickhouse_writer_password` are currently handled.
-Future improvement: move all sensitive values to AWS Secrets Manager.
+The OIDC client secret (`SOCIAL_AUTH_CLIENT_SECRET`) is stored in AWS Secrets
+Manager and injected via the ECS `secrets` block. This means it never appears
+in the task definition JSON, `terraform plan` output, or CloudWatch logs. The
+ECS task execution role is granted `secretsmanager:GetSecretValue` permission
+for this specific secret. Other OIDC values (including the Keycloak public key)
+are passed as regular environment variables.
 
 ### Step 3: Make `SOCIAL_AUTH_REDIRECT_IS_HTTPS` Configurable ⬜
 

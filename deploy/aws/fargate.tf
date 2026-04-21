@@ -1,5 +1,38 @@
 # Seqr AWS Infrastructure - ECS Fargate for seqr-web (Django)
 
+# Local variables for OIDC secrets injected from Secrets Manager
+locals {
+  oidc_secrets = var.social_auth_client_secret != "" ? [
+    {
+      name      = "SOCIAL_AUTH_CLIENT_SECRET"
+      valueFrom = aws_secretsmanager_secret.oidc_client_secret[0].arn
+    }
+  ] : []
+}
+
+# Permissions for ECS task execution role to read OIDC secrets from Secrets Manager
+resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
+  count = var.social_auth_client_secret != "" ? 1 : 0
+
+  name = "${local.name_prefix}-ecs-secrets-policy"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.oidc_client_secret[0].arn
+        ]
+      }
+    ]
+  })
+}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "seqr" {
   name = "${local.name_prefix}-cluster"
@@ -363,11 +396,13 @@ resource "aws_ecs_task_definition" "seqr_web" {
         { name = "SOCIAL_AUTH_PROVIDER", value = var.social_auth_provider },
         { name = "SOCIAL_AUTH_API_URL", value = var.social_auth_api_url },
         { name = "SOCIAL_AUTH_CLIENT_ID", value = var.social_auth_client_id },
-        { name = "SOCIAL_AUTH_CLIENT_SECRET", value = var.social_auth_client_secret },
         { name = "SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY", value = var.social_auth_keycloak_public_key },
         { name = "ARCHIE_OIDC_GROUPS_CLAIM", value = var.oidc_groups_claim },
         { name = "SOCIAL_AUTH_REDIRECT_IS_HTTPS", value = var.base_url != "" && startswith(var.base_url, "https") ? "True" : "False" },
       ]
+
+      # Sensitive OIDC values injected from Secrets Manager (never appear in task definition JSON)
+      secrets = local.oidc_secrets
 
       logConfiguration = {
         logDriver = "awslogs"
