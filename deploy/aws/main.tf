@@ -225,6 +225,28 @@ resource "aws_security_group" "bastion" {
   }
 }
 
+# =============================================================================
+# Secrets Manager for sensitive OIDC configuration
+# =============================================================================
+
+resource "aws_secretsmanager_secret" "oidc_client_secret" {
+  count = var.social_auth_client_secret != "" ? 1 : 0
+
+  name        = "${local.name_prefix}/oidc/client-secret"
+  description = "OIDC client secret for Keycloak authentication"
+
+  tags = {
+    Name = "${local.name_prefix}-oidc-client-secret"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "oidc_client_secret" {
+  count = var.social_auth_client_secret != "" ? 1 : 0
+
+  secret_id     = aws_secretsmanager_secret.oidc_client_secret[0].id
+  secret_string = var.social_auth_client_secret
+}
+
 # Route53 private hosted zone for Keycloak hostname resolution within the VPC.
 # Maps the Keycloak hostname to the bastion's private IP so that ECS Fargate
 # containers (and anything else in the VPC) resolve it to the SSH tunnel endpoint.

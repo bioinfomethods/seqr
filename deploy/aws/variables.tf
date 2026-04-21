@@ -243,7 +243,6 @@ variable "social_auth_client_secret" {
 variable "social_auth_keycloak_public_key" {
   description = "RSA public key from Keycloak realm for JWT verification"
   type        = string
-  sensitive   = true
   default     = ""
 }
 
