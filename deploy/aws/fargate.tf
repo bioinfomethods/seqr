@@ -2,17 +2,17 @@
 
 # Local variables for OIDC secrets injected from Secrets Manager
 locals {
-  oidc_secrets = var.social_auth_client_secret != "" ? [
+  oidc_secrets = var.social_auth_provider != "" ? [
     {
       name      = "SOCIAL_AUTH_CLIENT_SECRET"
-      valueFrom = aws_secretsmanager_secret.oidc_client_secret[0].arn
+      valueFrom = data.aws_secretsmanager_secret.oidc_client_secret[0].arn
     }
   ] : []
 }
 
 # Permissions for ECS task execution role to read OIDC secrets from Secrets Manager
 resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
-  count = var.social_auth_client_secret != "" ? 1 : 0
+  count = var.social_auth_provider != "" ? 1 : 0
 
   name = "${local.name_prefix}-ecs-secrets-policy"
   role = aws_iam_role.ecs_task_execution.id
@@ -26,7 +26,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = [
-          aws_secretsmanager_secret.oidc_client_secret[0].arn
+          data.aws_secretsmanager_secret.oidc_client_secret[0].arn
         ]
       }
     ]

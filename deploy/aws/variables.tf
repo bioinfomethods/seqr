@@ -233,12 +233,6 @@ variable "social_auth_client_id" {
   default     = ""
 }
 
-variable "social_auth_client_secret" {
-  description = "OIDC client secret"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
 
 variable "social_auth_keycloak_public_key" {
   description = "RSA public key from Keycloak realm for JWT verification"

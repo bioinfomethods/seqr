@@ -229,22 +229,11 @@ resource "aws_security_group" "bastion" {
 # Secrets Manager for sensitive OIDC configuration
 # =============================================================================
 
-resource "aws_secretsmanager_secret" "oidc_client_secret" {
-  count = var.social_auth_client_secret != "" ? 1 : 0
+# Look up the OIDC client secret from Secrets Manager (must be pre-created outside Terraform)
+data "aws_secretsmanager_secret" "oidc_client_secret" {
+  count = var.social_auth_provider != "" ? 1 : 0
 
-  name        = "${local.name_prefix}/oidc/client-secret"
-  description = "OIDC client secret for Keycloak authentication"
-
-  tags = {
-    Name = "${local.name_prefix}-oidc-client-secret"
-  }
-}
-
-resource "aws_secretsmanager_secret_version" "oidc_client_secret" {
-  count = var.social_auth_client_secret != "" ? 1 : 0
-
-  secret_id     = aws_secretsmanager_secret.oidc_client_secret[0].id
-  secret_string = var.social_auth_client_secret
+  name = "${local.name_prefix}/oidc/client-secret"
 }
 
 # Route53 private hosted zone for Keycloak hostname resolution within the VPC.
