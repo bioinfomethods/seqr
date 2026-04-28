@@ -53,10 +53,15 @@ class Command(BaseCommand):
             raise CommandError(f'Invalid dataset type: {dataset_type}')
 
         # Get the appropriate ClickHouse entry class
-        entry_class = ENTRY_CLASS_MAP.get(project.genome_version, {}).get(dataset_type)
+        # SV entries are keyed by dataset_type + sample_type (e.g. 'SV_WGS', 'SV_WES')
+        if dataset_type == Sample.DATASET_TYPE_SV_CALLS:
+            entry_class_key = f'{dataset_type}_{sample_type}'
+        else:
+            entry_class_key = dataset_type
+        entry_class = ENTRY_CLASS_MAP.get(project.genome_version, {}).get(entry_class_key)
         if not entry_class:
             raise CommandError(
-                f'No ClickHouse table found for {project.genome_version} {dataset_type}'
+                f'No ClickHouse table found for {project.genome_version} {entry_class_key}'
             )
 
         # Query ClickHouse for samples in this project
