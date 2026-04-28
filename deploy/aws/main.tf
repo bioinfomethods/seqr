@@ -213,18 +213,6 @@ resource "aws_security_group" "bastion" {
   description = "Security group for bastion host"
   vpc_id      = local.vpc_id
 
-  # Allow SSH from specified CIDR blocks
-  dynamic "ingress" {
-    for_each = var.allowed_ssh_cidrs
-    content {
-      description = "SSH from allowed CIDR"
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = [ingress.value]
-    }
-  }
-
   # Allow all outbound traffic
   egress {
     description = "Allow all outbound traffic"
@@ -278,8 +266,23 @@ resource "aws_route53_record" "keycloak" {
   records = [aws_instance.bastion.private_ip]
 }
 
-# Separate security group rule to avoid cycle:
-# bastion SG -> ecs_service SG -> alb SG -> bastion EIP -> bastion instance -> bastion SG
+# Separate security group rules for bastion ingress.
+# All ingress rules are defined as separate resources (not inline) to prevent
+# Terraform from treating inline rules as authoritative and removing rules
+# added by other resources.
+resource "aws_security_group_rule" "bastion_ssh" {
+  for_each = toset(var.allowed_ssh_cidrs)
+
+  type              = "ingress"
+  description       = "SSH from allowed CIDR"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  security_group_id = aws_security_group.bastion.id
+  cidr_blocks       = [each.value]
+}
+
+# Avoids cycle: bastion SG -> ecs_service SG -> alb SG -> bastion EIP -> bastion instance -> bastion SG
 resource "aws_security_group_rule" "bastion_keycloak_from_ecs" {
   type                     = "ingress"
   description              = "Keycloak tunnel from ECS Fargate"
