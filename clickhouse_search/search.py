@@ -147,9 +147,14 @@ def _get_search_results(*args, skip_entry_fields=False, order_by=None, **search_
         logger.error(f'_get_search_results: traceback: {traceback.format_exc()}', None)
         raise
     try:
-        logger.info(f'_get_search_results: result_values SQL: {result_values.query}', None)
+        from django.db import connections
+        compiler = result_values.query.get_compiler(using=result_values.db)
+        raw_sql, params = compiler.as_sql()
+        logger.info(f'_get_search_results: result_values RAW SQL: {raw_sql}', None)
+        logger.info(f'_get_search_results: result_values RAW SQL PARAMS: {params}', None)
     except Exception as e:
-        logger.info(f'_get_search_results: result_values SQL (error rendering): {e}', None)
+        import traceback
+        logger.info(f'_get_search_results: result_values SQL (error rendering): {e}\n{traceback.format_exc()}', None)
     logger.info(f'_get_search_results: about to evaluate results...', None)
     try:
         evaluated = _evaluate_results(result_values)
