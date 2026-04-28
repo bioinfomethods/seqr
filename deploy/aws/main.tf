@@ -167,6 +167,20 @@ resource "aws_vpc_endpoint" "logs" {
   }
 }
 
+# VPC Endpoint for Secrets Manager (required for ECS Fargate to fetch secrets)
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id              = local.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name_prefix}-secretsmanager-endpoint"
+  }
+}
+
 # VPC Endpoint for SSM Messages (required for ECS Exec in private subnets)
 resource "aws_vpc_endpoint" "ssmmessages" {
   vpc_id              = local.vpc_id
