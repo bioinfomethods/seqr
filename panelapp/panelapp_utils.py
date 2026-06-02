@@ -22,10 +22,13 @@ def import_all_panels(user, panel_app_api_url, label=None):
     def _extract_ensembl_id_from_json(raw_gene_json):
         ensembl_genes_json = raw_gene_json.get('gene_data', {}).get('ensembl_genes')
         if ensembl_genes_json and isinstance(ensembl_genes_json, dict):
-            return ensembl_genes_json \
-                .get('GRch38', {}) \
-                .get('90', {}) \
-                .get('ensembl_id')
+            grch38 = ensembl_genes_json.get('GRch38', {})
+            keys = [(int(k), k) if k.isdigit() else (-1, k) for k in grch38.keys()]
+            keys.sort()
+            if not keys:
+                return None
+            latest_key = keys[-1][1]
+            return grch38.get(latest_key, {}).get('ensembl_id')
         else:
             return None
 
