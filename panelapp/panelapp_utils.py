@@ -52,9 +52,8 @@ def import_all_panels(user, panel_app_api_url, label=None):
                                      if _extract_ensembl_id_from_json(gene)}
                 raw_ensbl_38_gene_ids_csv = ','.join(panel_genes_by_id.keys())
                 genes_by_id, _, invalid_items = parse_locus_list_items({'rawItems': raw_ensbl_38_gene_ids_csv}, genome_version=GENOME_VERSION_GRCh38)
-                if len(invalid_items) > 0:
-                    logger.warning('Genes found in panel {} but not in reference data, ignoring genes {}'
-                                   .format(panel_app_id, invalid_items), user)
+                if invalid_items:
+                    raise Exception('Genes found in panel {} but not in reference data, problematic genes {}'.format(panel_app_id, invalid_items))
                 _update_locus_list_genes_bulk(pa_locus_list, genes_by_id, panel_genes_by_id, user)
         except Exception as e:
             logger.error('Error occurred when importing gene panel_app_id={}, error={}'.format(panel_app_id, e), user)
