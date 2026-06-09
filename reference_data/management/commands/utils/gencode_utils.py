@@ -11,7 +11,7 @@ from reference_data.models import GeneInfo, TranscriptInfo, GENOME_VERSION_GRCh3
 
 logger = logging.getLogger(__name__)
 
-LATEST_GENCODE_RELEASE = 44
+LATEST_GENCODE_RELEASE = 49
 OLD_GENCODE_RELEASES = [40, 39, 31, 29, 28, 27, 19]
 
 GENCODE_URL_TEMPLATE = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_release}/{path}gencode.v{gencode_release}{file}'
