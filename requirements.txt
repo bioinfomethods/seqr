@@ -1,13 +1,13 @@
-Django==3.2.25                   # core server-side framework (LTS)
-django-clickhouse-backend==1.1.2 # ClickHouse database backend for Django
+Django==4.2.27                   # core server-side framework (LTS)
+django-clickhouse-backend==1.1.2 # ClickHouse database backend for Django (requires Django 4.2+)
 django-notifications-hq==1.6.0   # Django notifications framework
 django-anymail==8.2              # for sending emails using cloud-based mail service providers
 django-csp==3.7                  # for setting CSP headers
 django-guardian==2.3.0           # object-level permissions for database records. Behind a major version due to missing Python 2 support
-django-hijack==2.1.10            # allows admins to login as other user
+django-hijack==3.4.5             # allows admins to login as other user (v3 required for Django 4.2+)
 django-cors-headers==3.5.0       # allows CORS requests for client-side development
-social-auth-app-django==4.0.0    # the package for Django to authenticate users with social medieas
-social-auth-core==3.3.3          # the Python social authentication package. Required by social-auth-app-django
+social-auth-app-django==5.4.1    # the package for Django to authenticate users with social media
+social-auth-core[openidconnect]==4.5.3  # the Python social authentication package (with OIDC support)
 
 elasticsearch==7.9.1             # elasticsearch client
 elasticsearch-dsl==7.2.1	     # elasticsearch query utilities

@@ -1,22 +1,25 @@
 boto3                             # AWS SDK for S3 access (ClinVar file streaming, etc.)
 Django>=4.2,<4.3                  # core server-side framework
 django-anymail                    # for sending emails using cloud-based mail service providers
-django-clickhouse-backend
+django-clickhouse-backend>=1.1.2  # ClickHouse database backend for Django (requires Django 4.2+)
 django-csp                        # for setting CSP headers
-django-guardian                   # object-level permissions for database records. Behind a major version due to missing Python 2 support
+django-guardian                   # object-level permissions for database records
 django-hijack                     # allows admins to login as other user
 django-notifications-hq           # notification app
 django-cors-headers               # allows CORS requests for client-side development
+django-oauth-toolkit              # Enable API access from non-browser clients using access tokens
 django-storages[google]           # alternative GCS storage backend for the django media_root
-social-auth-app-django>5.0.0      # the package for Django to authenticate users with social medieas
-social-auth-core                  # the Python social authentication package. Required by social-auth-app-django
+social-auth-app-django>5.0.0      # the package for Django to authenticate users with social media
+social-auth-core[openidconnect]   # the Python social authentication package (with OIDC support)
 elasticsearch==7.9.1              # elasticsearch client
 elasticsearch-dsl==7.2.1          # elasticsearch query utilities
+environs                          # Conveniently manage environment variables with types
+google-auth                       # Google authentication library (used by terra_api_utils for AnVIL/Terra)
 gunicorn                          # web server
 jmespath
 openpyxl                          # library for reading/writing Excel files
-pillow                            # required dependency of Djagno ImageField-type database records
-psycopg                           # postgres database access
+pillow                            # required dependency of Django ImageField-type database records
+psycopg2                          # postgres database access (binary protocol)
 pyliftover                        # GRCh37/GRCh38 liftover
 requests                          # simpler way to make http requests
 redis<4.6                         # client lib for the redis in-memory database - used for caching server-side objects
@@ -25,6 +28,6 @@ slacker                           # library for sending slack messages
 slugify                           # used for encoding names for guids
 tqdm                              # convenient way to create progress bar for long-running command-line operations
 whitenoise
-feedparser
-markdownify
-tenacity
+feedparser                        # RSS/Atom feed parser for feature updates
+markdownify                       # HTML to Markdown converter for feature updates
+tenacity                          # retry library
