@@ -714,6 +714,8 @@ resource "aws_volume_attachment" "clickhouse_data" {
   volume_id   = aws_ebs_volume.clickhouse_data.id
   instance_id = aws_instance.clickhouse.id
 
-  # Prevent Terraform from force-detaching (which would destroy data)
-  force_detach = false
+  # Force detach from terminated/stuck instances to avoid "VolumeInUse" errors
+  # when recreating the ClickHouse instance. This is safe because we only
+  # recreate when the old instance is already terminated.
+  force_detach = true
 }
