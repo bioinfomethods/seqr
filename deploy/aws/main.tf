@@ -552,6 +552,27 @@ resource "aws_iam_role_policy" "clickhouse_s3_read" {
   })
 }
 
+# IAM policy for EBS volume attachment (self-attach data volume on startup)
+resource "aws_iam_role_policy" "clickhouse_ebs" {
+  name = "${local.name_prefix}-clickhouse-ebs-policy"
+  role = aws_iam_role.clickhouse.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:AttachVolume",
+          "ec2:DetachVolume",
+          "ec2:DescribeVolumes"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # IAM policy for ECR access
 resource "aws_iam_role_policy" "clickhouse_ecr" {
   name = "${local.name_prefix}-clickhouse-ecr-policy"
@@ -649,6 +670,22 @@ resource "aws_security_group" "clickhouse" {
   }
 }
 
+# Dedicated EBS volume for ClickHouse data (separate from instance for persistence across termination)
+resource "aws_ebs_volume" "clickhouse_data" {
+  availability_zone = data.aws_availability_zones.available.names[0]
+  size              = var.clickhouse_data_volume_size
+  type              = "gp3"
+  encrypted         = true
+
+  tags = {
+    Name = "${local.name_prefix}-clickhouse-data"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Clickhouse EC2 instance
 resource "aws_instance" "clickhouse" {
   # Use custom AMI if available, otherwise fall back to base Amazon Linux
@@ -668,17 +705,6 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  # Attach the dedicated ClickHouse data volume directly to the instance.
-  # This ensures the volume is attached before user_data runs and avoids
-  # race conditions with a separate aws_volume_attachment resource.
-  ebs_block_device {
-    device_name           = "/dev/xvdf"
-    volume_size           = var.clickhouse_data_volume_size
-    volume_type           = "gp3"
-    encrypted             = true
-    delete_on_termination = false
-  }
-
   # Pass Aurora connection details, ECR info, and data volume device to ClickHouse instance.
   # The start-clickhouse.sh script reads these from /etc/environment to:
   #   1. Mount the dedicated data volume at /var/lib/clickhouse
@@ -686,6 +712,44 @@ resource "aws_instance" "clickhouse" {
   #   3. Start ClickHouse via docker compose
   user_data = <<-EOF
 #!/bin/bash
+
+# --- Attach the dedicated EBS data volume ---
+# This is done in user_data (rather than aws_volume_attachment) to avoid
+# race conditions when the instance is recreated while the volume is still
+# detaching from a terminated instance.
+INSTANCE_ID=$(ec2-metadata -i | cut -d' ' -f2)
+VOLUME_ID="${aws_ebs_volume.clickhouse_data.id}"
+REGION="${var.aws_region}"
+
+echo "Attaching EBS volume $VOLUME_ID to instance $INSTANCE_ID..."
+
+# Wait for volume to become available (detaching from terminated instance)
+for i in $(seq 1 120); do
+    STATE=$(aws ec2 describe-volumes --volume-ids "$VOLUME_ID" --region "$REGION" --query 'Volumes[0].State' --output text)
+    if [ "$STATE" = "available" ]; then
+        echo "  Volume is available"
+        break
+    elif [ "$STATE" = "in-use" ]; then
+        # Force detach from old (terminated) instance
+        ATTACHED_INSTANCE=$(aws ec2 describe-volumes --volume-ids "$VOLUME_ID" --region "$REGION" --query 'Volumes[0].Attachments[0].InstanceId' --output text)
+        if [ "$ATTACHED_INSTANCE" != "$INSTANCE_ID" ]; then
+            echo "  Volume attached to $ATTACHED_INSTANCE, force detaching..."
+            aws ec2 detach-volume --volume-id "$VOLUME_ID" --force --region "$REGION" || true
+        else
+            echo "  Volume already attached to this instance"
+            break
+        fi
+    fi
+    echo "  Waiting for volume to become available... ($i/120, state=$STATE)"
+    sleep 2
+done
+
+# Attach the volume
+if [ "$STATE" = "available" ]; then
+    aws ec2 attach-volume --volume-id "$VOLUME_ID" --instance-id "$INSTANCE_ID" --device /dev/xvdf --region "$REGION"
+    echo "  Volume attachment initiated"
+fi
+
 cat >> /etc/environment <<'ENVEOF'
 POSTGRES_HOST=${module.aurora.cluster_endpoint}
 POSTGRES_PORT=${module.aurora.cluster_port}
