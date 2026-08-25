@@ -668,6 +668,17 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
+  # Attach the dedicated ClickHouse data volume directly to the instance.
+  # This ensures the volume is attached before user_data runs and avoids
+  # race conditions with a separate aws_volume_attachment resource.
+  ebs_block_device {
+    device_name           = "/dev/xvdf"
+    volume_size           = var.clickhouse_data_volume_size
+    volume_type           = "gp3"
+    encrypted             = true
+    delete_on_termination = false
+  }
+
   # Pass Aurora connection details, ECR info, and data volume device to ClickHouse instance.
   # The start-clickhouse.sh script reads these from /etc/environment to:
   #   1. Mount the dedicated data volume at /var/lib/clickhouse
@@ -697,25 +708,3 @@ EOF
   }
 }
 
-# Dedicated EBS volume for ClickHouse data (separate from root for easy snapshots)
-resource "aws_ebs_volume" "clickhouse_data" {
-  availability_zone = data.aws_availability_zones.available.names[0]
-  size              = var.clickhouse_data_volume_size
-  type              = "gp3"
-  encrypted         = true
-
-  tags = {
-    Name = "${local.name_prefix}-clickhouse-data"
-  }
-}
-
-resource "aws_volume_attachment" "clickhouse_data" {
-  device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.clickhouse_data.id
-  instance_id = aws_instance.clickhouse.id
-
-  # Force detach from terminated/stuck instances to avoid "VolumeInUse" errors
-  # when recreating the ClickHouse instance. This is safe because we only
-  # recreate when the old instance is already terminated.
-  force_detach = true
-}
