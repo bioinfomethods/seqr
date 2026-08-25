@@ -279,12 +279,12 @@ if [ -f "$LOG_FILE" ]; then
   ok "cloud-init-output.log exists"
 
   # Check for errors in the log
-  ERROR_COUNT=$(grep -ci 'error\|failed\|fatal' "$LOG_FILE" 2>/dev/null || echo "0")
+  ERROR_COUNT=$(grep -ci -E 'error|failed|fatal' "$LOG_FILE" 2>/dev/null || echo "0")
   if [ "$ERROR_COUNT" -gt 0 ]; then
     warn "Found $ERROR_COUNT lines with error/failed/fatal in cloud-init log"
     echo ""
     echo "  Error lines from cloud-init-output.log:"
-    grep -i 'error\|failed\|fatal' "$LOG_FILE" 2>/dev/null | tail -20 | sed 's/^/    /'
+    grep -i -E 'error|failed|fatal' "$LOG_FILE" 2>/dev/null | tail -20 | sed 's/^/    /'
   else
     ok "No obvious errors in cloud-init log"
   fi
