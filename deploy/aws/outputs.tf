@@ -116,11 +116,6 @@ output "ecr_repository_clickhouse_arn" {
 }
 
 # Clickhouse
-output "clickhouse_data_volume_id" {
-  description = "EBS volume ID for ClickHouse data"
-  value       = aws_ebs_volume.clickhouse_data.id
-}
-
 output "clickhouse_private_ip" {
   description = "Private IP address of Clickhouse instance"
   value       = aws_instance.clickhouse.private_ip
