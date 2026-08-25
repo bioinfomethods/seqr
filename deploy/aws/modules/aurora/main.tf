@@ -86,11 +86,12 @@ resource "aws_rds_cluster" "seqr" {
 
 # Aurora PostgreSQL instance
 resource "aws_rds_cluster_instance" "seqr" {
-  identifier         = "${var.name_prefix}-aurora-instance-1"
-  cluster_identifier = aws_rds_cluster.seqr.id
-  instance_class     = var.instance_class
-  engine             = aws_rds_cluster.seqr.engine
-  engine_version     = aws_rds_cluster.seqr.engine_version
+  identifier                   = "${var.name_prefix}-aurora-instance-1"
+  cluster_identifier           = aws_rds_cluster.seqr.id
+  instance_class               = var.instance_class
+  engine                       = aws_rds_cluster.seqr.engine
+  engine_version               = aws_rds_cluster.seqr.engine_version
+  auto_minor_version_upgrade   = false
 
   tags = {
     Name = "${var.name_prefix}-aurora-instance-1"

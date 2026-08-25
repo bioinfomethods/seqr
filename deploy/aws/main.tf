@@ -442,7 +442,7 @@ module "aurora" {
   master_username               = var.aurora_master_username
   master_password               = var.aurora_master_password
   database_name                 = var.aurora_database_name
-  engine_version                = "17.6"
+  engine_version                = "17.7"
   backup_retention_period       = var.aurora_backup_retention_period
   skip_final_snapshot           = var.aurora_skip_final_snapshot
 }
