@@ -1,6 +1,6 @@
 Django==4.2.27                   # core server-side framework (LTS)
 django-clickhouse-backend==1.1.2 # ClickHouse database backend for Django (requires Django 4.2+)
-django-notifications-hq==1.6.0   # Django notifications framework
+django-notifications-hq==1.8.3   # Django notifications framework (1.8+ required for Django 4.2)
 django-anymail==8.2              # for sending emails using cloud-based mail service providers
 django-csp==3.7                  # for setting CSP headers
 django-guardian==2.3.0           # object-level permissions for database records. Behind a major version due to missing Python 2 support
