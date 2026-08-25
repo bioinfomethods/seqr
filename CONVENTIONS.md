@@ -22,4 +22,22 @@ The current context:
 - the AWS setup works, but does not cleanly re-create from zero via terraform.
 - we are working to ensure a clean, start-from-zero process work smoothly
 
+## ClickHouse Migrations
+
+ClickHouse migrations use a separate database connection. When running
+migrations for the `clickhouse_search` app, you **must** specify the database:
+
+```bash
+python manage.py migrate clickhouse_search --database clickhouse_writer
+```
+
+Similarly for showmigrations:
+
+```bash
+python manage.py showmigrations clickhouse_search --database clickhouse_writer
+```
+
+Without `--database clickhouse_writer`, Django will use the default (PostgreSQL)
+database router and the migrations won't actually execute against ClickHouse.
+
 
