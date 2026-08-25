@@ -24,6 +24,24 @@ if [ -z "$KEY_NAME" ]; then
   exit 1
 fi
 
+# Check if SSH agent is running and key is loaded
+if [ -z "$SSH_AUTH_SOCK" ]; then
+  echo "Error: SSH agent is not running."
+  echo ""
+  echo "Start it with:"
+  echo "  eval \"\$(ssh-agent -s)\""
+  echo "  ssh-add ~/.ssh/${KEY_NAME}"
+  exit 1
+fi
+
+if ! ssh-add -l 2>/dev/null | grep -q "${KEY_NAME}"; then
+  echo "Error: SSH key '${KEY_NAME}' is not loaded in the SSH agent."
+  echo ""
+  echo "Add it with:"
+  echo "  ssh-add ~/.ssh/${KEY_NAME}"
+  exit 1
+fi
+
 # Get IP addresses from Terraform outputs
 echo "Retrieving IP addresses from Terraform outputs..."
 BASTION_IP=$(tofu output -raw bastion_public_ip)
@@ -47,15 +65,6 @@ if [ -d ~/.terminfo ]; then
   echo "✓ Terminfo directory copied"
   echo ""
 fi
-
-echo
-echo "Adding key to agent ...."
-echo
-ssh-add ~/.ssh/id_ed25519_mcri_aws
-
-echo
-echo "NOTE: make sure you have the SSH agent running ..."
-echo
 
 echo "Connecting to Clickhouse instance..."
 echo "  Bastion: ${BASTION_IP}"
