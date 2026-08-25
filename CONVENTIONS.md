@@ -15,9 +15,11 @@ using the Clickhouse back end using the local development docker-compose
 setup.
 
 We then worked to move this locally working setup to a AWS deployed
-infrastructure (configured in `deploy/aws`). That work has reached a milestone
-point where we now need to switch back to local development.
+infrastructure (configured in `deploy/aws`). 
 
-We are now working on a feature to support OIDC based login via Keycloak. This
-work is detailed in `plans/OIDC.md`. Read this file and ask to see it if you
-do not have access.
+The current context:
+
+- the AWS setup works, but does not cleanly re-create from zero via terraform.
+- we are working to ensure a clean, start-from-zero process work smoothly
+
+
