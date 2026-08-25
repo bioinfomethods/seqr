@@ -41,7 +41,7 @@ if [ -d ~/.terminfo ]; then
   echo "Copying custom terminfo directory..."
   scp -o StrictHostKeyChecking=no \
       -o UserKnownHostsFile=/dev/null \
-      -o ProxyJump=ec2-user@${BASTION_IP} \
+      -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p ec2-user@${BASTION_IP}" \
       -r ~/.terminfo \
       ec2-user@${CLICKHOUSE_IP}:~/
   echo "✓ Terminfo directory copied"
@@ -66,8 +66,8 @@ echo ""
 # SSH to Clickhouse via bastion jump host
 ssh -A -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
+    -o "ProxyCommand=ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/${KEY_NAME} -W %h:%p ec2-user@${BASTION_IP}" \
     -i ~/.ssh/${KEY_NAME} \
-    -J ec2-user@${BASTION_IP} \
     ec2-user@${CLICKHOUSE_IP} || echo "Failed to SSH - make sure you started the SSH agent"
 
 echo "Done"
