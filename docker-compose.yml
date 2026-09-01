@@ -29,7 +29,6 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.12
-    container_name: clickhouse
     ports:
       - 8123:8123
       - 9001:9000
