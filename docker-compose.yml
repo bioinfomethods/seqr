@@ -3,9 +3,9 @@ services:
     image: postgres:12.6
     command: postgres -c listen_addresses='*'
     ports:
-      - 5432:5433
+      - 5432:5432
     environment:
-      - PGPORT=5433
+      - PGPORT=5432
       - POSTGRES_PASSWORD=docker-compose-postgres-password
     volumes:
       - ./data/postgres_init/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
@@ -27,37 +27,6 @@ services:
     ports:
       - 6379:6379
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
-    volumes:
-      - ./data/elasticsearch:/usr/share/elasticsearch/data
-    container_name: elasticsearch
-    environment:
-      - http.host=0.0.0.0
-      - discovery.type=single-node
-      - cluster.routing.allocation.disk.threshold_enabled=false
-    healthcheck:
-      test: bash -c "curl -s elasticsearch:9200/_cat/health | grep green"
-      interval: 3s
-      timeout: 5s
-      retries: 100
-    ports:
-      - 9200:9200
-
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.16.3
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    healthcheck:
-      test: bash -c "curl -s kibana:5601 | grep kibana"
-      interval: 3s
-      timeout: 5s
-      retries: 100
-
   clickhouse:
     image: clickhouse/clickhouse-server:25.12
     container_name: clickhouse
@@ -65,7 +34,27 @@ services:
       - 8123:8123
       - 9001:9000
     volumes:
+      # Main MergeTree store: entries, gt_stats, clinvar reference data, dictionaries,
+      # materialized views AND the django_migrations bookkeeping. Without this the whole
+      # lot lives in the container layer and is destroyed with the container, so every
+      # recreate needs a full re-migrate and re-load.
+      # A named volume rather than a bind mount: nothing on the host reads this (unlike
+      # the user_files mounts below), and on Docker Desktop for macOS a bind mount would
+      # put ClickHouse's many-small-file IO through the VM filesystem bridge. Swap for
+      # `./data/clickhouse:/var/lib/clickhouse` if you need to inspect it from the host.
+      - clickhouse-data:/var/lib/clickhouse
+      # These two stay bind mounts: the loading pipeline and scripts/import_clickhouse_data.sh
+      # write into them from the host.
+      - ./data/runs:/var/lib/clickhouse/user_files/pipeline-data/GRCh38/SNV_INDEL/runs
       - ./data/clickhouse-seqr-data:/var/lib/clickhouse/user_files/seqr-data
+      # Backing store for the annotations_memory / *_memory EmbeddedRocksDB tables
+      # (CLICKHOUSE_IN_MEMORY_DIR). Search reads ONLY these tables, so without a volume
+      # they live in the container layer and are silently wiped on `docker compose up
+      # --force-recreate` -- leaving searches returning zero rows with no error.
+      # Upstream runs this on tmpfs for speed; a named volume trades that for
+      # persistence, which is the better default for local dev. To use tmpfs instead,
+      # drop this line and add the `tmpfs:` block below.
+      - clickhouse-in-memory:/var/lib/clickhouse/user_files/in-memory
       - ./data/clickhouse_config/config.xml:/etc/clickhouse-server/config.d/config.xml
       - ./data/clickhouse_config/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./data/clickhouse_config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml
@@ -104,9 +93,9 @@ services:
       - PYTHONPATH=/seqr
       - STATIC_MEDIA_DIR=/seqr_static_files
       - POSTGRES_SERVICE_HOSTNAME=postgres
-      - POSTGRES_SERVICE_PORT=5433
+      - POSTGRES_SERVICE_PORT=5432
+      - POSTGRES_USERNAME=postgres
       - POSTGRES_PASSWORD=docker-compose-postgres-password
-      - ELASTICSEARCH_SERVICE_HOSTNAME=elasticsearch
       - REDIS_SERVICE_HOSTNAME=redis
       - KIBANA_SERVICE_HOSTNAME=kibana
       - CLICKHOUSE_SERVICE_HOSTNAME=clickhouse
@@ -118,13 +107,21 @@ services:
       - CLICKHOUSE_DATA_DIR=/var/lib/clickhouse/user_files/seqr-data
       - CLICKHOUSE_IN_MEMORY_DIR=/var/lib/clickhouse/user_files/in-memory
       - PGHOST=postgres
-      - PGPORT=5433
+      - PGPORT=5432
       - PGUSER=postgres
       - GUNICORN_WORKER_THREADS=4
+      - SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID=${SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID}
+      - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-keycloak}
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://keycloak.mcri.edu.au:8888/realms/bioinfomethods-test}
+      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-archietest}
+      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-keycloak-client-secret}
+      - SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY=${SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY:-keycloak-public-key}
+      - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
+      - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
+      - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
+      - ENABLE_TEST_LOGIN=${ENABLE_TEST_LOGIN:-true}
     depends_on:
       postgres:
-        condition: service_healthy
-      elasticsearch:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -147,3 +144,14 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+
+volumes:
+  # ClickHouse's main data directory (/var/lib/clickhouse).
+  clickhouse-data:
+  # Backing store for the *_memory EmbeddedRocksDB annotations tables.
+  # Upstream (Clickhouse_Design_Notes.md) mounts this as tmpfs and lowers
+  # max_server_memory_usage_to_ram_ratio to leave RAM for it. For local dev we prefer
+  # persistence over speed. tmpfs alternative, on the clickhouse service:
+  #   tmpfs:
+  #     - /var/lib/clickhouse/user_files/in-memory:size=4g,uid=101,gid=101
+  clickhouse-in-memory:
