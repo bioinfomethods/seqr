@@ -85,6 +85,11 @@ services:
     image: seqr-local
     volumes:
     - .:/seqr
+    # `.:/seqr` replaces the whole /seqr directory, which HIDES files the image builds
+    # into it. gunicorn_config.py is copied in by the Dockerfile from
+    # deploy/docker/seqr/config/, so re-mount it on top or start_server.sh dies with
+    # "Error: 'gunicorn_config.py' doesn't exist". (Not an issue on ECS: no bind mount.)
+    - ./deploy/docker/seqr/config/gunicorn_config.py:/seqr/gunicorn_config.py
     - ./data/readviz:/readviz
     - ./data/seqr_static_files:/seqr_static_files
     ports:
