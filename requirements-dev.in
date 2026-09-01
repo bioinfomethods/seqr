@@ -1,9 +1,8 @@
--c requirements.txt # use the generated reqs as a constraint
+-c requirements.txt        # use the main reqs as constraints so versions stay in sync
 coverage<6.6
 django-compressor
-django-debug-toolbar      # https://github.com/jazzband/django-debug-toolbar
-django-oauth-toolkit       # Enable API access from non browser clients using access tokens
-mock                      # mock objects for unit tests
-pip-tools                 # tool for managing our python dependency tree
-responses                 # mock HTTP responses for unit tests
-urllib3-mock              # mock urllib3 for tests
+django-debug-toolbar       # https://github.com/jazzband/django-debug-toolbar
+mock                       # mock objects for unit tests
+pip-tools                  # tool for managing our python dependency tree
+responses                  # mock HTTP responses for unit tests
+urllib3-mock               # mock urllib3 for tests
