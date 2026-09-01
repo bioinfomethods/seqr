@@ -56,6 +56,7 @@ services:
       # drop this line and add the `tmpfs:` block below.
       - clickhouse-in-memory:/var/lib/clickhouse/user_files/in-memory
       - ./data/clickhouse_config/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./data/clickhouse_config/logging.xml:/etc/clickhouse-server/config.d/logging.xml
       - ./data/clickhouse_config/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./data/clickhouse_config/named_collections.xml:/etc/clickhouse-server/config.d/named_collections.xml
       - ./data/clickhouse_config/init-permissions.sql:/docker-entrypoint-initdb.d/init-permissions.sql

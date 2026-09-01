@@ -1,0 +1,7 @@
+<clickhouse>
+    <logger>
+        <console>1</console>
+        <log remove="remove"/>
+        <errorlog remove="remove"/>
+    </logger>
+</clickhouse>
