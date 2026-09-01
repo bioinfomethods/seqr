@@ -45,8 +45,8 @@ services:
       - clickhouse-data:/var/lib/clickhouse
       # These two stay bind mounts: the loading pipeline and scripts/import_clickhouse_data.sh
       # write into them from the host.
-      - ./data/runs:/var/lib/clickhouse/user_files/pipeline-data/GRCh38/SNV_INDEL/runs
       - ./data/clickhouse-seqr-data:/var/lib/clickhouse/user_files/seqr-data
+      - ./data/runs:/var/lib/clickhouse/user_files/seqr-data/pipeline-data/GRCh38/SNV_INDEL/runs
       # Backing store for the annotations_memory / *_memory EmbeddedRocksDB tables
       # (CLICKHOUSE_IN_MEMORY_DIR). Search reads ONLY these tables, so without a volume
       # they live in the container layer and are silently wiped on `docker compose up

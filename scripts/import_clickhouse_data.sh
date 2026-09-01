@@ -165,10 +165,34 @@ echo "Sample Type: $SAMPLE_TYPE"
 echo "Family GUIDs: $FAMILY_GUIDS"
 echo "=========================================="
 
-# Step 1: Load to ClickHouse (if not skipped)
+source  $HOME/work/tools/uv/environments/$PIPELINES_UV_ENV/bin/activate
+
+# step 1: Copy data from remote host (if not skipped and remote host specified)
+if [[ "$SKIP_COPY" == false && -n "$REMOTE_HOST" ]]; then
+    echo ""
+    echo "Step 1: Copying data from remote host..."
+    
+    REMOTE_RUN_PATH="$REMOTE_PATH/$REFERENCE_GENOME/$DATASET_TYPE/runs/$RUN_ID"
+    #LOCAL_RUN_PATH="$SEQR_DIR/data/clickhouse-seqr-data/pipeline-data/$REFERENCE_GENOME/$DATASET_TYPE/runs"
+    LOCAL_RUN_PATH="$SEQR_DIR/data/runs"
+    
+    mkdir -p "$LOCAL_RUN_PATH"
+    
+    echo "Copying from $REMOTE_HOST:$REMOTE_RUN_PATH to $LOCAL_RUN_PATH"
+    scp -r "$REMOTE_HOST:$REMOTE_RUN_PATH" "$LOCAL_RUN_PATH/"
+    
+    echo "✓ Data copied from remote host"
+elif [[ "$SKIP_COPY" == false ]]; then
+    echo "Step 1: Skipped (no remote host specified)"
+else
+    echo "Step 1: Skipped (--skip-copy)"
+fi
+
+
+# Step 2: Load to ClickHouse (if not skipped)
 if [[ "$SKIP_LOAD" == false ]]; then
     echo ""
-    echo "Step 1: Loading data to ClickHouse..."
+    echo "Step 2: Loading data to ClickHouse..."
     
     if [[ -z "$PIPELINES_DIR" || ! -d "$PIPELINES_DIR" ]]; then
         echo "Error: seqr-loading-pipelines directory not found: $PIPELINES_DIR"
@@ -179,7 +203,7 @@ if [[ "$SKIP_LOAD" == false ]]; then
 
     export CLICKHOUSE_DATA_DIR=/var/lib/clickhouse/user_files/seqr-data/pipeline-data
     
-    LOAD_CMD="uv run --env $PIPELINES_UV_ENV python v03_pipeline/bin/load_to_clickhouse.py \
+    LOAD_CMD="uv run python v03_pipeline/bin/load_to_clickhouse.py \
         --reference-genome $REFERENCE_GENOME \
         --dataset-type $DATASET_TYPE \
         --run-id $RUN_ID \
@@ -192,27 +216,7 @@ if [[ "$SKIP_LOAD" == false ]]; then
     popd > /dev/null
     echo "✓ Data loaded to ClickHouse"
 else
-    echo "Step 1: Skipped (--skip-load)"
-fi
-
-# Step 2: Copy data from remote host (if not skipped and remote host specified)
-if [[ "$SKIP_COPY" == false && -n "$REMOTE_HOST" ]]; then
-    echo ""
-    echo "Step 2: Copying data from remote host..."
-    
-    REMOTE_RUN_PATH="$REMOTE_PATH/$REFERENCE_GENOME/$DATASET_TYPE/runs/$RUN_ID"
-    LOCAL_RUN_PATH="$SEQR_DIR/data/clickhouse-seqr-data/pipeline-data/$REFERENCE_GENOME/$DATASET_TYPE/runs"
-    
-    mkdir -p "$LOCAL_RUN_PATH"
-    
-    echo "Copying from $REMOTE_HOST:$REMOTE_RUN_PATH to $LOCAL_RUN_PATH"
-    scp -r "$REMOTE_HOST:$REMOTE_RUN_PATH" "$LOCAL_RUN_PATH/"
-    
-    echo "✓ Data copied from remote host"
-elif [[ "$SKIP_COPY" == false ]]; then
-    echo "Step 2: Skipped (no remote host specified)"
-else
-    echo "Step 2: Skipped (--skip-copy)"
+    echo "Step 2: Skipped (--skip-load)"
 fi
 
 # Step 3: Register dataset in seqr (if not skipped)
@@ -222,7 +226,8 @@ if [[ "$SKIP_REGISTER" == false ]]; then
     
     cd "$SEQR_DIR"
     
-    REGISTER_CMD="uv run --env $SEQR_UV_ENV python manage.py register_clickhouse_dataset \
+    source  $HOME/work/tools/uv/environments/$PIPELINES_UV_ENV/bin/activate
+    REGISTER_CMD="uv run python manage.py register_clickhouse_dataset \
         $PROJECT_GUID \
         $SAMPLE_TYPE \
         $DATASET_TYPE"
