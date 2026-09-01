@@ -9,3 +9,9 @@ deploy/*
 .git
 .vscode
 .idea
+
+# local-only data / scratch dirs - never used by the Dockerfile, but huge (38G+)
+data/
+tmp/
+**/node_modules
+test_data/
