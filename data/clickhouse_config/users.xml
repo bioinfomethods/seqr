@@ -27,6 +27,12 @@
             </networks>                                                                                                                                                                                                                                                                                                   
             <profile>default</profile>  <!-- This ensures seqr_user uses the default profile with flatten_nested=0 -->                                                                                                                                                                                                    
             <quota>default</quota>                                                                                                                                                                                                                                                                                        
+            <!-- required so init-permissions.sql can GRANT NAMED COLLECTION ADMIN;
+                 XML-defined users otherwise have no WITH GRANT OPTION rights -->
+            <access_management>1</access_management>
+            <named_collection_control>1</named_collection_control>
+            <show_named_collections>1</show_named_collections>
+            <show_named_collections_secrets>1</show_named_collections_secrets>
         </seqr_user>                                                                                                                                                                                                                                                                                                      
     </users>                                                                                                                                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                                                           
