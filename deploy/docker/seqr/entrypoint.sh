@@ -40,17 +40,30 @@ do
 done
 
 # run any pending migrations
-# Run ClickHouse migrations FIRST, before PostgreSQL migrations.
-# Django's router should prevent clickhouse_search migrations from running on PostgreSQL,
-# but if they do run (as no-ops), they get recorded in PostgreSQL's django_migrations table.
-# By running ClickHouse migrations first, the actual DDL executes against ClickHouse.
+# PostgreSQL MUST be migrated before ClickHouse. clickhouse_search migration 0016 creates
+# `seqrdb_affected_status_dict` (and 0023 `seqrdb_sex_dict`) with a POSTGRESQL() source that
+# reads seqr_individual/seqr_family, then creates the entries_to_project_gt_stats_mv
+# materialized views that call dictGetOrDefault() on it. ClickHouse resolves - and therefore
+# eagerly LOADS - a dictionary when it analyses the CREATE MATERIALIZED VIEW, so against an
+# unmigrated PostgreSQL the DDL dies with:
+#   Code: 156. Failed to load dictionary ...: pqxx::undefined_table,
+#   e.what() = ERROR: relation "seqr_individual" does not exist
+# ClickHouse has no transactional DDL, so 0016 half-applies (the DROPs and ALTERs land, the
+# CREATEs do not) and the GRCh37 gt_stats pipeline is left missing.
+#
+# Running PostgreSQL first does mean Django records the clickhouse_search migrations in
+# PostgreSQL's django_migrations as skipped no-ops (record_applied() is unconditional; the
+# router only suppresses the operations). Those rows are harmless: ClickHouse keeps its own
+# django_migrations and that is the authoritative record. sync_clickhouse_migrations below
+# deliberately ignores them once ClickHouse has bookkeeping of its own.
+python -u manage.py migrate
+python -u manage.py migrate --database=reference_data
 if [ "$CLICKHOUSE_SERVICE_HOSTNAME" ]; then
-    # Sync any previously-recorded migration state from PostgreSQL to ClickHouse
+    # Legacy repair only: adopt PostgreSQL's records when ClickHouse has tables but no
+    # migration bookkeeping at all. A no-op on every normal boot.
     python -u manage.py sync_clickhouse_migrations
     python -u manage.py migrate --database=clickhouse_write
 fi
-python -u manage.py migrate
-python -u manage.py migrate --database=reference_data
 
 # load initial fixture data only if tables are empty (idempotent boot)
 variant_search_count=$(python -u manage.py shell -c "from seqr.models import VariantSearch; print(VariantSearch.objects.count())")

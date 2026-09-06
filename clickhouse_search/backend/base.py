@@ -5,10 +5,6 @@ from clickhouse_backend.backend.base import (
     DatabaseWrapper as BaseDatabaseWrapper,
     DatabaseSchemaEditor as BaseDatabaseSchemaEditor,
 )
-from clickhouse_backend.backend.introspection import (
-    DatabaseIntrospection as BaseDatabaseIntrospection,
-    TableInfo,
-)
 from clickhouse_backend.backend.operations import DatabaseOperations as BaseDatabaseOperations
 from django.utils.itercompat import is_iterable
 
@@ -91,40 +87,19 @@ class DatabaseOperations(BaseDatabaseOperations):
             return sql % params
         return super().last_executed_query(cursor, sql, params)
 
-
-class DatabaseIntrospection(BaseDatabaseIntrospection):
-
-    def get_table_list(self, cursor):
-        """Return a list of table and view names in the current database.
-
-        The base implementation filters `table_type IN (1, 2)`, which assumes
-        INFORMATION_SCHEMA.TABLES.table_type is the numeric Enum8 that older ClickHouse
-        exposed. ClickHouse 25.x returns a String ('BASE TABLE' / 'VIEW' /
-        'FOREIGN TABLE'), so that filter matches nothing and the table list comes back
-        empty. That silently breaks MigrationRecorder.has_table(), which makes
-        applied_migrations() return {} -- so every migration is re-applied on every
-        boot, failing on whichever operation is not idempotent.
-
-        Comparing against the string labels works on both: ClickHouse resolves enum
-        names in an IN clause, so this is correct for the old Enum8 column too.
-        """
-        cursor.execute(
-            """
-            SELECT table_name,
-            CASE table_type WHEN 'VIEW' THEN 'v' ELSE 't' END
-            FROM INFORMATION_SCHEMA.TABLES
-            WHERE table_catalog = currentDatabase()
-            AND table_type IN ('BASE TABLE', 'VIEW')
-        """
-        )
-        return [
-            TableInfo(*row)
-            for row in cursor.fetchall()
-            if row[0] not in self.ignored_tables
-        ]
+# NOTE: get_table_list is deliberately NOT overridden here.
+#
+# Against django-clickhouse-backend 1.1.2 it had to be: that release read
+# INFORMATION_SCHEMA.TABLES and filtered `table_type IN (1, 2)`, the numeric Enum8 that
+# only older ClickHouse exposed. ClickHouse 25.x returns strings there, so the filter
+# matched nothing, MigrationRecorder.has_table() saw an empty database, and every
+# migration was re-applied on every boot.
+#
+# 1.3.2 reads system.tables instead, which is correct on every ClickHouse version. The
+# old override is not merely redundant against it but actively broken: it referenced
+# self.ignored_tables, which 1.1.2 defined and both 1.3.2 and Django 4.2 have dropped.
 
 
 class DatabaseWrapper(BaseDatabaseWrapper):
     SchemaEditorClass = DatabaseSchemaEditor
     ops_class = DatabaseOperations
-    introspection_class = DatabaseIntrospection

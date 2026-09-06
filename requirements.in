@@ -1,7 +1,7 @@
 boto3                             # AWS SDK for S3 access (ClinVar file streaming, etc.)
 Django>=4.2,<4.3                  # core server-side framework
 django-anymail                    # for sending emails using cloud-based mail service providers
-django-clickhouse-backend>=1.1.2  # ClickHouse database backend for Django (requires Django 4.2+)
+django-clickhouse-backend>=1.3.2  # ClickHouse database backend for Django (requires Django 4.2+)
 django-csp                        # for setting CSP headers
 django-guardian                   # object-level permissions for database records
 django-hijack                     # allows admins to login as other user
