@@ -1,3 +1,4 @@
+#!/bin/bash
 # Usage function
 usage() {
     cat << EOF
@@ -225,16 +226,41 @@ if [[ "$SKIP_REGISTER" == false ]]; then
     echo "Step 3: Registering dataset in seqr..."
     
     cd "$SEQR_DIR"
-    
-    source  $HOME/work/tools/uv/environments/$PIPELINES_UV_ENV/bin/activate
-    REGISTER_CMD="uv run python manage.py register_clickhouse_dataset \
-        $PROJECT_GUID \
-        $SAMPLE_TYPE \
-        $DATASET_TYPE"
-    
-    echo "Running: $REGISTER_CMD"
-    eval "$REGISTER_CMD"
-    
+
+    # This step runs seqr's manage.py, so it needs the *seqr* environment. Steps 1 and 2
+    # run the loading pipelines and activate PIPELINES_UV_ENV at the top of the script;
+    # re-sourcing that one here is what produced "cannot import django", because the
+    # loading-pipelines environment has no Django in it. SEQR_UV_ENV (and its
+    # --seqr-uv-env flag) already existed but was never referenced anywhere.
+    #
+    # Deactivate first: sourcing a second activate on top of a live one stacks PATH
+    # entries and leaves VIRTUAL_ENV pointing at the newer env while the older one is
+    # still on PATH behind it.
+    SEQR_VENV_ACTIVATE="$HOME/work/tools/uv/environments/$SEQR_UV_ENV/bin/activate"
+    if [[ ! -f "$SEQR_VENV_ACTIVATE" ]]; then
+        echo "Error: seqr uv environment not found at $SEQR_VENV_ACTIVATE"
+        echo "Create it, or point at a different one with --seqr-uv-env NAME."
+        exit 1
+    fi
+    if command -v deactivate > /dev/null 2>&1; then
+        deactivate
+    fi
+    # shellcheck disable=SC1090
+    source "$SEQR_VENV_ACTIVATE"
+
+    # Called directly rather than built into a string and eval'd. eval re-parses the
+    # command, so any argument containing whitespace or a glob character would be word
+    # split or expanded a second time. Quoting the arguments here removes that class of
+    # bug entirely. Plain `python` rather than `uv run python` because the environment is
+    # already activated: `uv run` picks the project environment when a pyproject.toml is
+    # found in the working directory or any parent, which would silently stop using the
+    # environment this activated the moment one is added to the repo.
+    echo "Running: python manage.py register_clickhouse_dataset $PROJECT_GUID $SAMPLE_TYPE $DATASET_TYPE"
+    python manage.py register_clickhouse_dataset \
+        "$PROJECT_GUID" \
+        "$SAMPLE_TYPE" \
+        "$DATASET_TYPE"
+
     echo "✓ Dataset registered in seqr"
 else
     echo "Step 3: Skipped (--skip-register)"

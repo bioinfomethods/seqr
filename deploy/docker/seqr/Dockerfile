@@ -1,19 +1,28 @@
-FROM python:3.11-slim-bullseye AS build
+FROM python:3.11-slim-bookworm AS build
 
 LABEL maintainer="Broad TGG"
 
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-# Add Debian's second official security mirror alongside the default and let apt retry.
+# The base image is bookworm (Debian 12), NOT bullseye (Debian 11). Do not move it back.
 #
-# deb.debian.org and security.debian.org are both CDN fronts for bullseye-security, and
-# from some networks each edge serves an incomplete pool: linux-libc-dev 404s on
-# deb.debian.org while security.debian.org has it, and libc6-dev 404s on
-# security.debian.org while deb.debian.org has it. Either alone fails the install with
-# "E: Failed to fetch ... 404 Not Found"; listing both lets apt fall back to whichever
-# edge holds the file. Harmless where the default mirror is already complete.
-RUN printf 'deb http://security.debian.org/debian-security bullseye-security main\n' \
-      >> /etc/apt/sources.list \
+# Bullseye's LTS ended 2026-08-31 and its security pool is being dismantled, so the
+# published bullseye-security index now advertises packages whose files are already
+# gone -- postgresql-client-13 13.23-0+deb11u4 is listed in the index but 404s on both
+# deb.debian.org and security.debian.org, which fails the runtime apt-get install with
+# "E: Failed to fetch ... 404 Not Found". No apt option works around a package that has
+# been deleted from the archive; only a supported suite does. Bookworm is supported
+# until 2028-06. (The bullseye 404s this file used to work around one at a time -- libc6-dev,
+# linux-libc-dev, the gnupg chain, vim -- were the leading edge of the same wind-down.)
+#
+# Belt and braces for ordinary mirror flakiness: add security.debian.org as a second
+# edge for bookworm-security, and let apt retry. deb.debian.org and security.debian.org
+# are separate CDN fronts for the same suite, so when one edge serves an incomplete pool
+# apt can fall back to the other. The image's sources are in deb822 format (there is no
+# /etc/apt/sources.list), so the alternate goes in its own .sources file and has to name
+# the signing keyring explicitly.
+RUN printf 'Types: deb\nURIs: http://security.debian.org/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' \
+      > /etc/apt/sources.list.d/debian-security-alt.sources \
     && printf 'Acquire::Retries "3";\n' > /etc/apt/apt.conf.d/80-retries
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -38,8 +47,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 #
 # NOT via NodeSource. Its setup script apt-installs the full `gnupg` metapackage just to
 # add a signing key, which drags in gnupg-l10n and gpg-wks-client. Both of those .deb
-# files are currently missing from deb.debian.org's bullseye-security pool (404, while
-# their siblings in the same directory return 200), so that install fails.
+# files went missing from the bullseye-security pool (404, while their siblings in the
+# same directory returned 200), so that install failed.
 #
 # The dangerous part is the failure mode, not the outage: `curl ... | bash -` exits 0
 # even when the script errors, so the `&&` chain continued and apt-installed Debian's
@@ -86,19 +95,13 @@ COPY ./ui/ .
 
 RUN npm run build
 
-FROM python:3.11-slim-bullseye AS runtime
+FROM python:3.11-slim-bookworm AS runtime
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-# Add Debian's second official security mirror alongside the default and let apt retry.
-#
-# deb.debian.org and security.debian.org are both CDN fronts for bullseye-security, and
-# from some networks each edge serves an incomplete pool: linux-libc-dev 404s on
-# deb.debian.org while security.debian.org has it, and libc6-dev 404s on
-# security.debian.org while deb.debian.org has it. Either alone fails the install with
-# "E: Failed to fetch ... 404 Not Found"; listing both lets apt fall back to whichever
-# edge holds the file. Harmless where the default mirror is already complete.
-RUN printf 'deb http://security.debian.org/debian-security bullseye-security main\n' \
-      >> /etc/apt/sources.list \
+# Same second security mirror and retry policy as the build stage above; see the comment
+# there for why this is bookworm and what the alternate edge buys.
+RUN printf 'Types: deb\nURIs: http://security.debian.org/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' \
+      > /etc/apt/sources.list.d/debian-security-alt.sources \
     && printf 'Acquire::Retries "3";\n' > /etc/apt/apt.conf.d/80-retries
 
 # Packages the container needs to run. entrypoint.sh calls pg_isready, the healthcheck
@@ -121,15 +124,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # required packages above still fail the build loudly, and a skip is printed rather than
 # hidden. Without the split, one unavailable editor takes down the whole image.
 #
-# It happens today with vim. Debian's bullseye-security index advertises
-# 2:8.2.2434-3+deb11u3, and the file is genuinely on the mirror -- fetching
-# .../vim_8.2.2434-3+deb11u3_arm64.deb returns 200 and a valid 1.4MB .deb. But apt
-# percent-encodes the '+', and .../vim_8.2.2434-3%2bdeb11u3_arm64.deb returns 404 from
-# both deb.debian.org and security.debian.org. apt only ever sends the encoded form, so
-# it cannot fetch a file that is sitting right there, and it fails over to the second
-# mirror only to get the same 404. The same URL in the main archive
-# (vim_8.2.2434-3%2bdeb11u1) returns 200, so this is a per-URL artifact in the security
-# pool rather than anything wrong with the package or the mirrors.
+# All of these resolve on bookworm today; the fallback exists because they are all
+# expendable, so a mirror that is briefly missing one of them should cost a warning line
+# rather than the image.
 ENV SEQR_OPTIONAL_TOOLS="htop less nano screen vim xterm"
 RUN apt-get update && { \
         # Try the group first, so the common case is a single fast transaction. apt fails
