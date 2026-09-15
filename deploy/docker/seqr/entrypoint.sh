@@ -39,6 +39,37 @@ do
     fi
 done
 
+# Resolve the Keycloak realm signing key if it was not supplied.
+#
+# social_core's KeycloakOAuth2 verifies every access token against
+# SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY, the realm's RSA public key as bare base64. A hosted
+# realm has a stable key that can simply be set in the environment. The local dev realm
+# is created by `--import-realm` and generates a fresh keypair each time it is built, so
+# no static default can ever be correct -- and a wrong key fails at login with an opaque
+# signature error rather than at boot.
+#
+# /realms/<name> exposes `public_key` in exactly the format the setting expects. This
+# only runs when the key is absent, so deployments that set it explicitly are untouched
+# and never depend on the identity provider being reachable at startup.
+if [ -z "$SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY" ] && [ -n "$SOCIAL_AUTH_INTERNAL_API_URL" ]; then
+    echo "SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY is unset - fetching it from $SOCIAL_AUTH_INTERNAL_API_URL"
+    for kc_attempt in $(seq 1 30); do
+        kc_public_key=$(curl -sf "$SOCIAL_AUTH_INTERNAL_API_URL" \
+            | python -c 'import sys, json; print(json.load(sys.stdin)["public_key"])' 2>/dev/null)
+        if [ -n "$kc_public_key" ]; then
+            export SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY="$kc_public_key"
+            echo "Fetched realm public key (${#kc_public_key} chars)"
+            break
+        fi
+        echo "Keycloak realm not ready, retrying (${kc_attempt}/30)"
+        sleep 4
+    done
+    if [ -z "$SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY" ]; then
+        echo "WARNING: could not fetch the Keycloak realm public key from" \
+             "$SOCIAL_AUTH_INTERNAL_API_URL - OIDC login will fail with a signature error"
+    fi
+fi
+
 # run any pending migrations
 # PostgreSQL MUST be migrated before ClickHouse. clickhouse_search migration 0016 creates
 # `seqrdb_affected_status_dict` (and 0023 `seqrdb_sex_dict`) with a POSTGRESQL() source that

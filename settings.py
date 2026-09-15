@@ -513,15 +513,42 @@ SOCIAL_AUTH_OKTA_OPENIDCONNECT_KEY = SOCIAL_AUTH_CLIENT_ID
 SOCIAL_AUTH_OKTA_OPENIDCONNECT_SECRET = SOCIAL_AUTH_CLIENT_SECRET
 
 SOCIAL_AUTH_KEYCLOAK_API_URL = SOCIAL_AUTH_API_URL
+
+# Back-channel base URL for the identity provider, for the calls this server makes to it
+# directly rather than by redirecting the browser. Defaults to SOCIAL_AUTH_API_URL, so
+# any deployment where both halves of the flow reach the IdP at one address is unchanged.
+#
+# Local docker-compose is the case that needs them to differ. The browser must be sent to
+# a published port on the host (http://localhost:8080), while this container must use the
+# compose service name (http://keycloak:8080) -- its own localhost is not Keycloak.
+# Neither address works from both places, and splitting them here avoids requiring every
+# developer to add a hosts-file entry.
+#
+# This is safe because the two URLs are consumed by different halves of the flow: the
+# authorization URL is only ever handed to the browser, the token URL is only ever
+# fetched server side. social_core's KeycloakOAuth2.user_data() verifies the access
+# token's signature and `aud` but not its `iss`, so an issuer naming the public address
+# while the token was collected from the internal one is not a mismatch it can trip over.
+SOCIAL_AUTH_INTERNAL_API_URL = os.environ.get('SOCIAL_AUTH_INTERNAL_API_URL') or SOCIAL_AUTH_API_URL
+
 SOCIAL_AUTH_KEYCLOAK_KEY = SOCIAL_AUTH_CLIENT_ID
 SOCIAL_AUTH_KEYCLOAK_SECRET = SOCIAL_AUTH_CLIENT_SECRET
 SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY = os.environ.get('SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY')
 SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL = \
     f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/auth"
 SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
-    f"{SOCIAL_AUTH_KEYCLOAK_API_URL}/protocol/openid-connect/token"
+    f"{SOCIAL_AUTH_INTERNAL_API_URL}/protocol/openid-connect/token"
 OIDC_GROUPS_CLAIM = os.environ.get('ARCHIE_OIDC_GROUPS_CLAIM', 'ad_groups')
-OIDC_SCOPE = ['openid', 'profile', 'email', 'ad_groups', 'groups', 'offline_access']
+
+# Scopes requested at the authorization endpoint. Must match what the realm actually
+# defines: Keycloak rejects the whole request with `invalid_scope` if any requested scope
+# is not a client scope assigned to the client -- it does not ignore unknown ones. The
+# default below matches the MCRI realm, which defines ad_groups and groups as client
+# scopes. The local dev realm (data/keycloak/realm-seqr.json) instead emits the groups
+# claim from a dedicated client mapper, which applies to every token regardless of the
+# requested scopes, and overrides this to the standard set.
+OIDC_SCOPE = os.environ.get(
+    'OIDC_SCOPE', 'openid profile email ad_groups groups offline_access').split()
 SOCIAL_AUTH_KEYCLOAK_SCOPE = OIDC_SCOPE
 
 SOCIAL_AUTH_PIPELINE_BASE = (

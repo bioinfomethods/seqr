@@ -17,6 +17,74 @@ services:
       retries: 100
 
 
+  keycloak-db-init:
+    image: postgres:12.6
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=docker-compose-postgres-password
+    # Keycloak gets its own DATABASE inside the shared postgres server, rather than a
+    # schema inside seqrdb. The isolation costs nothing (no extra container or volume)
+    # and keeps `pg_dump seqrdb` free of Keycloak's ~100 tables, so either side can be
+    # dropped and rebuilt without disturbing the other.
+    #
+    # This exists as a one-shot service instead of living only in
+    # data/postgres_init/initdb.sql because the postgres image runs initdb.sql ONLY when
+    # it initialises an empty data directory. A developer with a ./data/postgres from
+    # before Keycloak was added would never execute it, and Keycloak would then fail to
+    # start against a database that does not exist. Creating it here is idempotent and
+    # works on both existing and fresh volumes.
+    command: >
+      sh -c "psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname='keycloak'\" | grep -q 1
+      || psql -h postgres -U postgres -c 'CREATE DATABASE keycloak'"
+    restart: "no"
+
+  keycloak:
+    image: keycloak/keycloak:26.0
+    # start-dev: HTTP without a certificate and a relaxed hostname policy, which is what
+    # makes a zero-configuration local stack possible. Never use it for anything else.
+    # --import-realm loads data/keycloak/realm-seqr.json on an empty database; see the
+    # README there for why that file is shaped the way it is.
+    command: start-dev --import-realm
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=postgres
+      - KC_DB_PASSWORD=docker-compose-postgres-password
+      - KC_HEALTH_ENABLED=true
+      # The browser and the seqr container cannot reach Keycloak at the same address:
+      # the browser needs the published port on localhost, seqr needs the compose service
+      # name. KC_HOSTNAME fixes the address Keycloak puts in browser-facing URLs and the
+      # token issuer; BACKCHANNEL_DYNAMIC lets server-to-server callers keep using
+      # whatever host they connected on, so http://keycloak:8080 keeps working for the
+      # token exchange. See SOCIAL_AUTH_INTERNAL_API_URL in settings.py.
+      - KC_HOSTNAME=${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
+    volumes:
+      - ./data/keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - 8080:8080
+    # The Keycloak image ships neither curl nor wget, so the health endpoint is polled
+    # with bash's /dev/tcp. /health/ready is on the separate management port 9000, which
+    # is deliberately not published.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"status": "UP"' <&3
+      interval: 5s
+      timeout: 10s
+      retries: 100
+      start_period: 20s
+
   redis:
     image: redis:6.2.7
     healthcheck:
@@ -117,10 +185,32 @@ services:
       - GUNICORN_WORKER_THREADS=4
       - SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID=${SOCIAL_AUTH_GOOGLE_OAUTH2_CLIENT_ID}
       - SOCIAL_AUTH_PROVIDER=${SOCIAL_AUTH_PROVIDER:-keycloak}
-      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-https://keycloak.mcri.edu.au:8888/realms/bioinfomethods-test}
-      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-archietest}
-      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-keycloak-client-secret}
-      - SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY=${SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY:-keycloak-public-key}
+      # Defaults point at the local keycloak service, so a clean checkout has working
+      # logins with no configuration. Copy .env.example to .env and fill in the MCRI
+      # values to point at the hosted realm instead.
+      #
+      # These two URLs address the SAME Keycloak and must both be set. The browser is
+      # redirected to SOCIAL_AUTH_API_URL, so it has to be an address the host's browser
+      # can open (the published port on localhost). The token exchange is a server-side
+      # call made by this container, which cannot reach that address -- its own localhost
+      # is not Keycloak -- so it uses SOCIAL_AUTH_INTERNAL_API_URL, the compose service
+      # name. Splitting them is what removes the need for a /etc/hosts entry on every
+      # developer's machine.
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-http://localhost:8080/realms/seqr}
+      - SOCIAL_AUTH_INTERNAL_API_URL=${SOCIAL_AUTH_INTERNAL_API_URL:-http://keycloak:8080/realms/seqr}
+      - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-seqr-local}
+      - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-seqr-local-dev-secret}
+      # Deliberately empty by default. This is the realm's RSA signing key, and the local
+      # realm generates a fresh one each time it is imported, so no static value can be
+      # right. entrypoint.sh fetches it from the realm when this is unset; a hosted realm
+      # with a stable key can set it here and skip that.
+      - SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY=${SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY:-}
+      # Keycloak rejects an authorization request outright if any requested scope is not
+      # a client scope assigned to the client -- it does not ignore unknown ones. seqr's
+      # built-in default asks for ad_groups and groups, which exist in the MCRI realm;
+      # the local realm emits the groups claim from a dedicated client mapper instead, so
+      # only the standard scopes are requested here.
+      - OIDC_SCOPE=${OIDC_SCOPE:-openid profile email}
       - ANALYST_USER_GROUP=${ANALYST_USER_GROUP:-analysts}
       - ANALYST_PROJECT_CATEGORY=${ANALYST_PROJECT_CATEGORY:-analyst-projects}
       - PM_USER_GROUP=${PM_USER_GROUP:-project-managers}
@@ -131,6 +221,10 @@ services:
       redis:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      # Not merely ordering: entrypoint.sh fetches the realm signing key from Keycloak
+      # before Django starts, so Keycloak has to be serving before seqr boots.
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: bash -c "curl -s 'http://localhost:8000' | grep html"

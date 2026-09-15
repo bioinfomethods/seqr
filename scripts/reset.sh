@@ -29,6 +29,11 @@ SEQR_TEST_USER_EMAIL="${SEQR_TEST_USER_EMAIL:-$(env_file_value SEQR_TEST_USER_EM
 SEQR_TEST_PROJECT_NAME="${SEQR_TEST_PROJECT_NAME:-$(env_file_value SEQR_TEST_PROJECT_NAME)}"
 SEQR_TEST_PROJECT_GENOME_VERSION="${SEQR_TEST_PROJECT_GENOME_VERSION:-$(env_file_value SEQR_TEST_PROJECT_GENOME_VERSION)}"
 
+# Defaults to the user shipped in the local Keycloak realm
+# (data/keycloak/realm-seqr.json), so a clean checkout ends up with a Django account that
+# the realm's `tester` identity can actually sign in to. Override in .env when pointing
+# at the MCRI realm, where the address must be the one that provider asserts.
+SEQR_TEST_USER_EMAIL="${SEQR_TEST_USER_EMAIL:-tester@seqr.local}"
 SEQR_TEST_PROJECT_NAME="${SEQR_TEST_PROJECT_NAME:-Test Project}"
 SEQR_TEST_PROJECT_GENOME_VERSION="${SEQR_TEST_PROJECT_GENOME_VERSION:-38}"
 
@@ -68,6 +73,16 @@ echo
 docker compose up -d postgres redis
 
 sleep 5
+
+echo
+echo "Starting keycloak ..."
+echo
+
+# Keycloak's database lives in the postgres instance wiped above, so this re-imports
+# data/keycloak/realm-seqr.json from scratch -- including a freshly generated realm
+# signing key, which the seqr entrypoint fetches at boot. Pulls in keycloak-db-init
+# (which recreates the `keycloak` database) through depends_on.
+docker compose up -d keycloak
 
 echo
 echo "Starting clickhouse  ..."
