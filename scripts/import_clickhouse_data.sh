@@ -37,7 +37,21 @@ EOF
 # Default values
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PIPELINES_DIR="${PIPELINES_DIR:-$(cd "$BASE_DIR/../seqr-loading-pipelines-clickhouse" 2>/dev/null && pwd || echo "")}"
+# The loading pipelines are a separate repo. Prefer the checkout inside this working tree
+# (./seqr-loading-pipelines), falling back to the older sibling-directory location for
+# hosts that still keep it outside the repo. Override with --pipelines-dir or $PIPELINES_DIR.
+#
+# Written as an if/elif rather than a `cd A && pwd || cd B && pwd` chain: in that form the
+# trailing `&& pwd` still runs after a successful first branch (the `||` only skips the `cd`,
+# it does not short-circuit the rest of the list), so the path gets printed twice.
+default_pipelines_dir() {
+    if [ -d "$BASE_DIR/seqr-loading-pipelines" ]; then
+        (cd "$BASE_DIR/seqr-loading-pipelines" && pwd)
+    elif [ -d "$BASE_DIR/../seqr-loading-pipelines-clickhouse" ]; then
+        (cd "$BASE_DIR/../seqr-loading-pipelines-clickhouse" && pwd)
+    fi
+}
+PIPELINES_DIR="${PIPELINES_DIR:-$(default_pipelines_dir)}"
 SEQR_DIR="${SEQR_DIR:-$BASE_DIR}"
 PIPELINES_UV_ENV="${PIPELINES_UV_ENV:-seqr-loading-pipelines}"
 SEQR_UV_ENV="${SEQR_UV_ENV:-seqr}"
@@ -174,9 +188,14 @@ if [[ "$SKIP_COPY" == false && -n "$REMOTE_HOST" ]]; then
     echo "Step 1: Copying data from remote host..."
     
     REMOTE_RUN_PATH="$REMOTE_PATH/$REFERENCE_GENOME/$DATASET_TYPE/runs/$RUN_ID"
-    #LOCAL_RUN_PATH="$SEQR_DIR/data/clickhouse-seqr-data/pipeline-data/$REFERENCE_GENOME/$DATASET_TYPE/runs"
-    LOCAL_RUN_PATH="$SEQR_DIR/data/runs"
-    
+    # Mirror the remote layout exactly. ClickHouse resolves run parquet as
+    #   file('$CLICKHOUSE_DATA_DIR/<genome>/<dataset_type>/runs/<run_id>/*.parquet')
+    # and CLICKHOUSE_DATA_DIR is the container's view of data/clickhouse-seqr-data/pipeline-data
+    # (see the bind mount on the clickhouse service). Copying into a flat data/runs only ever
+    # worked because a second mount pinned that directory onto the SNV_INDEL run path; once a
+    # non-SNV_INDEL dataset type was loaded it resolved to an unmounted path and found nothing.
+    LOCAL_RUN_PATH="$SEQR_DIR/data/clickhouse-seqr-data/pipeline-data/$REFERENCE_GENOME/$DATASET_TYPE/runs"
+
     mkdir -p "$LOCAL_RUN_PATH"
     
     echo "Copying from $REMOTE_HOST:$REMOTE_RUN_PATH to $LOCAL_RUN_PATH"
@@ -203,7 +222,15 @@ if [[ "$SKIP_LOAD" == false ]]; then
     pushd "$PIPELINES_DIR" > /dev/null
 
     export CLICKHOUSE_DATA_DIR=/var/lib/clickhouse/user_files/seqr-data/pipeline-data
-    
+
+    # optimize_entries() polls until the CollapsingMergeTree -1 rows are gone, sleeping this
+    # many seconds between checks -- and it sleeps even when the OPTIMIZE finished instantly.
+    # Upstream defaults to 150s, which is sized for production-scale partitions; on a local
+    # single-project instance that is almost entirely dead wait. Exported rather than hardcoded
+    # so it can still be raised for a big load: CLICKHOUSE_OPTIMIZE_TABLE_WAIT_S=150 bash ...
+    export CLICKHOUSE_OPTIMIZE_TABLE_WAIT_S="${CLICKHOUSE_OPTIMIZE_TABLE_WAIT_S:-10}"
+
+
     LOAD_CMD="uv run python v03_pipeline/bin/load_to_clickhouse.py \
         --reference-genome $REFERENCE_GENOME \
         --dataset-type $DATASET_TYPE \

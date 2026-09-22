@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:12.6
+    image: postgres:17.11
     command: postgres -c listen_addresses='*'
     ports:
       - 5432:5432
@@ -18,23 +18,15 @@ services:
 
 
   keycloak-db-init:
-    image: postgres:12.6
+    # Only ever runs psql as a client, so it is version-tolerant, but kept in step with the
+    # server above so there is one postgres version to reason about rather than two.
+    image: postgres:17.11
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       - PGPASSWORD=docker-compose-postgres-password
-    # Keycloak gets its own DATABASE inside the shared postgres server, rather than a
-    # schema inside seqrdb. The isolation costs nothing (no extra container or volume)
-    # and keeps `pg_dump seqrdb` free of Keycloak's ~100 tables, so either side can be
-    # dropped and rebuilt without disturbing the other.
-    #
-    # This exists as a one-shot service instead of living only in
-    # data/postgres_init/initdb.sql because the postgres image runs initdb.sql ONLY when
-    # it initialises an empty data directory. A developer with a ./data/postgres from
-    # before Keycloak was added would never execute it, and Keycloak would then fail to
-    # start against a database that does not exist. Creating it here is idempotent and
-    # works on both existing and fresh volumes.
+    # Keycloak gets its own DATABASE inside the shared postgres server
     command: >
       sh -c "psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname='keycloak'\" | grep -q 1
       || psql -h postgres -U postgres -c 'CREATE DATABASE keycloak'"
@@ -105,22 +97,20 @@ services:
       # materialized views AND the django_migrations bookkeeping. Without this the whole
       # lot lives in the container layer and is destroyed with the container, so every
       # recreate needs a full re-migrate and re-load.
-      # A named volume rather than a bind mount: nothing on the host reads this (unlike
-      # the user_files mounts below), and on Docker Desktop for macOS a bind mount would
-      # put ClickHouse's many-small-file IO through the VM filesystem bridge. Swap for
-      # `./data/clickhouse:/var/lib/clickhouse` if you need to inspect it from the host.
+      # A named volume rather than a bind mount - nothing on the host reads from here
       - clickhouse-data:/var/lib/clickhouse
-      # These two stay bind mounts: the loading pipeline and scripts/import_clickhouse_data.sh
-      # write into them from the host.
+      # Stays a bind mount: the loading pipeline and scripts/import_clickhouse_data.sh
+      # write into it from the host. 
+      # Maps host parquet at
+      #   data/clickhouse-seqr-data/pipeline-data/<genome>/<dataset_type>/runs/<run_id>
       - ./data/clickhouse-seqr-data:/var/lib/clickhouse/user_files/seqr-data
-      - ./data/runs:/var/lib/clickhouse/user_files/seqr-data/pipeline-data/GRCh38/SNV_INDEL/runs
       # Backing store for the annotations_memory / *_memory EmbeddedRocksDB tables
       # (CLICKHOUSE_IN_MEMORY_DIR). Search reads ONLY these tables, so without a volume
       # they live in the container layer and are silently wiped on `docker compose up
       # --force-recreate` -- leaving searches returning zero rows with no error.
       # Upstream runs this on tmpfs for speed; a named volume trades that for
-      # persistence, which is the better default for local dev. To use tmpfs instead,
-      # drop this line and add the `tmpfs:` block below.
+      # persistence, which is the better default for local dev, with container restarts
+      # being frequent
       - clickhouse-in-memory:/var/lib/clickhouse/user_files/in-memory
       - ./data/clickhouse_config/config.xml:/etc/clickhouse-server/config.d/config.xml
       - ./data/clickhouse_config/logging.xml:/etc/clickhouse-server/config.d/logging.xml
@@ -197,7 +187,13 @@ services:
       # name. Splitting them is what removes the need for a /etc/hosts entry on every
       # developer's machine.
       - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-http://localhost:8080/realms/seqr}
-      - SOCIAL_AUTH_INTERNAL_API_URL=${SOCIAL_AUTH_INTERNAL_API_URL:-http://keycloak:8080/realms/seqr}
+      # Follows SOCIAL_AUTH_API_URL whenever that is set, so pointing .env at a hosted
+      # realm moves BOTH halves of the flow. Only a stack running the local keycloak
+      # service -- where neither is set -- falls through to the service name. Getting
+      # this wrong is otherwise near-undiagnosable: the browser authenticates against the
+      # hosted realm, then seqr redeems the code against the local one, which has never
+      # heard of that client and answers `invalid_client`.
+      - SOCIAL_AUTH_INTERNAL_API_URL=${SOCIAL_AUTH_INTERNAL_API_URL:-${SOCIAL_AUTH_API_URL:-http://keycloak:8080/realms/seqr}}
       - SOCIAL_AUTH_CLIENT_ID=${SOCIAL_AUTH_CLIENT_ID:-seqr-local}
       - SOCIAL_AUTH_CLIENT_SECRET=${SOCIAL_AUTH_CLIENT_SECRET:-seqr-local-dev-secret}
       # Deliberately empty by default. This is the realm's RSA signing key, and the local
