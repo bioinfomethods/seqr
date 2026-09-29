@@ -4,6 +4,10 @@ LABEL maintainer="Broad TGG"
 
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+COPY README* *build.d /build.d/
+RUN bash -c 'for i in $(ls /build.d/*.sh 2>/dev/null | sort) ; do source $i ; done'
+
 # The base image is bookworm (Debian 12), NOT bullseye (Debian 11). Do not move it back.
 #
 # Bullseye's LTS ended 2026-08-31 and its security pool is being dismantled, so the
@@ -58,6 +62,11 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # A pinned tarball has no apt or GPG dependency, is checksum-verified, and gives an
 # identical node/npm on every machine.
 ENV NODE_VERSION=v18.20.8
+# Trust the system CA bundle (which includes any proxy root cert added by build.d/*.sh,
+# e.g. ZScaler). Without this, npm's tarball fetches fail TLS verification behind an
+# intercepting proxy, npm crashes with "Exit handler never called!" yet still exits 0,
+# and node_modules is left full of empty package directories.
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 RUN set -eux; \
     case "$(dpkg --print-architecture)" in \
         amd64) NODE_ARCH=x64 ;; \
@@ -89,7 +98,16 @@ WORKDIR /build/ui
 # Copy the package configs from the build context -> the temporary build container, for generating node_modules
 COPY ./ui/package.json .
 COPY ./ui/package-lock.json .
-RUN npm ci
+# npm can crash mid-install ("Exit handler never called!") yet exit 0, leaving empty package
+# directories behind. Fail here rather than with a misleading "Cannot find module" later.
+RUN npm ci && \
+    EMPTY="$(find node_modules -mindepth 1 -maxdepth 2 -type d -empty)" && \
+    if [ -n "$EMPTY" ]; then \
+        echo "ERROR: npm ci left $(echo "$EMPTY" | wc -l) empty package directories, e.g.:" >&2; \
+        echo "$EMPTY" | head -5 >&2; \
+        echo "Check network/TLS access to the npm registry (proxy CA cert?)." >&2; \
+        exit 1; \
+    fi
 
 COPY ./ui/ .
 
@@ -98,6 +116,11 @@ RUN npm run build
 FROM python:3.11-slim-bookworm AS runtime
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Run the same local build hooks (e.g. proxy root cert) as the build stage: this stage
+# pip-installs from PyPI too.
+COPY README* *build.d /build.d/
+RUN bash -c 'for i in $(ls /build.d/*.sh 2>/dev/null | sort) ; do source $i ; done'
 # Same second security mirror and retry policy as the build stage above; see the comment
 # there for why this is bookworm and what the alternate edge buys.
 RUN printf 'Types: deb\nURIs: http://security.debian.org/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' \
