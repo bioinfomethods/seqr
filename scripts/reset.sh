@@ -194,6 +194,10 @@ sleep 5
 
 if [ ! -e ui/dist ];
 then
+
+   export NVM_DIR="$HOME/.nvm"
+   [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+
     nvm use || { echo "Please install nvm" ; exit 1; }
 
     echo "Building ui assets ..."
