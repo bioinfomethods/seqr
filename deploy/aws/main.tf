@@ -195,6 +195,20 @@ resource "aws_vpc_endpoint" "ssmmessages" {
   }
 }
 
+# VPC Endpoint for EC2 API (required for Clickhouse to self-attach its data volume)
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id              = local.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.ec2"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${local.name_prefix}-ec2-endpoint"
+  }
+}
+
 # VPC Endpoint for S3 (Gateway type - no security group needed)
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = local.vpc_id
@@ -766,6 +780,9 @@ ENVEOF
 EOF
 
   user_data_replace_on_change = true
+
+  # EC2 API endpoint must exist before user_data attempts to attach the data volume
+  depends_on = [aws_vpc_endpoint.ec2]
 
   tags = {
     Name = "${local.name_prefix}-clickhouse"
