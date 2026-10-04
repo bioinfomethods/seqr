@@ -26,8 +26,8 @@
 4. [x] Update the references in `main.tf` (module call + ClickHouse user_data + Aurora comments), `fargate.tf` (POSTGRES_* env vars + SG comments) and `outputs.tf`. Drop the reader endpoint output and add `sslmode=require` to the psql command. Delete `modules/aurora/` (`git rm -r deploy/aws/modules/aurora`).
    - Root outputs are now `db_endpoint`, `db_port`, `db_database_name`, `db_master_username`, `db_security_group_id`, `db_instance_id` and `db_psql_command`.
    - The module call also passes `allocated_storage`, `max_allocated_storage`, `multi_az` and `deletion_protection`.
-   - 4b. [ ] Update `scripts/ssh-to-bastion.sh` (outputs `db_endpoint` / `db_port`, `LOCAL_DB_PORT`, labels) and `scripts/recreate-database.sh` (tfvars key `db_master_password`, `LOCAL_DB_PORT`, header comment).
-5. [ ] Apply the same renames in `terraform-dev.tfvars.example` (instance class → `db.t4g.small`). The user must edit their real tfvars by hand: edit the symlink target `terraform-dev.tfvars` (not the `terraform.tfvars` symlink), rename `aurora_*` → `db_*`, and set or remove `db_instance_class` (currently overridden to `db.t3.medium`).
+   - 4b. [x] Update `scripts/ssh-to-bastion.sh` (outputs `db_endpoint` / `db_port`, `LOCAL_DB_PORT`, labels) and `scripts/recreate-database.sh` (tfvars key `db_master_password`, `LOCAL_DB_PORT`, header comment). (commit b9d9ca3)
+5. [x] Apply the same renames in `terraform-dev.tfvars.example` (instance class → `db.t4g.small`). The user must edit their real tfvars by hand: edit the symlink target `terraform-dev.tfvars` (not the `terraform.tfvars` symlink), rename `aurora_*` → `db_*`, and set or remove `db_instance_class` (currently overridden to `db.t3.medium`). (commit b9d9ca3)
 6. [ ] Update `PLAN.md`, `INFRA_ARCHITECTURE.md`, `PLAN-fargate.md` and `README.md` to say RDS instead of Aurora. `README_SIMON.md` is left alone.
 
 ## After apply
