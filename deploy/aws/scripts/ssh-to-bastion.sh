@@ -42,15 +42,15 @@ if [ -z "$ALB_DNS" ]; then
   echo "         ALB port forwarding will not be configured"
 fi
 
-# Get Aurora cluster endpoint from Terraform outputs for port forwarding
-echo "Retrieving Aurora cluster endpoint from Terraform outputs..."
-AURORA_ENDPOINT=$(tofu output -raw aurora_cluster_endpoint 2>/dev/null || true)
-AURORA_PORT=$(tofu output -raw aurora_cluster_port 2>/dev/null || true)
-AURORA_PORT="${AURORA_PORT:-5432}"
+# Get RDS PostgreSQL endpoint from Terraform outputs for port forwarding
+echo "Retrieving PostgreSQL (RDS) endpoint from Terraform outputs..."
+DB_ENDPOINT=$(tofu output -raw db_endpoint 2>/dev/null || true)
+DB_PORT=$(tofu output -raw db_port 2>/dev/null || true)
+DB_PORT="${DB_PORT:-5432}"
 
-if [ -z "$AURORA_ENDPOINT" ]; then
-  echo "Warning: Could not retrieve Aurora cluster endpoint from Terraform outputs"
-  echo "         Aurora port forwarding will not be configured"
+if [ -z "$DB_ENDPOINT" ]; then
+  echo "Warning: Could not retrieve PostgreSQL endpoint from Terraform outputs"
+  echo "         PostgreSQL port forwarding will not be configured"
 fi
 
 # Get ClickHouse private IP from Terraform outputs for port forwarding
@@ -63,7 +63,7 @@ if [ -z "$CLICKHOUSE_IP" ]; then
 fi
 
 LOCAL_PORT="${LOCAL_PORT:-8167}"
-LOCAL_AURORA_PORT="${LOCAL_AURORA_PORT:-8168}"
+LOCAL_DB_PORT="${LOCAL_DB_PORT:-8168}"
 LOCAL_CLICKHOUSE_PORT="${LOCAL_CLICKHOUSE_PORT:-8169}"
 LOCAL_CLICKHOUSE_HTTP_PORT="${LOCAL_CLICKHOUSE_HTTP_PORT:-8170}"
 
@@ -85,8 +85,8 @@ echo "  Key: ~/.ssh/${KEY_NAME}"
 if [ -n "$ALB_DNS" ]; then
   echo "  Port forward: localhost:${LOCAL_PORT} -> ${ALB_DNS}:80 (ALB)"
 fi
-if [ -n "$AURORA_ENDPOINT" ]; then
-  echo "  Port forward: localhost:${LOCAL_AURORA_PORT} -> ${AURORA_ENDPOINT}:${AURORA_PORT} (Aurora)"
+if [ -n "$DB_ENDPOINT" ]; then
+  echo "  Port forward: localhost:${LOCAL_DB_PORT} -> ${DB_ENDPOINT}:${DB_PORT} (Postgres)"
 fi
 if [ -n "$CLICKHOUSE_IP" ]; then
   echo "  Port forward: localhost:${LOCAL_CLICKHOUSE_PORT} -> ${CLICKHOUSE_IP}:9000 (ClickHouse native)"
@@ -107,8 +107,8 @@ if [ -n "$ALB_DNS" ]; then
   SSH_ARGS+=(-L "${LOCAL_PORT}:${ALB_DNS}:80")
 fi
 
-if [ -n "$AURORA_ENDPOINT" ]; then
-  SSH_ARGS+=(-L "${LOCAL_AURORA_PORT}:${AURORA_ENDPOINT}:${AURORA_PORT}")
+if [ -n "$DB_ENDPOINT" ]; then
+  SSH_ARGS+=(-L "${LOCAL_DB_PORT}:${DB_ENDPOINT}:${DB_PORT}")
 fi
 
 if [ -n "$CLICKHOUSE_IP" ]; then

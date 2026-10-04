@@ -1,5 +1,5 @@
 #!/bin/bash
-# Recreate the seqrdb database on Aurora PostgreSQL from a pg_dump backup.
+# Recreate the seqrdb database on RDS PostgreSQL from a pg_dump backup.
 #
 # This script:
 #   1. Scales down the ECS Fargate service to release database connections
@@ -14,7 +14,7 @@
 #   - OpenTofu (tofu) installed
 #   - psql and pg_restore installed
 #   - Run from the deploy/aws directory (or the script will cd there)
-#   - Bastion SSH tunnel active on LOCAL_AURORA_PORT (default: 8168)
+#   - Bastion SSH tunnel active on LOCAL_DB_PORT (default: 8168)
 #
 # Usage:
 #   ./recreate-database.sh <dump-file> [reference-dump-file]
@@ -26,13 +26,13 @@
 #   # Restore both seqrdb and reference_data_db:
 #   ./recreate-database.sh /path/to/seqrdb-clean.dump /path/to/reference_data_db.dump
 #
-#   LOCAL_AURORA_PORT=5432 DB_USER=seqr ./recreate-database.sh seqrdb.dump reference_data_db.dump
+#   LOCAL_DB_PORT=5432 DB_USER=seqr ./recreate-database.sh seqrdb.dump reference_data_db.dump
 
 set -euo pipefail
 
 # ---- Configuration (override via environment variables) ----
 DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${LOCAL_AURORA_PORT:-8168}"
+DB_PORT="${LOCAL_DB_PORT:-8168}"
 DB_USER="${DB_USER:-seqr}"
 DB_NAME="${DB_NAME:-seqrdb}"
 REF_DB_NAME="${REF_DB_NAME:-reference_data_db}"
@@ -51,7 +51,7 @@ if [ -z "$DUMP_FILE" ]; then
   echo ""
   echo "Environment variables:"
   echo "  DB_HOST              Database host (default: localhost)"
-  echo "  LOCAL_AURORA_PORT    Database port (default: 8168)"
+  echo "  LOCAL_DB_PORT        Database port (default: 8168)"
   echo "  DB_USER              Database user (default: seqr)"
   echo "  DB_NAME              Main database name (default: seqrdb)"
   echo "  REF_DB_NAME          Reference database name (default: reference_data_db)"
@@ -85,10 +85,10 @@ cd "$DEPLOY_DIR"
 if [ -z "${PGPASSWORD:-}" ]; then
   TFVARS_FILE="${DEPLOY_DIR}/terraform.tfvars"
   if [ -f "$TFVARS_FILE" ]; then
-    EXTRACTED_PW=$(grep -E '^\s*aurora_master_password\s*=' "$TFVARS_FILE" \
+    EXTRACTED_PW=$(grep -E '^\s*db_master_password\s*=' "$TFVARS_FILE" \
       | sed -E 's/^[^"]*"([^"]*)".*/\1/' 2>/dev/null) || true
     if [ -n "${EXTRACTED_PW:-}" ]; then
-      echo "==> Using aurora_master_password from terraform.tfvars"
+      echo "==> Using db_master_password from terraform.tfvars"
       PGPASSWORD="$EXTRACTED_PW"
     fi
   fi
