@@ -57,41 +57,41 @@ output "bastion_ssh_command" {
   value       = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/${var.bastion_key_name} ec2-user@${aws_eip.bastion.public_ip}"
 }
 
-# Aurora PostgreSQL
-output "aurora_cluster_endpoint" {
-  description = "Aurora cluster writer endpoint"
-  value       = module.aurora.cluster_endpoint
+# PostgreSQL (RDS)
+output "db_endpoint" {
+  description = "RDS PostgreSQL hostname (address only, without port)"
+  value       = module.postgres.endpoint
 }
 
-output "aurora_cluster_reader_endpoint" {
-  description = "Aurora cluster reader endpoint"
-  value       = module.aurora.cluster_reader_endpoint
+output "db_port" {
+  description = "RDS PostgreSQL port"
+  value       = module.postgres.port
 }
 
-output "aurora_cluster_port" {
-  description = "Aurora cluster port"
-  value       = module.aurora.cluster_port
+output "db_database_name" {
+  description = "RDS PostgreSQL database name"
+  value       = module.postgres.database_name
 }
 
-output "aurora_database_name" {
-  description = "Aurora database name"
-  value       = module.aurora.database_name
-}
-
-output "aurora_master_username" {
-  description = "Aurora master username"
-  value       = module.aurora.master_username
+output "db_master_username" {
+  description = "RDS PostgreSQL master username"
+  value       = module.postgres.master_username
   sensitive   = true
 }
 
-output "aurora_security_group_id" {
-  description = "Security group ID for Aurora"
-  value       = module.aurora.security_group_id
+output "db_security_group_id" {
+  description = "Security group ID for RDS PostgreSQL"
+  value       = module.postgres.security_group_id
 }
 
-output "aurora_psql_command" {
-  description = "Command to connect to Aurora from bastion (password required)"
-  value       = "psql -h ${module.aurora.cluster_endpoint} -U ${var.aurora_master_username} -d ${var.aurora_database_name}"
+output "db_instance_id" {
+  description = "RDS PostgreSQL instance identifier"
+  value       = module.postgres.instance_id
+}
+
+output "db_psql_command" {
+  description = "Command to connect to RDS PostgreSQL from bastion (password required)"
+  value       = "psql \"host=${module.postgres.endpoint} port=${module.postgres.port} user=${var.db_master_username} dbname=${var.db_database_name} sslmode=require\""
 }
 
 # ECR

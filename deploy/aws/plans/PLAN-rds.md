@@ -1,8 +1,8 @@
 # Plan: Replace Aurora with RDS PostgreSQL
 
-**Status**: In progress. Steps 1–3 done; step 4 next. Dev only, no data, so no migration is needed.
+**Status**: In progress. Steps 1–4 done; step 4b next. Dev only, no data, so no migration is needed.
 
-**WARNING**: Between step 3 and the end of step 4 the root config does not validate (root files still reference `var.aurora_*` / `module.aurora`). Do not run `tofu plan` until step 4 is complete.
+**WARNING**: Do not run `tofu plan` until step 5 is done. The real tfvars still uses the `aurora_*` keys, so `db_master_password` is unset. Run `tofu init` before the first plan, because the module source changed to `./modules/postgres`.
 
 ## Decisions (confirmed)
 - Rename `modules/aurora` → `modules/postgres`, and rename `aurora_*` vars/outputs → `db_*`
@@ -23,7 +23,9 @@
    - Deleting `modules/aurora/` is deferred to step 4, so `main.tf` never references a missing module.
 2. [x] Module outputs: `endpoint` (must be `.address`, NOT `.endpoint`, which returns host:port), `port`, `database_name`, `master_username`, `security_group_id`, `instance_id`. No reader endpoint. (commit 51e0ef1)
 3. [x] Rename the root `variables.tf` vars from `aurora_*` to `db_*`, and change the instance class default to `db.t4g.small`. Add the multi_az, storage and deletion_protection vars.
-4. [ ] Update the references in `main.tf` (module call + ClickHouse user_data + Aurora comments), `fargate.tf` (POSTGRES_* env vars + SG comments) and `outputs.tf`. Drop the reader endpoint output and add `sslmode=require` to the psql command. Delete `modules/aurora/` (`git rm -r deploy/aws/modules/aurora`).
+4. [x] Update the references in `main.tf` (module call + ClickHouse user_data + Aurora comments), `fargate.tf` (POSTGRES_* env vars + SG comments) and `outputs.tf`. Drop the reader endpoint output and add `sslmode=require` to the psql command. Delete `modules/aurora/` (`git rm -r deploy/aws/modules/aurora`).
+   - Root outputs are now `db_endpoint`, `db_port`, `db_database_name`, `db_master_username`, `db_security_group_id`, `db_instance_id` and `db_psql_command`.
+   - The module call also passes `allocated_storage`, `max_allocated_storage`, `multi_az` and `deletion_protection`.
    - 4b. [ ] Update `scripts/ssh-to-bastion.sh` (outputs `db_endpoint` / `db_port`, `LOCAL_DB_PORT`, labels) and `scripts/recreate-database.sh` (tfvars key `db_master_password`, `LOCAL_DB_PORT`, header comment).
 5. [ ] Apply the same renames in `terraform-dev.tfvars.example` (instance class → `db.t4g.small`). The user must edit their real tfvars by hand: edit the symlink target `terraform-dev.tfvars` (not the `terraform.tfvars` symlink), rename `aurora_*` → `db_*`, and set or remove `db_instance_class` (currently overridden to `db.t3.medium`).
 6. [ ] Update `PLAN.md`, `INFRA_ARCHITECTURE.md`, `PLAN-fargate.md` and `README.md` to say RDS instead of Aurora. `README_SIMON.md` is left alone.

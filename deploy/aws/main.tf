@@ -64,7 +64,7 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# Create dedicated subnets for seqr infrastructure (2 AZs required for Aurora)
+# Create dedicated subnets for seqr infrastructure (2 AZs required for the RDS DB subnet group and ALB)
 resource "aws_subnet" "seqr_az1" {
   vpc_id            = local.vpc_id
   cidr_block        = var.subnet_cidr_az1
@@ -442,23 +442,27 @@ resource "aws_eip" "bastion" {
   depends_on = [aws_instance.bastion]
 }
 
-# Aurora PostgreSQL Module
-module "aurora" {
-  source = "./modules/aurora"
+# PostgreSQL (RDS) Module
+module "postgres" {
+  source = "./modules/postgres"
 
-  name_prefix                   = local.name_prefix
-  vpc_id                        = local.vpc_id
-  subnet_ids                    = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
-  bastion_security_group_id     = aws_security_group.bastion.id
-  clickhouse_security_group_id  = aws_security_group.clickhouse.id
-  ecs_security_group_id         = aws_security_group.ecs_service.id
-  instance_class                = var.aurora_instance_class
-  master_username               = var.aurora_master_username
-  master_password               = var.aurora_master_password
-  database_name                 = var.aurora_database_name
-  engine_version                = "17.7"
-  backup_retention_period       = var.aurora_backup_retention_period
-  skip_final_snapshot           = var.aurora_skip_final_snapshot
+  name_prefix                  = local.name_prefix
+  vpc_id                       = local.vpc_id
+  subnet_ids                   = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
+  bastion_security_group_id    = aws_security_group.bastion.id
+  clickhouse_security_group_id = aws_security_group.clickhouse.id
+  ecs_security_group_id        = aws_security_group.ecs_service.id
+  instance_class               = var.db_instance_class
+  master_username              = var.db_master_username
+  master_password              = var.db_master_password
+  database_name                = var.db_database_name
+  engine_version               = "17.7"
+  allocated_storage            = var.db_allocated_storage
+  max_allocated_storage        = var.db_max_allocated_storage
+  multi_az                     = var.db_multi_az
+  backup_retention_period      = var.db_backup_retention_period
+  skip_final_snapshot          = var.db_skip_final_snapshot
+  deletion_protection          = var.db_deletion_protection
 }
 
 # S3 bucket for seqr application data (ClinVar files, variant datasets, etc.)
@@ -670,7 +674,7 @@ resource "aws_security_group" "clickhouse" {
     security_groups = [aws_security_group.ecs_service.id]
   }
 
-  # Allow all outbound traffic (includes PostgreSQL to Aurora and VPC endpoints)
+  # Allow all outbound traffic (includes PostgreSQL to RDS and VPC endpoints)
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -719,7 +723,7 @@ resource "aws_instance" "clickhouse" {
     encrypted   = true
   }
 
-  # Pass Aurora connection details, ECR info, and data volume device to ClickHouse instance.
+  # Pass PostgreSQL (RDS) connection details, ECR info, and data volume device to ClickHouse instance.
   # The start-clickhouse.sh script reads these from /etc/environment to:
   #   1. Mount the dedicated data volume at /var/lib/clickhouse
   #   2. Configure named_collections.xml with PostgreSQL connection details
@@ -765,11 +769,11 @@ if [ "$STATE" = "available" ]; then
 fi
 
 cat >> /etc/environment <<'ENVEOF'
-POSTGRES_HOST=${module.aurora.cluster_endpoint}
-POSTGRES_PORT=${module.aurora.cluster_port}
-POSTGRES_USER=${var.aurora_master_username}
-POSTGRES_PASSWORD=${var.aurora_master_password}
-POSTGRES_DATABASE=${var.aurora_database_name}
+POSTGRES_HOST=${module.postgres.endpoint}
+POSTGRES_PORT=${module.postgres.port}
+POSTGRES_USER=${var.db_master_username}
+POSTGRES_PASSWORD=${var.db_master_password}
+POSTGRES_DATABASE=${var.db_database_name}
 ECR_REPOSITORY_URL=${aws_ecr_repository.clickhouse.repository_url}
 AWS_REGION=${var.aws_region}
 CLICKHOUSE_DATA_DEVICE=/dev/nvme1n1

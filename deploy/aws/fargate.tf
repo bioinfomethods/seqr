@@ -227,7 +227,7 @@ resource "aws_security_group" "alb" {
   }
 }
 
-# ECS Service Security Group - allows traffic from ALB, outbound to Aurora/Clickhouse/ECR
+# ECS Service Security Group - allows traffic from ALB, outbound to RDS PostgreSQL/Clickhouse/ECR
 resource "aws_security_group" "ecs_service" {
   name        = "${local.name_prefix}-ecs-service-sg"
   description = "Security group for seqr ECS Fargate service"
@@ -242,7 +242,7 @@ resource "aws_security_group" "ecs_service" {
     security_groups = [aws_security_group.alb.id]
   }
 
-  # Allow all outbound (Aurora 5432, Clickhouse 8123/9000, VPC endpoints 443)
+  # Allow all outbound (RDS PostgreSQL 5432, Clickhouse 8123/9000, VPC endpoints 443)
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -355,12 +355,12 @@ resource "aws_ecs_task_definition" "seqr_web" {
 
       environment = [
         # PostgreSQL connection (matches settings.py POSTGRES_DB_CONFIG)
-        { name = "POSTGRES_SERVICE_HOSTNAME", value = module.aurora.cluster_endpoint },
-        { name = "POSTGRES_SERVICE_PORT", value = tostring(module.aurora.cluster_port) },
-        { name = "POSTGRES_USERNAME", value = var.aurora_master_username },
-        { name = "POSTGRES_PASSWORD", value = var.aurora_master_password },
+        { name = "POSTGRES_SERVICE_HOSTNAME", value = module.postgres.endpoint },
+        { name = "POSTGRES_SERVICE_PORT", value = tostring(module.postgres.port) },
+        { name = "POSTGRES_USERNAME", value = var.db_master_username },
+        { name = "POSTGRES_PASSWORD", value = var.db_master_password },
 
-        { name = "POSTGRES_REFERENCE_DB_NAME", value = var.aurora_reference_database_name },
+        { name = "POSTGRES_REFERENCE_DB_NAME", value = var.db_reference_database_name },
 
         # S3 data bucket for ClinVar files, variant datasets, etc.
         { name = "SEQR_DATA_S3_BUCKET", value = aws_s3_bucket.seqr_data.bucket },
