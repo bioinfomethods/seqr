@@ -1,8 +1,13 @@
 -- Drop all seqr tables from ClickHouse (without dropping/recreating the database).
 -- Run via: clickhouse client --host localhost --port 8169 --user default --multiquery < clickhouse_drop_all_tables.sql
+-- Run (with the bastion tunnel active) via:
+--   ./deploy/aws/scripts/clickhouse_client.sh --multiquery < deploy/aws/scripts/clickhouse_drop_all_tables.sql
+-- or directly:
+--   clickhouse client --host localhost --port 8169 --user default --multiquery < deploy/aws/scripts/clickhouse_drop_all_tables.sql
 --
--- Order: materialized views → dictionaries → join tables → clinvar → entries →
---        project_gt_stats → gt_stats → transcripts → key_lookup → annotations → other
+-- Order: materialized views → join tables → clinvar → entries → dictionaries →
+--        project_gt_stats → gt_stats → transcripts → key_lookup → annotations →
+--        project_partitions → gene IDs dictionary → django_migrations
 
 -- 1. Materialized views (depend on source/target tables)
 -- Clinvar all_variants_to_clinvar MVs (legacy name)
