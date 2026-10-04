@@ -1,3 +1,4 @@
+import traceback
 from collections import defaultdict
 
 import requests
@@ -16,21 +17,42 @@ from seqr.views.utils.json_to_orm_utils import update_model_from_json, create_mo
 logger = SeqrLogger(__name__)
 
 REQUEST_TIMEOUT_S = 300
+GRCH38_BUILD_KEY = 'GRch38'
 
 class TooManyRequestsError(Exception):
     pass
 
-def import_all_panels(user, panel_app_api_url, label=None):
-    def _extract_ensembl_id_from_json(raw_gene_json):
-        ensembl_genes_json = raw_gene_json.get('gene_data', {}).get('ensembl_genes')
-        if ensembl_genes_json and isinstance(ensembl_genes_json, dict):
-            return ensembl_genes_json \
-                .get('GRch38', {}) \
-                .get('90', {}) \
-                .get('ensembl_id')
-        else:
-            return None
+def _extract_ensembl_id_from_json(raw_gene_json):
+    ensembl_genes_json = (raw_gene_json.get('gene_data') or {}).get('ensembl_genes')
+    if not isinstance(ensembl_genes_json, dict):
+        return None
 
+    # PanelApp spells the build 'GRch38', but don't depend on that capitalisation
+    releases = next(
+        (v for k, v in ensembl_genes_json.items() if k.lower() == GRCH38_BUILD_KEY.lower()), None,
+    )
+    if not isinstance(releases, dict):
+        return None
+
+    # Coordinates are keyed by Ensembl release ('90', '115', ...) and PanelApp bumps that key when
+    # it re-annotates, so take the newest release present rather than pinning a single version
+    for release in sorted(releases.keys(), key=_ensembl_release_sort_key, reverse=True):
+        ensembl_id = (releases.get(release) or {}).get('ensembl_id')
+        if ensembl_id:
+            return ensembl_id
+
+    return None
+
+
+def _ensembl_release_sort_key(release):
+    # Numeric releases sort by value and ahead of any unparseable key
+    try:
+        return 1, int(release)
+    except (TypeError, ValueError):
+        return 0, 0
+
+
+def import_all_panels(user, panel_app_api_url, label=None):
     panels_url = '{}/panels/?page=1'.format(panel_app_api_url)
     all_panels = _get_all_panels(panels_url, [])
 
@@ -53,16 +75,25 @@ def import_all_panels(user, panel_app_api_url, label=None):
                 all_genes_for_panel = genes_by_panel_id[panel_app_id]
                 if not all_genes_for_panel:
                     continue  # Genes in 'super panels' are associated with sub panels
-                panel_genes_by_id = {_extract_ensembl_id_from_json(gene): gene for gene in all_genes_for_panel
-                                     if _extract_ensembl_id_from_json(gene)}
+                panel_genes_by_id = {}
+                for gene in all_genes_for_panel:
+                    ensembl_id = _extract_ensembl_id_from_json(gene)
+                    if ensembl_id:
+                        panel_genes_by_id[ensembl_id] = gene
+                if not panel_genes_by_id:
+                    logger.warning('No GRCh38 ensembl ids could be read from any of the {} genes in panel {}, '
+                                   'skipping import'.format(len(all_genes_for_panel), panel_app_id), user)
+                    continue
+
                 raw_ensbl_38_gene_ids_csv = ','.join(panel_genes_by_id.keys())
                 genes_by_id, _, invalid_items = parse_locus_list_items({'rawItems': raw_ensbl_38_gene_ids_csv}, genome_version=GENOME_VERSION_GRCh38)
                 if len(invalid_items or []) > 0:
                     logger.warning('Genes found in panel {} but not in reference data, ignoring genes {}'
                                    .format(panel_app_id, invalid_items), user)
-                _update_locus_list_genes_bulk(pa_locus_list, genes_by_id, panel_genes_by_id, user)
+                _update_locus_list_genes_bulk(pa_locus_list, genes_by_id or {}, panel_genes_by_id, user)
         except Exception as e:
-            logger.error('Error occurred when importing gene panel_app_id={}, error={}'.format(panel_app_id, e), user)
+            logger.error('Error occurred when importing gene panel_app_id={}, error={}'.format(panel_app_id, e), user,
+                         traceback=traceback.format_exc())
 
 
 def delete_all_panels(user, panel_app_api_url):
@@ -97,8 +128,9 @@ def _update_locus_list_genes_bulk(pa_locus_list, genes_by_id, panel_genes_by_id,
 
 
 def _create_pa_locus_list_gene(seqr_locus_list_gene, panel_gene_json):
-    del panel_gene_json['panel']  # No need to keep panel info
-    del panel_gene_json['gene_data']  # No need to keep gene info as Seqr already maintain info
+    # Read only the fields we persist - 'panel' and 'gene_data' are intentionally not kept, but must
+    # not be deleted either: _get_all_genes shares one gene dict between a super panel and its sub
+    # panels, so mutating it here corrupts the gene for whichever panel is imported next
     result = PaLocusListGene(
         seqr_locus_list_gene=seqr_locus_list_gene,
         confidence_level=panel_gene_json.get('confidence_level'),
