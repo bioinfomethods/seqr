@@ -56,12 +56,12 @@ services:
       # token issuer; BACKCHANNEL_DYNAMIC lets server-to-server callers keep using
       # whatever host they connected on, so http://keycloak:8080 keeps working for the
       # token exchange. See SOCIAL_AUTH_INTERNAL_API_URL in settings.py.
-      - KC_HOSTNAME=${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      - KC_HOSTNAME=${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}
       - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
     volumes:
       - ./data/keycloak:/opt/keycloak/data/import:ro
     ports:
-      - 8080:8080
+      - 8081:8080
     # The Keycloak image ships neither curl nor wget, so the health endpoint is polled
     # with bash's /dev/tcp. /health/ready is on the separate management port 9000, which
     # is deliberately not published.
@@ -186,7 +186,7 @@ services:
       # is not Keycloak -- so it uses SOCIAL_AUTH_INTERNAL_API_URL, the compose service
       # name. Splitting them is what removes the need for a /etc/hosts entry on every
       # developer's machine.
-      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-http://localhost:8080/realms/seqr}
+      - SOCIAL_AUTH_API_URL=${SOCIAL_AUTH_API_URL:-http://localhost:8081/realms/seqr}
       # Follows SOCIAL_AUTH_API_URL whenever that is set, so pointing .env at a hosted
       # realm moves BOTH halves of the flow. Only a stack running the local keycloak
       # service -- where neither is set -- falls through to the service name. Getting
