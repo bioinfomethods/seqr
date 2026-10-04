@@ -91,11 +91,24 @@ class SearchQuerySet(QuerySet):
         return clinvar_q
 
     @property
+    def pop_annotations_model(self):
+        """The annotations model whose SEQR_POPULATIONS / COUNT_SAMPLE_TYPES apply."""
+        return self.model
+
+    @property
     def sample_types(self):
-        return [
-            sample_type.lower() for sample_type in
-            ([self.single_sample_type] if self.single_sample_type else sorted(Sample.SAMPLE_TYPE_LOOKUP.keys()))
-        ]
+        """Suffixes of the per-assay count columns in gt_stats_dict, in dictionary order.
+
+        Deliberately NOT derived from Sample.SAMPLE_TYPE_CHOICES. Long-read counts are
+        derived from project membership rather than a sample_type, so the set of count
+        columns is a property of the gt_stats schema, not of the Sample model.
+        """
+        if self.single_sample_type:
+            return [self.single_sample_type.lower()]
+        configured = getattr(self.pop_annotations_model, 'COUNT_SAMPLE_TYPES', None)
+        if configured:
+            return list(configured)
+        return [sample_type.lower() for sample_type in sorted(Sample.SAMPLE_TYPE_LOOKUP.keys())]
 
     def _seqr_pop_fields(self, seqr_populations):
         seqr_pop_fields = []
@@ -137,7 +150,7 @@ class AnnotationsQuerySet(SearchQuerySet):
         index = 0
         for name, subfields in self.model.SEQR_POPULATIONS:
             index = self._add_seqr_pop_expression(
-                index, name, subfields, seqr_pops, population_fields, has_multiple_sample_types=len(self.sample_types) > 1,
+                index, name, subfields, seqr_pops, population_fields, per_sample_type=True,
             )
         for name, subfields in self.model.SEQR_POPULATIONS:
             index = self._add_seqr_pop_expression(
@@ -160,24 +173,43 @@ class AnnotationsQuerySet(SearchQuerySet):
 
         return annotations
 
-    def _add_seqr_pop_expression(self, index, name, subfields, seqr_pops, population_fields, has_multiple_sample_types=False):
-        exprs, subfield_names, index = self._seqr_pop_expressions(index, 'ac', has_multiple_sample_types)
+    def _add_seqr_pop_expression(self, index, name, subfields, seqr_pops, population_fields, per_sample_type=False):
+        exprs, subfield_names, index = self._seqr_pop_expressions(index, 'ac', per_sample_type)
         if 'hom' in subfields:
-            hom_exprs, hom_names, index = self._seqr_pop_expressions(index, 'hom', has_multiple_sample_types)
+            hom_exprs, hom_names, index = self._seqr_pop_expressions(index, 'hom', per_sample_type)
             exprs += hom_exprs
             subfield_names += hom_names
         seqr_pops.append(Tuple(*exprs))
         population_fields.append((name, NamedTupleField([(name, models.UInt32Field()) for name in subfield_names])))
         return index
 
-    def _seqr_pop_expressions(self, index, subfield_name, has_multiple_sample_types):
-        exprs = [F(f'seqrPop__{index}')]
-        subfield_names = [subfield_name]
-        if has_multiple_sample_types:
-            exprs += [F(f'seqrPop__{index+1}'), Plus(f'seqrPop__{index}', f'seqrPop__{index+1}')]
-            subfield_names = [f'{subfield_name}_{sample_type}' for sample_type in self.sample_types] + subfield_names
-            index += 1
-        return exprs, subfield_names, index + 1
+    @staticmethod
+    def _sum_seqr_pop(indices):
+        # ClickHouse plus() is binary, so fold. Django's Func turns a str arg into F().
+        expression = f'seqrPop__{indices[0]}'
+        for i in indices[1:]:
+            expression = Plus(expression, f'seqrPop__{i}')
+        return expression
+
+    def _seqr_pop_expressions(self, index, subfield_name, per_sample_type):
+        """Emit one expression per count column, plus their total when there are several.
+
+        Generalised to N assay types: the dictionary tuple holds one slot per entry in
+        `sample_types`, in that order, so the indices must be derived from its length
+        rather than hardcoded.
+        """
+        if not per_sample_type:
+            return [F(f'seqrPop__{index}')], [subfield_name], index + 1
+        sample_types = self.sample_types
+        indices = list(range(index, index + len(sample_types)))
+        exprs = [F(f'seqrPop__{i}') for i in indices]
+        subfield_names = [f'{subfield_name}_{sample_type}' for sample_type in sample_types]
+        if len(indices) > 1:
+            exprs.append(self._sum_seqr_pop(indices))
+            subfield_names.append(subfield_name)
+        else:
+            subfield_names = [subfield_name]
+        return exprs, subfield_names, indices[-1] + 1
 
     @staticmethod
     def _genotype_override_expression(index, col, cn_index):
@@ -760,6 +792,10 @@ class EntriesManager(SearchQuerySet):
         return getattr(self.model, 'SAMPLE_TYPE', None)
 
     @property
+    def pop_annotations_model(self):
+        return self.annotations_model
+
+    @property
     def genotype_fields(self):
         sample_type = f"'{self.single_sample_type}'" if self.single_sample_type else 'sample_type'
         return OrderedDict({
@@ -1283,10 +1319,15 @@ class EntriesManager(SearchQuerySet):
         return Q(xpos__range=(get_xpos(chrom, start), get_xpos(chrom, end)))
 
     def _filter_seqr_frequency(self, entries, ac=None, hh=None, **kwargs):
+        # The seqrPop tuple is laid out by _seqr_pop_fields: one slot per assay for 'ac',
+        # then one per assay for 'hom', then the affected variants. Deriving the offsets
+        # from len(sample_types) keeps this correct as assays are added -- hardcoded
+        # indices would silently point at the wrong columns.
+        n = len(self.sample_types)
         if ac is not None:
-            entries = entries.annotate(ac=F('seqrPop__0') if self.single_sample_type else Plus('seqrPop__0', 'seqrPop__1'))
+            entries = entries.annotate(ac=self._sum_seqr_pop(list(range(n))))
             entries = entries.filter(ac__lte=ac)
         if hh is not None and 'hom' in self.annotations_model.SEQR_POPULATIONS[0][1]:
-            entries = entries.annotate(hom=F('seqrPop__1') if self.single_sample_type else Plus('seqrPop__2', 'seqrPop__3'))
+            entries = entries.annotate(hom=self._sum_seqr_pop(list(range(n, 2 * n))))
             entries = entries.filter(hom__lte=hh)
         return entries

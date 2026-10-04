@@ -95,10 +95,21 @@ AfDisplay.propTypes = {
   populations: PropTypes.object,
 }
 
+// Per-assay counts live as subfields of a single population (populations.seqr carries
+// ac_wes / ac_wgs / ac_lrs alongside the combined ac), so an assay row selects a suffix
+// rather than a different population.
+const assaySubset = (population, assay) => (assay ? {
+  ...population,
+  ac: population[`ac_${assay}`],
+  hom: population[`hom_${assay}`],
+  af: undefined,
+  het: undefined,
+} : population)
+
 const FreqSummary = React.memo((props) => {
-  const { field, fieldTitle, variant, acDisplay, titleContainer, warningContainer, ...afProps } = props
+  const { field, fieldTitle, variant, acDisplay, assay, titleContainer, warningContainer, ...afProps } = props
   const { populations, chrom } = variant
-  const population = (populations || {})[field] || {}
+  const population = assaySubset((populations || {})[field] || {}, assay)
   const noAf = population.af === null || population.af === undefined
   if (noAf && (population.ac === null || population.ac === undefined)) {
     return null
@@ -171,6 +182,7 @@ FreqSummary.propTypes = {
   queryParams: PropTypes.object,
   conditionalQueryParams: PropTypes.object,
   acDisplay: PropTypes.string,
+  assay: PropTypes.string,
 }
 
 const getGenePath = ({ variant }) => `gene/${getVariantMainGeneId(variant)}`
@@ -252,6 +264,9 @@ const POPULATIONS = [
   { ...SEQR_POP, field: 'sv_seqr_affected', fieldTitle: 'seqr affected' },
   CALLSET_POP,
   SEQR_POP,
+  { ...SEQR_POP, assay: 'wes', fieldTitle: 'MCRI exomes' },
+  { ...SEQR_POP, assay: 'wgs', fieldTitle: 'MCRI genomes' },
+  { ...SEQR_POP, assay: 'lrs', fieldTitle: 'MCRI long read' },
   { ...SEQR_POP, field: 'seqr_affected', fieldTitle: 'seqr affected' },
   {
     field: 'gnomad_exomes',
@@ -413,7 +428,7 @@ const Frequencies = React.memo(({ variant, totalSampleCounts }) => {
         details: popConfigs.map(popConfig => (section.hasDetail(populations[popConfig.field]) &&
           (!popConfig.section || popConfig.section === section.name) &&
           section.display(populations[popConfig.field]).map(({ subTitle, valueField }) => (
-            <Popup.Content key={`${section.name}${popConfig.field}${subTitle}`}>
+            <Popup.Content key={`${section.name}${popConfig.field}${popConfig.assay || ''}${subTitle}`}>
               {`${popConfig.fieldTitle}${subTitle || ''}: ${
                 getValueDisplay(populations[popConfig.field], valueField, popConfig.precision)}`}
             </Popup.Content>
@@ -423,7 +438,7 @@ const Frequencies = React.memo(({ variant, totalSampleCounts }) => {
     ]), [],
   )].filter(section => section.details.length)
 
-  const freqContent = (<div>{popConfigs.map(pop => <FreqSummary key={pop.field} variant={variant} {...pop} />)}</div>)
+  const freqContent = (<div>{popConfigs.map(pop => <FreqSummary key={`${pop.field}${pop.assay || ''}`} variant={variant} {...pop} />)}</div>)
 
   const hasHelpMessagePops = popConfigs.filter(
     pop => pop.helpMessage && populations[pop.field] && populations[pop.field].af !== null,
@@ -440,7 +455,7 @@ const Frequencies = React.memo(({ variant, totalSampleCounts }) => {
         ]
         ), [])}
         {hasHelpMessagePops.map(pop => (
-          <Popup.Content key={pop.field}>
+          <Popup.Content key={`${pop.field}${pop.assay || ''}`}>
             <Divider />
             <i>
               {pop.helpMessage}

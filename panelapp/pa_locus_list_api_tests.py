@@ -5,11 +5,12 @@ import mock
 import responses
 import tenacity
 from django.core.management import call_command, CommandError
+from django.test import SimpleTestCase
 from django.urls.base import reverse
 from requests import Response
 from urllib3.exceptions import MaxRetryError
 
-from panelapp.panelapp_utils import _get_all_genes
+from panelapp.panelapp_utils import _get_all_genes, _extract_ensembl_id_from_json
 from seqr.views.apis.locus_list_api import locus_lists, locus_list_info
 from seqr.views.apis.locus_list_api_tests import BaseLocusListAPITest
 from seqr.views.utils.test_utils import AuthenticationTestCase, LOCUS_LIST_FIELDS
@@ -277,3 +278,56 @@ class PaLocusListAPITest(AuthenticationTestCase, BaseLocusListAPITest):
             1141: [{'panel': {'id': 1141, 'name': 'Acute rhabdomyolysis'}}],
         }
         self.assertEqual(_get_all_genes(1207, url, defaultdict(list)), expected_res)
+
+
+def _gene_json(ensembl_genes):
+    return {'gene_data': {'ensembl_genes': ensembl_genes}}
+
+
+class ExtractEnsemblIdTest(SimpleTestCase):
+
+    def test_reads_any_ensembl_release(self):
+        # PanelApp keys GRCh38 coordinates by the Ensembl release it annotated against, and bumps
+        # that key over time (90 -> 115 -> ...), so no single release may be assumed to be present
+        for release in ['90', '115', '200']:
+            self.assertEqual(
+                _extract_ensembl_id_from_json(_gene_json({'GRch38': {release: {'ensembl_id': 'ENSG00000139567'}}})),
+                'ENSG00000139567',
+            )
+
+    def test_prefers_newest_release(self):
+        self.assertEqual(_extract_ensembl_id_from_json(_gene_json({'GRch38': {
+            '90': {'ensembl_id': 'ENSG00000000090'},
+            '115': {'ensembl_id': 'ENSG00000000115'},
+        }})), 'ENSG00000000115')
+
+    def test_falls_back_when_newest_release_has_no_id(self):
+        self.assertEqual(_extract_ensembl_id_from_json(_gene_json({'GRch38': {
+            '115': None,
+            '90': {'ensembl_id': 'ENSG00000000090'},
+        }})), 'ENSG00000000090')
+
+    def test_tolerates_non_numeric_release(self):
+        self.assertEqual(_extract_ensembl_id_from_json(_gene_json({'GRch38': {
+            'latest': {'ensembl_id': 'ENSG00000000001'},
+        }})), 'ENSG00000000001')
+
+    def test_ignores_build_capitalisation(self):
+        self.assertEqual(
+            _extract_ensembl_id_from_json(_gene_json({'GRCh38': {'115': {'ensembl_id': 'ENSG00000139567'}}})),
+            'ENSG00000139567',
+        )
+
+    def test_returns_none_for_unusable_json(self):
+        for gene_json in [
+            {},
+            {'gene_data': None},
+            {'gene_data': {}},
+            _gene_json(None),
+            _gene_json([]),
+            _gene_json({'GRch37': {'82': {'ensembl_id': 'ENSG00000139567'}}}),
+            _gene_json({'GRch38': None}),
+            _gene_json({'GRch38': {}}),
+            _gene_json({'GRch38': {'115': {'location': '12:51906908-51923361'}}}),
+        ]:
+            self.assertIsNone(_extract_ensembl_id_from_json(gene_json), gene_json)

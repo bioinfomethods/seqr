@@ -178,6 +178,12 @@ class BaseAnnotationsSvGcnv(BaseAnnotations):
 
 
 class BaseAnnotationsGRCh37SnvIndel(BaseAnnotationsMitoSnvIndel):
+    # Suffixes of the per-assay count columns in gt_stats / gt_stats_dict, in dictionary
+    # order. 'lrs' has no Sample.sample_type -- it is derived from project membership by
+    # the project_gt_stats_to_gt_stats materialized view -- so this list is a property of
+    # the gt_stats schema rather than of the Sample model.
+    COUNT_SAMPLE_TYPES = ['wes', 'wgs', 'lrs']
+
     ANNOTATION_CONSTANTS = {
         'genomeVersion': GENOME_VERSION_GRCh37,
         'liftedOverGenomeVersion': GENOME_VERSION_GRCh38,
@@ -909,11 +915,15 @@ class ProjectGtStatsSv(BaseProjectGtStats):
 
 
 class BaseGtStats(models.ClickhouseModel):
+    # Field order matters: the project_gt_stats_to_gt_stats materialized view inserts
+    # its SELECT columns into this table positionally.
     ac_wes = models.UInt32Field()
     ac_wgs = models.UInt32Field()
+    ac_lrs = models.UInt32Field()
     ac_affected = models.UInt32Field()
     hom_wes = models.UInt32Field()
     hom_wgs = models.UInt32Field()
+    hom_lrs = models.UInt32Field()
     hom_affected = models.UInt32Field()
 
     class Meta:

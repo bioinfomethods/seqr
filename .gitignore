@@ -20,3 +20,13 @@ seqr_settings
 django_key
 /.aider.chat.history.md
 tests/e2e/auth.json
+
+# Local environment files. These carry OIDC client secrets and per-developer
+# settings, so nothing matching .env* is committed -- except the checked-in
+# template, which must stay free of real credentials.
+#
+# Anchored with a leading slash so these only match at the repo root: `ui/.env`
+# is a tracked build setting (CHOKIDAR_USEPOLLING) and must not be caught here.
+/.env
+/.env.*
+!/.env.example
