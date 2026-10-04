@@ -65,7 +65,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - [x] **1.2** Create dedicated subnets for seqr infrastructure
   - CIDR AZ1: 172.31.254.0/28 (16 IP addresses)
   - CIDR AZ2: 172.31.254.16/28 (16 IP addresses)
-  - Placed in first two available AZs (required for Aurora)
+  - Placed in first two available AZs (required for the RDS DB subnet group and ALB)
   
 - [x] **1.3** Create security group for bastion host
   - Allow SSH (port 22) from configurable CIDR ranges
@@ -76,7 +76,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 **Notes/Decisions**:
 - Created two dedicated /28 subnets (16 IPs each) for seqr infrastructure
-- Two subnets required for Aurora (must span at least 2 AZs)
+- Two subnets required for the DB subnet group (originally Aurora, now RDS PostgreSQL; must span at least 2 AZs)
 - Subnet CIDRs are configurable via variables (defaults: 172.31.254.0/28 and 172.31.254.16/28)
 - Changed from 172.31.255.x to 172.31.254.x due to conflict with existing subnet
 - Security group uses dynamic blocks to support multiple allowed SSH CIDR ranges
@@ -111,8 +111,10 @@ The order follows logical dependencies: foundation → data layer → compute la
 
 ---
 
-### Phase 3: Database Layer - Aurora PostgreSQL
+### Phase 3: Database Layer - Aurora PostgreSQL (superseded by RDS PostgreSQL)
 **Status**: Complete ✓
+
+> **Superseded**: Aurora was replaced by a single RDS PostgreSQL instance (`db.t4g.small`, engine 17.7, 20→100 GB gp3, module `modules/postgres`). See `plans/PLAN-rds.md`. The notes below are kept as history.
 
 - [x] **3.1** Create security group for Aurora
   - Allow PostgreSQL (port 5432) from bastion security group
@@ -177,7 +179,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   - Allow Clickhouse port 8123 (HTTP) from bastion security group
   - Allow Clickhouse port 9000 (native) from bastion security group
   - Allow SSH from bastion security group
-  - Allow outbound to Aurora PostgreSQL (port 5432)
+  - Allow outbound to RDS PostgreSQL (port 5432)
   - Allow all outbound traffic for Docker pulls
   
 - [x] **5.2** Create EC2 instance for Clickhouse
@@ -192,7 +194,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   
 - [x] **5.4** Update Aurora security group
   - Added ingress rule to allow PostgreSQL from Clickhouse
-  - Enables Clickhouse PostgreSQL engine to query Aurora
+  - Enables Clickhouse PostgreSQL engine to query the database (now RDS PostgreSQL)
   
 - [ ] **5.5** Test: Connect to Clickhouse from bastion, verify container running
 
@@ -217,7 +219,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   
 - [ ] **6.2** Create security group for ECS tasks
   - Allow HTTP (port 8000 or Django port) from ALB security group
-  - Allow outbound to Aurora security group (port 5432)
+  - Allow outbound to RDS PostgreSQL security group (port 5432)
   - Allow outbound to Clickhouse security group (ports 8123, 9000)
   - Allow outbound to internet (for package downloads, etc.)
   
@@ -232,7 +234,7 @@ The order follows logical dependencies: foundation → data layer → compute la
   
 - [ ] **6.6** Create ECS task definition for seqr-web
   - Container definition with ECR image
-  - Environment variables for Aurora connection
+  - Environment variables for RDS PostgreSQL connection
   - Environment variables for Clickhouse connection
   - Resource limits (CPU, memory)
   - Log configuration
@@ -295,7 +297,7 @@ The order follows logical dependencies: foundation → data layer → compute la
 - [ ] **9.2** Test Django application access through tunnel
   - Verify web interface loads
   
-- [ ] **9.3** Test Django → Aurora connectivity
+- [ ] **9.3** Test Django → RDS PostgreSQL connectivity
   - Verify database queries work
   
 - [ ] **9.4** Test Django → Clickhouse connectivity
@@ -327,7 +329,8 @@ The order follows logical dependencies: foundation → data layer → compute la
 ## Progress Tracking
 
 - **Current Phase**: Phase 5 (Testing)
-- **Last Updated**: 2026-02-03
+- **Last Updated**: 2026-10-04
+- **Recent Change**: Aurora replaced with RDS PostgreSQL (see `plans/PLAN-rds.md`)
 - **Blockers**: None
 - **Next Steps**: Test Clickhouse connectivity from bastion, then begin Phase 6 - ECS Cluster
 

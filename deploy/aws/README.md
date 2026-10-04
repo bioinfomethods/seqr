@@ -79,7 +79,7 @@ After applying, OpenTofu will output important information including:
 
 As more components are added, additional outputs will include:
 - Bastion host public IP
-- Aurora database endpoints
+- PostgreSQL (RDS) database endpoint
 - ALB DNS name
 - SSH tunnel command
 

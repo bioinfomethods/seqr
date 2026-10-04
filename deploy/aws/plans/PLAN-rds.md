@@ -1,8 +1,8 @@
 # Plan: Replace Aurora with RDS PostgreSQL
 
-**Status**: In progress. Steps 1–5 done (code); step 6 (docs) next. Dev only, no data, so no migration is needed.
+**Status**: In progress. Steps 1–5 done (code + real tfvars edited). Step 6 (docs): README.md, INFRA_ARCHITECTURE.md and PLAN.md done; PLAN-fargate.md next. Then `tofu init` / `tofu plan` / `tofu apply`. Dev only, no data, so no migration is needed.
 
-**WARNING**: Before `tofu plan`, edit the real tfvars by hand (see step 5). Until then it uses the `aurora_*` keys, so `db_master_password` is unset. Run `tofu init` before the first plan, because the module source changed to `./modules/postgres`.
+**NOTE**: Run `tofu init` before the first plan, because the module source changed to `./modules/postgres`.
 
 ## Decisions (confirmed)
 - Rename `modules/aurora` → `modules/postgres`, and rename `aurora_*` vars/outputs → `db_*`

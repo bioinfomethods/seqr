@@ -67,9 +67,13 @@ The architecture consists of the following components:
 
 - a host that facilitates access by supporting an SSH tunnel to the ALB
 
-## Postgres Aurora Database
+## PostgreSQL Database (RDS)
 
-- database configured with all required back end state
+- A single-instance RDS PostgreSQL database configured with all required back end state
+- Hosts the main `seqrdb` database and a separate `reference_data_db` database
+- Placed in a DB subnet group spanning 2 AZs. Multi-AZ is off by default and configurable.
+- gp3 encrypted storage with autoscaling, and SSL enforced (`rds.force_ssl`)
+- Accessible only from the bastion, Clickhouse and ECS security groups
 
 ## Elastic Container Registry
 
@@ -84,6 +88,6 @@ The architecture consists of the following components:
 ## Django Container
 
 - An ECS service that runs Django in a container image named seqr-web that is stored in ECR
-- The Django container connects to the Aurora database and is configured with connection details via environment variables
+- The Django container connects to the RDS PostgreSQL database and is configured with connection details via environment variables
 - The Django container connects to the Clickhouse database and is configured with connection details via environment variables
 
