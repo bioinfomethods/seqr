@@ -142,6 +142,19 @@ ssh -L 8080:<alb-dns-name>:80 -i ~/.ssh/<key>.pem ec2-user@<bastion-ip>
 
 2. Access application at: http://localhost:8080
 
+## Connecting to PostgreSQL
+
+Start the bastion tunnel (it forwards `localhost:8168` to the RDS endpoint), then connect with psql from another terminal:
+
+```bash
+./scripts/ssh-to-bastion.sh
+./scripts/postgres_client.sh                      # seqrdb
+./scripts/postgres_client.sh reference_data_db    # reference data database
+./scripts/postgres_client.sh postgres -c "\l"     # list databases
+```
+
+The password is read from `db_master_password` in `terraform.tfvars` (or `PGPASSWORD`). SSL is required by RDS and is set automatically.
+
 ## Environments
 
 Supported environments:
