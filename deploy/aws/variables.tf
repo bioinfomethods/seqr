@@ -70,47 +70,71 @@ variable "bastion_ami_id" {
   default     = ""
 }
 
-# Aurora PostgreSQL
-variable "aurora_instance_class" {
-  description = "Instance class for Aurora PostgreSQL"
+# PostgreSQL (RDS)
+variable "db_instance_class" {
+  description = "Instance class for RDS PostgreSQL"
   type        = string
-  default     = "db.t3.medium"
+  default     = "db.t4g.small"
 }
 
-variable "aurora_master_username" {
-  description = "Master username for Aurora PostgreSQL"
+variable "db_master_username" {
+  description = "Master username for RDS PostgreSQL"
   type        = string
   default     = "seqr"
 }
 
-variable "aurora_master_password" {
-  description = "Master password for Aurora PostgreSQL"
+variable "db_master_password" {
+  description = "Master password for RDS PostgreSQL (must not contain '/', '\"', '@' or spaces)"
   type        = string
   sensitive   = true
 }
 
-variable "aurora_database_name" {
+variable "db_database_name" {
   description = "Database name for seqr application"
   type        = string
   default     = "seqrdb"
 }
 
-variable "aurora_reference_database_name" {
+variable "db_reference_database_name" {
   description = "Database name for reference data (separate from main seqr database)"
   type        = string
   default     = "reference_data_db"
 }
 
-variable "aurora_backup_retention_period" {
+variable "db_allocated_storage" {
+  description = "Initial allocated storage in GB for RDS PostgreSQL"
+  type        = number
+  default     = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "Maximum storage in GB for RDS storage autoscaling (must be greater than db_allocated_storage)"
+  type        = number
+  default     = 100
+}
+
+variable "db_multi_az" {
+  description = "Enable Multi-AZ deployment for RDS PostgreSQL"
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_period" {
   description = "Backup retention period in days"
   type        = number
   default     = 7
 }
 
-variable "aurora_skip_final_snapshot" {
+variable "db_skip_final_snapshot" {
   description = "Skip final snapshot when destroying (set to false for production)"
   type        = bool
   default     = true
+}
+
+variable "db_deletion_protection" {
+  description = "Enable deletion protection on the RDS instance (recommended for production)"
+  type        = bool
+  default     = false
 }
 
 # ECS Fargate / ALB
