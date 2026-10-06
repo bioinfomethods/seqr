@@ -31,8 +31,11 @@ CLICKHOUSE_AC_EXCLUDED_PROJECT_GUIDS = os.environ.get(
     'CLICKHOUSE_AC_EXCLUDED_PROJECT_GUIDS', '',
 ).split(',')
 
+# Every operation below is re-runnable. ClickHouse DDL is not transactional, so if any
+# later statement fails, the objects already created survive. Django does not record the
+# migration, and the next `migrate` retries it from the top against that partial state.
 PROJECT_ASSAY_DICT = Template("""
-CREATE DICTIONARY `seqrdb_project_assay_dict`
+CREATE OR REPLACE DICTIONARY `seqrdb_project_assay_dict`
 (
     `project_guid` String,
     `assay` String
@@ -146,31 +149,38 @@ def _operations():
         model = 'gtstatsgrch37snvindel' if reference_genome == 'GRCh37' else 'gtstatssnvindel'
         for col, after in (('ac_lrs', 'ac_wgs'), ('hom_lrs', 'hom_wgs')):
             operations.append(migrations.RunSQL(
-                f'ALTER TABLE `{prefix}/gt_stats` ADD COLUMN `{col}` UInt32 DEFAULT 0 AFTER `{after}`;',
+                f'ALTER TABLE `{prefix}/gt_stats` ADD COLUMN IF NOT EXISTS `{col}` UInt32 DEFAULT 0 AFTER `{after}`;',
                 f'ALTER TABLE `{prefix}/gt_stats` DROP COLUMN IF EXISTS `{col}`;',
                 hints={'clickhouse': True},
                 state_operations=[migrations.AddField(
                     model_name=model, name=col, field=clickhouse_backend.models.UInt32Field(),
                 )],
             ))
+        # Drop and create share one operation so that each direction starts from a clean
+        # slate. As two operations, reversing would run the legacy CREATE before the DROP
+        # and fail because the object already exists.
         drop_mv = f'DROP TABLE IF EXISTS `{prefix}/project_gt_stats_to_gt_stats_mv`'
-        operations.append(migrations.RunSQL(drop_mv, drop_mv, hints={'clickhouse': True}))
         operations.append(migrations.RunSQL(
-            PROJECT_GT_STATS_TO_GT_STATS.substitute(
-                reference_genome=reference_genome, dataset_type=dataset_type,
-                columns=',\n    '.join(SNV_INDEL_COLUMNS),
-            ),
-            LEGACY_PROJECT_GT_STATS_TO_GT_STATS.substitute(
-                reference_genome=reference_genome, dataset_type=dataset_type,
-                columns=',\n    '.join(LEGACY_SNV_INDEL_COLUMNS),
-            ),
+            [
+                drop_mv,
+                PROJECT_GT_STATS_TO_GT_STATS.substitute(
+                    reference_genome=reference_genome, dataset_type=dataset_type,
+                    columns=',\n    '.join(SNV_INDEL_COLUMNS),
+                ),
+            ],
+            [
+                drop_mv,
+                LEGACY_PROJECT_GT_STATS_TO_GT_STATS.substitute(
+                    reference_genome=reference_genome, dataset_type=dataset_type,
+                    columns=',\n    '.join(LEGACY_SNV_INDEL_COLUMNS),
+                ),
+            ],
             hints={'clickhouse': True},
         ))
         drop_dict = f'DROP DICTIONARY IF EXISTS `{prefix}/gt_stats_dict`'
-        operations.append(migrations.RunSQL(drop_dict, drop_dict, hints={'clickhouse': True}))
         operations.append(migrations.RunSQL(
-            _dict_sql(reference_genome, dataset_type, size, GT_STATS_DICT_COLUMNS),
-            _dict_sql(reference_genome, dataset_type, size, LEGACY_GT_STATS_DICT_COLUMNS),
+            [drop_dict, _dict_sql(reference_genome, dataset_type, size, GT_STATS_DICT_COLUMNS)],
+            [drop_dict, _dict_sql(reference_genome, dataset_type, size, LEGACY_GT_STATS_DICT_COLUMNS)],
             hints={'clickhouse': True},
         ))
     return operations

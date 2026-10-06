@@ -14,14 +14,19 @@
 #    external ID; those are distinct fields and are not guaranteed equal.
 #  * `seqrdb_affected_status_dict` is intentionally left in place. Nothing references it
 #    once this migration runs, but leaving it keeps the migration cheap to reverse.
+#  * Every operation is re-runnable. ClickHouse DDL is not transactional, so if any later
+#    statement fails, the objects already created survive. Django does not record the
+#    migration, and the next `migrate` retries it from the top against that partial state.
 from string import Template
 
 from django.db import migrations
 
 from settings import DATABASES
 
+# OR REPLACE (rather than a separate DROP) so a retry after a partial failure succeeds
+# without tripping ClickHouse's dependency checks on objects that may already use it.
 COUNTED_SAMPLE_DICT = Template("""
-CREATE DICTIONARY `seqrdb_counted_sample_dict`
+CREATE OR REPLACE DICTIONARY `seqrdb_counted_sample_dict`
 (
     `family_guid` String,
     `sampleId` String,
@@ -131,8 +136,10 @@ def _mv_operations():
             columns=',\n    '.join(LEGACY_COLUMNS[dataset_type]),
             groupby_columns=groupby_columns,
         )
-        operations.append(migrations.RunSQL(drop, drop, hints={'clickhouse': True}))
-        operations.append(migrations.RunSQL(forward, backward, hints={'clickhouse': True}))
+        # Drop and create share one operation so that each direction starts from a clean
+        # slate. As two operations, reversing would run the legacy CREATE before the DROP
+        # and fail because the view already exists.
+        operations.append(migrations.RunSQL([drop, forward], [drop, backward], hints={'clickhouse': True}))
     return operations
 
 

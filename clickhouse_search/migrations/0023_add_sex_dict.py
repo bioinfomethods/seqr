@@ -5,8 +5,10 @@ from string import Template
 
 from settings import DATABASES
 
+# OR REPLACE so a retry after a partial failure succeeds. ClickHouse DDL is not
+# transactional, so a dictionary created by a failed run survives it.
 SEQRDB_SEX_STATUS_DICT = Template("""
-CREATE DICTIONARY `seqrdb_sex_dict`
+CREATE OR REPLACE DICTIONARY `seqrdb_sex_dict`
 (
     `family_guid` String,
     `sampleId` String,
@@ -33,6 +35,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunSQL(
             SEQRDB_SEX_STATUS_DICT,
+            'DROP DICTIONARY IF EXISTS `seqrdb_sex_dict`',
             hints={'clickhouse': True},
         ),
     ]

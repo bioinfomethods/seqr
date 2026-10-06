@@ -102,8 +102,10 @@ def _operations():
             columns=',\n    '.join(f'{c} UInt32' for c in columns),
             size=size,
         )
-        operations.append(migrations.RunSQL(drop, drop, hints={'clickhouse': True}))
-        operations.append(migrations.RunSQL(forward, backward, hints={'clickhouse': True}))
+        # Drop and create share one operation so that each direction starts from a clean
+        # slate. As two operations, reversing would run the legacy CREATE before the DROP
+        # and fail because the dictionary already exists.
+        operations.append(migrations.RunSQL([drop, forward], [drop, backward], hints={'clickhouse': True}))
     return operations
 
 
