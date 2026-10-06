@@ -19,6 +19,19 @@ fi
 
 cd /seqr
 
+# Run a command that must succeed for seqr to be safe to start. ClickHouse DDL is not
+# transactional, so a migration that fails part-way leaves objects behind and is not
+# recorded. Starting gunicorn anyway would serve searches against a half-migrated
+# database, and the original error would be buried by "already exists" on every later
+# boot. Exiting instead makes ECS stop the task (seqr-web is essential), so the failure
+# is visible as a failed deployment rather than as quietly wrong results.
+run_required() {
+    if ! "$@"; then
+        echo "FATAL: '$*' failed - refusing to start seqr with a partially migrated database" >&2
+        exit 1
+    fi
+}
+
 # allow pg_dump and other postgres command-line tools to run without having to enter a password
 echo "*:*:*:*:$POSTGRES_PASSWORD" > ~/.pgpass
 chmod 600 ~/.pgpass
@@ -87,13 +100,13 @@ fi
 # router only suppresses the operations). Those rows are harmless: ClickHouse keeps its own
 # django_migrations and that is the authoritative record. sync_clickhouse_migrations below
 # deliberately ignores them once ClickHouse has bookkeeping of its own.
-python -u manage.py migrate
-python -u manage.py migrate --database=reference_data
+run_required python -u manage.py migrate
+run_required python -u manage.py migrate --database=reference_data
 if [ "$CLICKHOUSE_SERVICE_HOSTNAME" ]; then
     # Legacy repair only: adopt PostgreSQL's records when ClickHouse has tables but no
     # migration bookkeeping at all. A no-op on every normal boot.
-    python -u manage.py sync_clickhouse_migrations
-    python -u manage.py migrate --database=clickhouse_write
+    run_required python -u manage.py sync_clickhouse_migrations
+    run_required python -u manage.py migrate --database=clickhouse_write
 fi
 
 # load initial fixture data only if tables are empty (idempotent boot)
