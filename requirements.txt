@@ -23,6 +23,7 @@ pyliftover==0.4                  # GRCh37/GRCh38 liftover
 feedparser==6.0.11               # RSS/Atom feed parser for feature updates
 markdownify==0.14.1              # HTML to Markdown converter for feature updates
 requests==2.22.0                 # simpler way to make http requests
+boto3==1.42.64                   # AWS SDK for S3 access (reload_clinvar_all_variants --file s3://...)
 redis==3.3.11                    # client lib for the redis in-memory database - used for caching server-side objects
 requests-toolbelt==0.9.1         # for troubleshooting requests
 slacker==0.13.0                  # library for sending slack messages
