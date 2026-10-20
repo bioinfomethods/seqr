@@ -268,6 +268,12 @@ resource "aws_lb" "seqr" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = [aws_subnet.seqr_az1.id, aws_subnet.seqr_az2.id]
 
+  # Default is 60s, which cuts off slower variant searches (e.g. recessive mode
+  # over a WGS family) while Django is still working; the browser then gets an
+  # error even though the request completes server-side. gunicorn's own timeout
+  # is 3600s (deploy/docker/seqr/config/gunicorn_config.py).
+  idle_timeout = 300
+
   tags = {
     Name = "${local.name_prefix}-alb"
   }
