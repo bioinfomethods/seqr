@@ -425,6 +425,13 @@ resource "aws_instance" "bastion" {
 
   user_data_replace_on_change = true
 
+  # The AMI comes from a most_recent lookup, so every new Amazon Linux 2023
+  # release would otherwise force the bastion to be replaced. To move to a newer
+  # AMI deliberately, use: terraform apply -replace=aws_instance.bastion
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = {
     Name = "${local.name_prefix}-bastion"
   }
